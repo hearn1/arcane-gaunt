@@ -1,0 +1,565 @@
+import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
+
+// All DOM/CSS UI. Reads state and calls back into managers via callbacks.
+// Contains no gameplay logic.
+export class UI {
+  constructor() {
+    this.root = document.getElementById("ui-root");
+    this.hud = document.getElementById("hud");
+    this.crosshair = document.getElementById("crosshair");
+    this.toastEl = document.getElementById("toast");
+    this.vignette = document.getElementById("vignette");
+
+    this.hpFill = document.getElementById("hp-fill");
+    this.hpText = document.getElementById("hp-text");
+    this.stamFill = document.getElementById("stam-fill");
+    this.stamText = document.getElementById("stam-text");
+    this.blockInd = document.getElementById("block-ind");
+    this.lvlEl = document.getElementById("hud-level");
+    this.goldEl = document.getElementById("hud-gold");
+    this.enemyEl = document.getElementById("hud-enemies");
+    this.modEl = document.getElementById("hud-modifier");
+    this.modDescEl = document.getElementById("hud-modifier-desc");
+    this.objEl = document.getElementById("hud-objective");
+    this.objDescEl = document.getElementById("hud-objective-desc");
+    this.spellsEl = document.getElementById("hud-spells");
+    this.blinkEl = document.getElementById("blink-ind");
+
+    this.waveBannerEl = document.getElementById("wave-banner");
+    this.wbTitleEl = this.waveBannerEl?.querySelector(".wb-title");
+    this.wbLayoutEl = this.waveBannerEl?.querySelector(".wb-layout");
+    this.wbModNameEl = this.waveBannerEl?.querySelector(".wb-mod-name");
+    this.wbModDescEl = this.waveBannerEl?.querySelector(".wb-mod-desc");
+    this.wbBossNameEl = this.waveBannerEl?.querySelector(".wb-boss-name");
+    this.wbBossSubEl = this.waveBannerEl?.querySelector(".wb-boss-sub");
+    this.wbObjNameEl = this.waveBannerEl?.querySelector(".wb-obj-name");
+    this.wbObjDescEl = this.waveBannerEl?.querySelector(".wb-obj-desc");
+
+    this.bossBarEl = document.getElementById("boss-bar");
+    this.bossBarFill = document.getElementById("bb-fill");
+    this.bossBarName = document.getElementById("bb-name");
+
+    this._spellSlots = [];
+  }
+
+  showWaveBanner(level, modifier, layoutName = "", bossPattern = null, objective = null) {
+    if (!this.waveBannerEl) return;
+    if (this.wbTitleEl) this.wbTitleEl.textContent = `Wave ${level}`;
+    if (this.wbLayoutEl) this.wbLayoutEl.textContent = layoutName ? `Arena: ${layoutName}` : "";
+    if (this.wbModNameEl) this.wbModNameEl.textContent = modifier?.name || "";
+    if (this.wbModDescEl) this.wbModDescEl.textContent = modifier?.description || "";
+    if (this.wbBossNameEl) this.wbBossNameEl.textContent = bossPattern?.name || "";
+    if (this.wbBossSubEl) this.wbBossSubEl.textContent = bossPattern?.subtitle || "";
+    if (this.wbObjNameEl) this.wbObjNameEl.textContent = objective?.name || "";
+    if (this.wbObjDescEl) this.wbObjDescEl.textContent = objective?.description || "";
+    this.waveBannerEl.classList.toggle("has-mod", !!modifier);
+    this.waveBannerEl.classList.toggle("has-boss", !!bossPattern);
+    this.waveBannerEl.classList.toggle("has-objective", !!objective);
+    this.waveBannerEl.classList.add("show");
+    clearTimeout(this._wb);
+    this._wb = setTimeout(() => this.waveBannerEl.classList.remove("show"), bossPattern ? 3000 : 2500);
+  }
+
+  updateBossBar(world) {
+    if (!this.bossBarEl) return;
+    const pat = world.currentBossPattern;
+    if (!pat) { this.bossBarEl.classList.remove("show"); return; }
+    const bosses = world.enemyManager.aliveList().filter((e) => e.isBoss);
+    if (bosses.length === 0) { this.bossBarEl.classList.remove("show"); return; }
+    const cur = bosses.reduce((s, e) => s + e.health.current, 0);
+    const max = bosses.reduce((s, e) => s + e.health.max, 0);
+    const pct = max > 0 ? Math.max(0, (cur / max) * 100) : 0;
+    this.bossBarFill.style.width = pct + "%";
+    this.bossBarName.textContent = pat.name + (bosses.length > 1 ? `  (${bosses.length})` : "");
+    this.bossBarEl.classList.add("show");
+  }
+
+  _show(html) { this.root.classList.remove("hidden"); this.root.innerHTML = html; }
+  hideOverlay() { this.root.classList.add("hidden"); this.root.innerHTML = ""; }
+  setHud(on) {
+    this.hud.classList.toggle("active", on);
+    this.crosshair.classList.toggle("active", on);
+  }
+
+  clearTransientCombatUi() {
+    clearTimeout(this._wb);
+    clearTimeout(this._tt);
+    this.waveBannerEl?.classList.remove("show", "has-mod", "has-boss", "has-objective");
+    this.bossBarEl?.classList.remove("show");
+    this.toastEl?.classList.remove("show");
+    this.blockInd?.classList.remove("active", "perfect");
+    this.crosshair?.classList.remove("blocking", "perfect-window", "perfect-hit", "block-hit");
+  }
+
+  toast(msg, ms = 1800) {
+    this.toastEl.textContent = msg;
+    this.toastEl.classList.add("show");
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => this.toastEl.classList.remove("show"), ms);
+  }
+
+  hurtFlash() {
+    this.vignette.style.boxShadow = "inset 0 0 220px 70px rgba(180,20,40,0.55)";
+    clearTimeout(this._vt);
+    this._vt = setTimeout(() => {
+      this.vignette.style.boxShadow = "inset 0 0 220px 60px rgba(180,20,40,0)";
+    }, 160);
+  }
+
+  // --- Screens ------------------------------------------------------------
+
+  mainMenu(onStart, selectedSpellId = STARTER_SPELL_ID, onSettings = null, profile = null, onResetProfile = null) {
+    this.setHud(false);
+    const spellOptions = Object.values(SPELL_DEFINITIONS).map((def) => `
+      <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""}" data-spell="${def.id}">
+        <span class="spell-choice-name">${def.displayName}</span>
+        <span class="spell-choice-desc">${def.description}</span>
+      </button>
+    `).join("");
+    const settingsButton = onSettings
+      ? `<button class="btn secondary" id="btn-settings">Settings</button>`
+      : "";
+    const resetButton = onResetProfile
+      ? `<button class="btn secondary" id="btn-reset-profile">Reset Records</button>`
+      : "";
+    const records = this._profileSnapshot(profile);
+    this._show(`
+      <h1 class="title">ARCANEGAUNT</h1>
+      <div class="subtitle">Choose your run spell</div>
+      <div id="spell-select">${spellOptions}</div>
+      <div class="profile-strip">
+        <div><span class="profile-label">Best</span><b>${records.best}</b></div>
+        <div><span class="profile-label">Runs</span><b>${records.runs}</b></div>
+        <div><span class="profile-label">Kills</span><b>${records.kills}</b></div>
+        <div><span class="profile-label">Damage</span><b>${records.damage}</b></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-start">Start Run</button>
+        ${settingsButton}
+        ${resetButton}
+      </div>
+      <div class="hint">
+        <b>WASD</b> move &nbsp;&middot;&nbsp; <b>Mouse</b> look &nbsp;&middot;&nbsp; <b>Left Click</b> cast &nbsp;&middot;&nbsp; <b>Right Click</b> block<br/>
+        <b>Space</b> jump &nbsp;&middot;&nbsp; <b>Shift / Q</b> blink &nbsp;&middot;&nbsp; <b>Esc</b> release mouse
+      </div>
+      <div class="credits-note">Audio, arena textures, and enemy models: Kenney.nl, ambientCG, and Quaternius (CC0). See CREDITS.md.</div>
+    `);
+    let selected = SPELL_DEFINITIONS[selectedSpellId] ? selectedSpellId : STARTER_SPELL_ID;
+    this.root.querySelectorAll(".spell-choice").forEach((el) => {
+      el.onclick = () => {
+        selected = el.dataset.spell;
+        this.root.querySelectorAll(".spell-choice").forEach((card) => {
+          card.classList.toggle("selected", card === el);
+        });
+      };
+    });
+    document.getElementById("btn-start").onclick = () => onStart(selected);
+    const btnSettings = document.getElementById("btn-settings");
+    if (btnSettings && onSettings) btnSettings.onclick = onSettings;
+    const btnReset = document.getElementById("btn-reset-profile");
+    if (btnReset && onResetProfile) btnReset.onclick = onResetProfile;
+  }
+
+  _profileSnapshot(profile) {
+    const totals = profile?.totals || {};
+    const best = profile?.bestRun || {};
+    return {
+      best: best.levelsCleared > 0 || best.highestWave > 0
+        ? `Wave ${best.highestWave || best.levelsCleared + 1} / ${best.levelsCleared || 0} cleared`
+        : "No runs yet",
+      runs: `${totals.runsCompleted || 0}/${totals.runsStarted || 0}`,
+      kills: this._fmt(totals.enemiesKilled || 0),
+      damage: this._fmt(totals.totalDamage || 0),
+    };
+  }
+
+  _fmt(value) {
+    return Math.max(0, Math.round(Number(value) || 0)).toLocaleString();
+  }
+
+  focusPrompt(onFocus, label = "Click to play", actions = {}) {
+    this.setHud(false);
+    const settingsButton = actions.onSettings
+      ? `<button class="btn secondary" id="btn-focus-settings">Settings</button>`
+      : "";
+    const menuButton = actions.onMenu
+      ? `<button class="btn secondary" id="btn-focus-menu">Main Menu</button>`
+      : "";
+    this._show(`
+      <h1 class="title" style="font-size:42px;">ArcaneGaunt</h1>
+      <div class="btn-row">
+        <button class="btn" id="btn-focus">${label}</button>
+        ${settingsButton}
+        ${menuButton}
+      </div>
+      <div class="hint">Mouse will be captured. Press <b>Esc</b> any time to release it.</div>
+    `);
+    document.getElementById("btn-focus").onclick = onFocus;
+    const btnSettings = document.getElementById("btn-focus-settings");
+    if (btnSettings && actions.onSettings) btnSettings.onclick = actions.onSettings;
+    const btnMenu = document.getElementById("btn-focus-menu");
+    if (btnMenu && actions.onMenu) btnMenu.onclick = actions.onMenu;
+  }
+
+  pauseMenu(onResume, onSettings, onMenu) {
+    this.setHud(false);
+    this._show(`
+      <h1 class="title" style="font-size:42px;">Paused</h1>
+      <div class="btn-row">
+        <button class="btn" id="btn-pause-resume">Resume</button>
+        <button class="btn secondary" id="btn-pause-settings">Settings</button>
+        <button class="btn secondary" id="btn-pause-menu">Main Menu</button>
+      </div>
+      <div class="hint">Combat is paused while this menu is open.</div>
+    `);
+    document.getElementById("btn-pause-resume").onclick = onResume;
+    document.getElementById("btn-pause-settings").onclick = onSettings;
+    document.getElementById("btn-pause-menu").onclick = onMenu;
+  }
+
+  confirmResetProfile(profile, onConfirm, onCancel) {
+    this.setHud(false);
+    const totals = profile?.totals || {};
+    this._show(`
+      <h1 class="title" style="font-size:40px;color:#ffcf4d;-webkit-text-fill-color:#ffcf4d;">Reset Records?</h1>
+      <div class="reset-copy">
+        This clears best run and lifetime totals (${totals.runsStarted || 0} runs started).
+        Settings are not changed.
+      </div>
+      <div class="btn-row">
+        <button class="btn danger" id="btn-reset-confirm">Reset Run Records</button>
+        <button class="btn secondary" id="btn-reset-cancel">Cancel</button>
+      </div>
+    `);
+    document.getElementById("btn-reset-confirm").onclick = onConfirm;
+    document.getElementById("btn-reset-cancel").onclick = onCancel;
+  }
+
+  settingsMenu(settings, onChange, onBack, storageMeta = null) {
+    this.setHud(false);
+    const volumePct = Math.round((settings.audio?.volume ?? 0.35) * 100);
+    const sensitivityPct = Math.round((settings.controls?.mouseSensitivity ?? 1) * 100);
+    const muted = !!settings.audio?.muted;
+    const fullscreen = !!settings.display?.fullscreen;
+    const renderScale = settings.performance?.renderScale ?? 1;
+    const vfxDensity = settings.performance?.vfxDensity || "full";
+    const storageText = storageMeta?.path
+      ? `Storage: ${storageMeta.path}`
+      : `Storage: ${storageMeta?.key || "local settings"}`;
+    this._show(`
+      <h1 class="title" style="font-size:40px;">Settings</h1>
+      <div id="settings-panel">
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-muted" ${muted ? "checked" : ""}/>
+          <span>Mute audio</span>
+        </label>
+        <div class="settings-row">
+          <label for="set-volume">Volume</label>
+          <input id="set-volume" type="range" min="0" max="100" step="1" value="${volumePct}"/>
+          <span class="settings-value" id="set-volume-value">${volumePct}%</span>
+        </div>
+        <div class="settings-row">
+          <label for="set-sensitivity">Mouse Sensitivity</label>
+          <input id="set-sensitivity" type="range" min="30" max="200" step="5" value="${sensitivityPct}"/>
+          <span class="settings-value" id="set-sensitivity-value">${sensitivityPct}%</span>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-fullscreen" ${fullscreen ? "checked" : ""}/>
+          <span>Fullscreen</span>
+        </label>
+        <div class="settings-row select-row">
+          <label for="set-render-scale">Render Scale</label>
+          <select id="set-render-scale">
+            <option value="1" ${renderScale >= 0.95 ? "selected" : ""}>100%</option>
+            <option value="0.85" ${renderScale >= 0.8 && renderScale < 0.95 ? "selected" : ""}>85%</option>
+            <option value="0.7" ${renderScale < 0.8 ? "selected" : ""}>70%</option>
+          </select>
+          <span class="settings-value" id="set-render-scale-value">${Math.round(renderScale * 100)}%</span>
+        </div>
+        <div class="settings-row select-row">
+          <label for="set-vfx-density">Effects</label>
+          <select id="set-vfx-density">
+            <option value="full" ${vfxDensity === "full" ? "selected" : ""}>Full</option>
+            <option value="reduced" ${vfxDensity === "reduced" ? "selected" : ""}>Reduced</option>
+          </select>
+          <span class="settings-value" id="set-vfx-density-value">${vfxDensity === "reduced" ? "Reduced" : "Full"}</span>
+        </div>
+        <div class="settings-storage">${storageText}</div>
+      </div>
+      <button class="btn secondary" id="btn-settings-back">Back</button>
+    `);
+
+    const mutedEl = document.getElementById("set-muted");
+    const volumeEl = document.getElementById("set-volume");
+    const sensitivityEl = document.getElementById("set-sensitivity");
+    const fullscreenEl = document.getElementById("set-fullscreen");
+    const renderScaleEl = document.getElementById("set-render-scale");
+    const vfxDensityEl = document.getElementById("set-vfx-density");
+    const volumeValue = document.getElementById("set-volume-value");
+    const sensitivityValue = document.getElementById("set-sensitivity-value");
+    const renderScaleValue = document.getElementById("set-render-scale-value");
+    const vfxDensityValue = document.getElementById("set-vfx-density-value");
+
+    const emit = () => {
+      const nextVolume = Number(volumeEl.value);
+      const nextSensitivity = Number(sensitivityEl.value);
+      const nextRenderScale = Number(renderScaleEl.value);
+      const nextVfxDensity = vfxDensityEl.value;
+      volumeValue.textContent = `${nextVolume}%`;
+      sensitivityValue.textContent = `${nextSensitivity}%`;
+      renderScaleValue.textContent = `${Math.round(nextRenderScale * 100)}%`;
+      vfxDensityValue.textContent = nextVfxDensity === "reduced" ? "Reduced" : "Full";
+      onChange({
+        audio: {
+          muted: mutedEl.checked,
+          volume: nextVolume / 100,
+        },
+        controls: {
+          mouseSensitivity: nextSensitivity / 100,
+        },
+        display: {
+          fullscreen: fullscreenEl.checked,
+        },
+        performance: {
+          renderScale: nextRenderScale,
+          vfxDensity: nextVfxDensity,
+        },
+      });
+    };
+
+    mutedEl.onchange = emit;
+    volumeEl.oninput = emit;
+    sensitivityEl.oninput = emit;
+    fullscreenEl.onchange = emit;
+    renderScaleEl.onchange = emit;
+    vfxDensityEl.onchange = emit;
+    document.getElementById("btn-settings-back").onclick = onBack;
+  }
+
+  reward(level, rewards, onPick, economy = null, world = null) {
+    this.setHud(false);
+    const cards = rewards.map((r, i) => `
+      <div class="reward-card" data-i="${i}">
+        <div class="r-type"><span>${r.type}</span><span class="r-rarity ${r.rarity || "common"}">${r.rarity || "common"}</span></div>
+        <div class="r-title">${r.title}</div>
+        <div class="r-desc">${r.description}</div>
+        ${r.spellName ? `<div class="r-spell">Affects: ${r.spellName}</div>` : ""}
+        ${r.tip ? `<div class="r-tip">${r.tip}</div>` : ""}
+      </div>`).join("");
+    const hasUnlock = rewards.some((r) => r.type === "Spell Unlock");
+    const nudge = !hasUnlock && world && world.caster?.loadout?.some((s) => !s.autoFire)
+      ? `<div class="reward-hint">Tip: take Auto-Cast on an owned spell to unlock a new manual spell next reward.</div>`
+      : "";
+    this._show(`
+      <h1 class="title" style="font-size:40px;">Level ${level} Cleared</h1>
+      <div class="subtitle">Choose a Reward</div>
+      ${nudge}
+      <div id="reward-cards">${cards}</div>
+      ${economy ? `<button class="btn secondary" id="btn-reroll" ${economy.canReroll ? "" : "disabled"}>Reroll Rewards &middot; ${economy.rerollCost}g</button>
+      <div class="hint">Gold: <b style="color:var(--gold);">${economy.gold}</b></div>` : ""}
+    `);
+    this.root.querySelectorAll(".reward-card").forEach((el) => {
+      el.onclick = () => onPick(rewards[parseInt(el.dataset.i, 10)]);
+    });
+    const reroll = document.getElementById("btn-reroll");
+    if (reroll && economy?.onReroll) reroll.onclick = economy.onReroll;
+  }
+
+  upgradePanel(world, onBuy, onService, onContinue) {
+    this.setHud(false);
+    const gold = world.currency.gold;
+    const services = (world.serviceOptions?.() || []).map((svc) => `
+      <div class="svc-card ${svc.disabled ? "disabled" : ""}">
+        <div class="svc-info">
+          <div class="svc-title">${svc.title}</div>
+          <div class="svc-desc">${svc.description}</div>
+        </div>
+        <button class="up-buy svc-buy" data-svc="${svc.id}" ${svc.disabled || gold < svc.cost ? "disabled" : ""}>Buy &middot; ${svc.cost}g</button>
+      </div>
+    `).join("");
+    const spells = world.caster.loadout
+      .filter((s) => world.upgrades.treeFor(s.definitionId).length > 0)
+      .map((s) => {
+        const id = s.definitionId;
+        const tree = world.upgrades.treeFor(id);
+        const owned = world.upgrades.ownedCount(id);
+        const depths = world.upgrades.depths(id);
+        const rows = {};
+        let maxDepth = 0;
+        for (const node of tree) {
+          const d = depths[node.id] || 0;
+          (rows[d] || (rows[d] = [])).push(node);
+          if (d > maxDepth) maxDepth = d;
+        }
+        const renderNode = (node) => {
+          const st = world.upgrades.state(id, node);
+          const affordable = world.upgrades.canBuy(id, node);
+          let btn;
+          if (st === "owned") {
+            btn = `<span class="up-tag owned">Owned</span>`;
+          } else if (st === "available") {
+            btn = `<button class="up-buy" data-sp="${id}" data-nd="${node.id}" ${affordable ? "" : "disabled"}>Buy &middot; ${node.cost}g</button>`;
+          } else {
+            btn = `<span class="up-tag locked">Locked &middot; ${node.cost}g</span>`;
+          }
+          const capstoneTag = node.capstone ? `<span class="up-capstone-tag">Capstone</span>` : "";
+          return `<div class="up-node ${st} ${node.capstone ? "capstone" : ""}">
+            <div class="up-node-info">
+              <div class="up-node-title">${node.title}${capstoneTag}</div>
+              <div class="up-node-desc">${node.description}</div>
+            </div>
+            ${btn}
+          </div>`;
+        };
+        const rowHtml = [];
+        for (let d = 0; d <= maxDepth; d++) {
+          const arr = rows[d];
+          if (!arr || !arr.length) continue;
+          rowHtml.push(`<div class="up-depth-row">${arr.map(renderNode).join("")}</div>`);
+        }
+        return `<div class="up-spell">
+          <div class="up-spell-head">${s.displayName}<span class="up-tier">${owned}/${tree.length}</span></div>
+          ${rowHtml.join("")}
+        </div>`;
+      }).join("");
+    this._show(`
+      <h1 class="title" style="font-size:36px;">Upgrade Spell</h1>
+      <div class="subtitle">Gold: <b style="color:var(--gold);">${gold}</b> &nbsp;&middot;&nbsp; Spend before the next wave</div>
+      <div id="service-panel">${services}</div>
+      <div id="upgrade-panel">${spells || `<div class="up-empty">No upgrades available for this spell yet.</div>`}</div>
+      <button class="btn" id="btn-up-continue">Continue to Next Wave</button>
+    `);
+    this.root.querySelectorAll(".up-buy").forEach((el) => {
+      if (el.classList.contains("svc-buy")) return;
+      el.onclick = () => onBuy(el.dataset.sp, el.dataset.nd);
+    });
+    this.root.querySelectorAll(".svc-buy").forEach((el) => {
+      el.onclick = () => onService(el.dataset.svc);
+    });
+    document.getElementById("btn-up-continue").onclick = onContinue;
+  }
+
+  gameOver(onSummary, onRestart, onMenu) {
+    this.setHud(false);
+    this._show(`
+      <h1 class="title" style="color:#ff5566;-webkit-text-fill-color:#ff5566;">YOU DIED</h1>
+      <div class="subtitle">The arena claims another wizard</div>
+      <div class="btn-row">
+        <button class="btn" id="btn-summary">View Run Summary</button>
+        <button class="btn secondary" id="btn-restart">Restart</button>
+        <button class="btn secondary" id="btn-menu">Main Menu</button>
+      </div>
+    `);
+    document.getElementById("btn-summary").onclick = onSummary;
+    document.getElementById("btn-restart").onclick = onRestart;
+    document.getElementById("btn-menu").onclick = onMenu;
+  }
+
+  summary(stats, profile, onBack) {
+    this.setHud(false);
+    const rows = stats.damageRows();
+    const list = rows.length
+      ? rows.map((r) => `<div class="dmg-row"><span class="dn">${r.name}</span><span class="dv">${r.damage}</span></div>`).join("")
+      : `<div class="dmg-row"><span class="dn">No damage dealt</span><span class="dv">0</span></div>`;
+    const best = profile?.bestRun || {};
+    const totals = profile?.totals || {};
+    const bestText = best.levelsCleared > 0 || best.highestWave > 0
+      ? `Best: Wave ${best.highestWave || best.levelsCleared + 1} with ${best.levelsCleared || 0} cleared`
+      : "Best: No completed runs yet";
+    this._show(`
+      <h1 class="title" style="font-size:40px;">Run Summary</h1>
+      <div class="summary-grid">
+        <div class="lbl">Levels Cleared</div><div class="num">${stats.levelsCleared}</div>
+        <div class="lbl">Enemies Killed</div><div class="num">${stats.enemiesKilled}</div>
+        <div class="lbl">Gold Earned</div><div class="num">${stats.goldEarned}</div>
+        <div class="lbl">Total Damage Dealt</div><div class="num">${Math.round(stats.totalDamage)}</div>
+      </div>
+      <div class="profile-note">${bestText} &nbsp;&middot;&nbsp; Lifetime runs: ${totals.runsCompleted || 0}/${totals.runsStarted || 0}</div>
+      <div class="subtitle" style="margin-top:6px;">Damage by Spell</div>
+      <div id="dmg-breakdown">${list}</div>
+      <button class="btn secondary" id="btn-back">Back</button>
+    `);
+    document.getElementById("btn-back").onclick = onBack;
+  }
+
+  // --- HUD update ---------------------------------------------------------
+
+  buildSpellSlots(loadout) {
+    this.spellsEl.innerHTML = "";
+    const manualCount = loadout.filter((s) => !s.autoFire).length;
+    this._spellSlots = loadout.map((s, i) => {
+      const el = document.createElement("div");
+      el.className = "spell-slot";
+      if (s.autoFire) el.classList.add("passive");
+      const key = s.autoFire ? "AUTO" : (manualCount > 1 ? i + 1 : "Run Spell");
+      el.innerHTML = `<span class="key">${key}</span><span class="nm">${s.displayName}</span><div class="cd-fill"></div>`;
+      this.spellsEl.appendChild(el);
+      return el;
+    });
+  }
+
+  updateHud(world) {
+    this.updateBossBar(world);
+    const h = world.player.health;
+    const pct = Math.max(0, Math.round(h.ratio * 100));
+    this.hpFill.style.width = pct + "%";
+    this.hpText.textContent = `${Math.max(0, Math.ceil(h.current))} / ${h.max}`;
+    this.lvlEl.textContent = world.levelManager.level;
+    this.goldEl.textContent = world.currency.gold;
+    this.enemyEl.textContent = world.enemyManager.aliveCount;
+    const modName = world.currentWaveModifier?.name || "None";
+    const layout = world.arenaLayoutName ? world.arenaLayoutName.toUpperCase() : "";
+    this.modEl.textContent = layout ? `${modName} · ${layout}` : modName;
+    if (this.modDescEl) this.modDescEl.textContent = world.currentWaveModifier?.description || "";
+    const objective = world.objectiveManager?.hudText?.();
+    if (this.objEl) {
+      this.objEl.textContent = objective ? objective.name : "";
+      const row = this.objEl.closest(".objective");
+      if (row) row.style.display = objective ? "" : "none";
+    }
+    if (this.objDescEl) {
+      this.objDescEl.textContent = objective ? objective.status : "";
+      this.objDescEl.classList.toggle("complete", !!objective?.complete);
+      this.objDescEl.style.display = objective ? "" : "none";
+    }
+
+    const lo = world.caster.loadout;
+    if (this._spellSlots.length !== lo.length) this.buildSpellSlots(lo);
+    const manualCount = lo.filter((s) => !s.autoFire).length;
+    lo.forEach((s, i) => {
+      const el = this._spellSlots[i];
+      el.classList.toggle("equipped", i === world.caster.equipped && !s.autoFire);
+      el.classList.toggle("passive", !!s.autoFire);
+      const key = el.querySelector(".key");
+      if (key) key.textContent = s.autoFire ? "AUTO" : (manualCount > 1 ? i + 1 : "Run Spell");
+      const ratio = world.caster.cdRatio(s); // 1 = ready
+      el.querySelector(".cd-fill").style.height = `${(1 - ratio) * 100}%`;
+    });
+
+    const blk = world.player.block;
+    if (blk) {
+      this.stamFill.style.width = Math.max(0, Math.round(blk.staminaRatio * 100)) + "%";
+      this.stamFill.classList.toggle("low", blk.staminaLow);
+      this.stamFill.classList.toggle("draining", blk.blocking && !blk.staminaLow && blk.staminaRatio < 0.6);
+      this.stamFill.classList.toggle("perfect", blk.perfectActive());
+      this.stamFill.classList.toggle("hit", blk.blockPulse > 0);
+      this.stamText.textContent = `${Math.ceil(blk.stamina)} / ${blk.maxStamina} Stamina`;
+      this.blockInd.classList.toggle("active", blk.blocking);
+      this.blockInd.classList.toggle("perfect", blk.perfectPulse > 0);
+      this.blockInd.textContent = blk.perfectPulse > 0 ? "PERFECT" : (blk.perfectActive() ? "PARRY WINDOW" : "BLOCKING");
+      this.crosshair.classList.toggle("blocking", blk.blocking);
+      this.crosshair.classList.toggle("perfect-window", blk.perfectActive());
+      this.crosshair.classList.toggle("perfect-hit", blk.perfectPulse > 0);
+      this.crosshair.classList.toggle("block-hit", blk.blockPulse > 0);
+      this.crosshair.style.setProperty("--perfect-ratio", blk.perfectRatio().toFixed(3));
+    }
+
+    if (world.blink.ready) {
+      this.blinkEl.textContent = "Blink ready";
+      this.blinkEl.classList.remove("cooling");
+    } else {
+      this.blinkEl.textContent = `Blink ${world.blink.timer.toFixed(1)}s`;
+      this.blinkEl.classList.add("cooling");
+    }
+  }
+}

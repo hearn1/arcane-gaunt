@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/vendor/three.module.js)",
+      "WebSearch",
+      "WebFetch(domain:kenney.nl)",
+      "WebFetch(domain:gamesounds.xyz)",
+      "WebFetch(domain:ambientcg.com)",
+      "WebFetch(domain:poly.pizza)",
+      "WebFetch(domain:quaternius.com)",
+      "Bash(mkdir -p assets/audio assets/textures assets/models tmp_download)",
+      "Bash(curl -sSL -o impact.zip \"https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip\")",
+      "Bash(curl -sSL -o interface.zip \"https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip\")",
+      "Bash(curl -sSL -o scifi.zip \"https://kenney.nl/media/pages/assets/sci-fi-sounds/6b296f9ecf-1677589334/kenney_sci-fi-sounds.zip\")",
+      "Bash(curl -sSL -o paving.zip \"https://ambientcg.com/get?file=PavingStones070_1K-JPG.zip\")",
+      "Bash(curl -sSL -o bricks.zip \"https://ambientcg.com/get?file=Bricks075A_1K-JPG.zip\")",
+      "Bash(curl -sSL -o rock.zip \"https://ambientcg.com/get?file=Rock029_1K-JPG.zip\")",
+      "Bash(unzip -q impact.zip -d extracted/impact)",
+      "Bash(unzip -q interface.zip -d extracted/interface)",
+      "Bash(unzip -q scifi.zip -d extracted/scifi)",
+      "Bash(unzip -q paving.zip -d extracted/paving)",
+      "Bash(unzip -q bricks.zip -d extracted/bricks)",
+      "Bash(curl -sSL \"https://poly.pizza/bundle/Ultimate-Monsters-Bundle-5oyGWAmOB6\")",
+      "Bash(curl -sSL \"https://quaternius.com/packs/ultimatemonsters.html\")",
+      "WebFetch(domain:quaternius.itch.io)",
+      "Bash(curl -sSL \"https://poly.pizza/m/9wB9Vy3iJ5\")",
+      "WebFetch(domain:github.com)",
+      "Bash(cp tmp_download/extracted/scifi/Audio/laserSmall_001.ogg     assets/audio/cast_arcane.ogg)",
+      "Bash(cp tmp_download/extracted/scifi/Audio/laserLarge_000.ogg     assets/audio/cast_fire.ogg)",
+      "Bash(cp tmp_download/extracted/scifi/Audio/forceField_000.ogg     assets/audio/cast_frost.ogg)",
+      "Bash(cp tmp_download/extracted/scifi/Audio/slime_000.ogg          assets/audio/cast_poison.ogg)",
+      "Bash(cp tmp_download/extracted/scifi/Audio/laserRetro_002.ogg     assets/audio/cast_chain.ogg)"
+    ]
+  }
+}

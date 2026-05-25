@@ -1,0 +1,321 @@
+# ArcaneGaunt
+
+A first-person wizard shooter roguelike. Pick one spell archetype on the main
+menu, take it into the arena as your whole run build, choose rewards between
+waves, and see how deep you get before you die.
+
+> This README covers running and developing the build. The original design
+> documents are still in this folder: `PROJECT_OVERVIEW.md`, `GAME_DESIGN.md`,
+> `TECHNICAL_ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `UI_AND_SCENE_FLOW.md`,
+> and `ASSET_GUIDELINES.md`.
+
+## Stack
+
+- **three.js** (vendored at `vendor/three.module.js`) for WebGL 3D.
+- **Vanilla ES-module JavaScript** with no build step and no bundler.
+- **DOM/CSS** for all UI; **Web Audio** for procedural SFX.
+- **Python `http.server`** as the static browser dev server.
+- **Electron** as the desktop wrapper/package target.
+
+Why: a vendored-three.js + plain-ESM browser game runs instantly, works offline,
+and keeps Electron as a thin desktop shell rather than an app framework.
+
+## Run in a browser for development
+
+```sh
+python serve.py
+```
+
+Then open <http://localhost:8000>. Optional custom port:
+
+```sh
+python serve.py 8080
+```
+
+No install step is needed for browser development. Any static file server pointed
+at the project root also works; `serve.py` just adds no-cache headers and
+correct ES-module MIME types.
+
+## Browser smoke check
+
+With `serve.py` running, open:
+
+```text
+http://localhost:8000/?smoke=boot-start-menu
+```
+
+This runs the first lightweight automated smoke harness in the browser. It
+boots the real static app, starts a run without pointer-lock input, enters the
+first wave, pauses, returns to the main menu, and verifies HUD/crosshair/banner,
+enemy, projectile, timer, and input cleanup. The result is shown in a small
+on-screen panel and exposed as:
+
+```js
+window.__arcaneSmokeResult
+```
+
+The smoke runner is inert unless the `smoke` query parameter is present, skips
+audio startup, and avoids writing profile progress while it drives the flow.
+Future smoke scenarios should extend this same query-parameter harness rather
+than adding a separate app architecture.
+
+## Run as a desktop app
+
+Install the desktop packaging dependencies once:
+
+```sh
+npm install
+```
+
+Launch directly into the game window:
+
+```sh
+npm start
+```
+
+This uses Electron only as a thin shell. The game still loads `index.html`,
+`src/`, `vendor/`, and `assets/` as static files, with no bundler or framework
+rewrite. Electron serves those files through an internal `arcane://` app
+protocol instead of `file://`, which keeps ES-module imports, GLB models,
+textures, OGG audio, and fallback behavior on the same app origin.
+
+## Package for Windows
+
+Create a Steam-friendly unpacked Windows app folder:
+
+```sh
+npm run pack:win
+```
+
+Output:
+
+```text
+dist/win-unpacked/ArcaneGaunt.exe
+```
+
+Create a Windows installer:
+
+```sh
+npm run dist:win
+```
+
+Create a portable single-file launcher:
+
+```sh
+npm run dist:portable
+```
+
+Output:
+
+```text
+dist/ArcaneGaunt 0.1.0.exe
+```
+
+Notes for later Steam polish:
+
+- Replace the default Electron icon by adding a Windows `.ico` file and setting
+  `build.win.icon` in `package.json`.
+- Keep `productName` and the main window title as `ArcaneGaunt`.
+- Future Steamworks integration can live in the Electron main process or a
+  native sidecar without changing the static gameplay modules.
+
+## Controls
+
+| Input | Action |
+|-------|--------|
+| `W A S D` | Move |
+| Mouse | Look |
+| Left click | Cast the selected run spell |
+| Right click (hold) | Block; perfect-timed block reflects projectiles |
+| `Space` | Jump |
+| `Shift` or `Q` | Blink (short dash) |
+| `Esc` | Pause / release mouse |
+
+Runs still begin from one manual spell. If you buy that spell's Auto-Cast node,
+it keeps firing passively while not blocking and can unlock a new manual spell
+reward. Number keys / mouse wheel switch the one manual spell when a run has
+attuned extras; reward cards focus the current manual spell, while gold upgrade
+trees remain available for every owned spell.
+
+## Gameplay Loop
+
+Main Menu -> choose one spell archetype -> arena -> fight wave -> clear wave ->
+gold + reward screen -> pick a reward -> spend gold in spell upgrade trees or
+between-wave services -> next harder wave in a refreshed arena layout -> death
+-> Game Over -> Run Summary -> Restart or Main Menu. Elites appear every 5th
+level, and later waves can roll modifiers such as Swift Horde, Armored,
+Volatile, Regenerating, or Elite Vanguard.
+
+Restart keeps the previous spell choice. Return to Main Menu to choose a
+different run archetype.
+
+## Local Saves And Steam Cloud Paths
+
+Audio mute, audio volume, mouse sensitivity, fullscreen preference, render
+scale, and effects density persist locally. Best-run records and aggregate
+player stats also persist locally. Browser development uses these localStorage
+keys:
+
+```text
+arcaneGaunt.settings.v1
+arcaneGaunt.profile.v1
+```
+
+The Electron build writes the same JSON shapes to:
+
+```text
+%APPDATA%/ArcaneGaunt/saves/settings.v1.json
+%APPDATA%/ArcaneGaunt/saves/profile.v1.json
+```
+
+These relative paths are the current Steam Cloud targets:
+
+```text
+saves/settings.v1.json
+saves/profile.v1.json
+```
+
+The profile save currently stores `version`, `bestRun`, aggregate `totals`, and
+reserved `meta` / `unlocks` objects for future use. The main menu has a
+confirmed **Reset Records** flow that clears best-run and lifetime totals only;
+settings are kept unless a future reset flow explicitly says otherwise.
+
+The performance settings are intentionally small: render scale lowers internal
+WebGL resolution, and reduced effects density trims nonessential particle/fork
+counts while keeping gameplay, projectiles, hazards, rewards, and combat rules
+unchanged. In Electron, the fullscreen preference also seeds the next app window
+through the same settings save path. In a browser, fullscreen still depends on
+the browser's user-gesture rules.
+
+## Local Error Logs
+
+ArcaneGaunt does not send crash reports, analytics, telemetry, or logs over the
+network. Browser development keeps failures local to the console plus the
+readable on-screen fatal error panel.
+
+The Electron build also writes local JSON-lines logs under the app user data
+folder:
+
+```text
+%APPDATA%/ArcaneGaunt/logs/renderer.log
+%APPDATA%/ArcaneGaunt/logs/main.log
+```
+
+`renderer.log` records renderer fatal errors, unhandled promise rejections, and
+boot failures reported through the preload bridge. Recoverable renderer storage
+fallback failures are reported once per operation so settings/profile issues are
+debuggable without spamming normal browser development. `main.log` records
+practical main-process startup, protocol, storage, load, and process-failure
+errors. These logs are local debugging files only and are not Steam Cloud
+targets.
+
+## Architecture
+
+Engine-agnostic separations from `TECHNICAL_ARCHITECTURE.md`:
+
+- **Static spell data** `src/spells/spellDefinitions.js` is `Object.freeze`d and
+  never mutated. **`SpellInstance`** holds mutable runtime `stats`; buffs only
+  touch instances.
+- **One-manual-spell loadout**: `src/player/SpellCaster.js` starts from the
+  main-menu spell. Auto-Cast milestones can add more spells, but only one is
+  manually equipped; auto-cast spells fire passively when ready and not
+  blocking.
+- **One damage path**: `src/core/Damage.js#applyDamage`. Direct, AoE, chain,
+  DOT, split, and enemy hits all route through it.
+- **Projectiles/collision** (`src/projectile/`) are separate from player input
+  (`src/player/`).
+- **`EnemyManager`** owns wave-level tracking and fires wave-clear once;
+  individual enemies own their AI (`src/enemies/Enemy.js`).
+- **`RewardGenerator`** builds spell rewards from the current manual spell plus
+  general player/relic/unlock rewards; `src/ui/ui.js` only renders.
+- **`RunStats`** is a passive collector, reset on Start Run.
+
+```text
+src/core       Game loop, state machine, Damage, Health, RunStats, Currency, Audio, VFX, Input
+src/player     PlayerController, SpellCaster, Blink
+src/spells     spellDefinitions (static), SpellInstance (runtime), Effects, upgradeTrees
+src/projectile Projectile, HitResolver
+src/enemies    Enemy (6 types + 3 bosses), EnemyManager
+src/level      LevelManager (wave composition + clear flow)
+src/rewards    rewardDefinitions (catalog), RewardGenerator
+src/ui         ui.js (all DOM screens + HUD)
+```
+
+## Content
+
+- **Run spell archetypes (6):** Arcane Bolt, Fireball, Frost Bolt, Poison Bolt,
+  Chain Lightning, and Meteor. All are selectable on the main menu. In-run spell
+  unlocks are gated by Auto-Cast: when an owned spell becomes passive, reward
+  drafts can offer a new manual spell.
+- **Rewards:** weighted common/uncommon/rare choices. Common cards still cover
+  selected-spell and player fundamentals, while uncommon cards add tradeoffs
+  like point-blank pierce, compressed blasts, or shorter chain patterns.
+- **Relics:** rare passive rewards add run identity outside the spell tree:
+  Duelist Sigil rewards close-range hits, Blinkstrike Ember rewards casting
+  immediately after blink, Parry Dynamo rewards perfect blocks, Adrenal Lens
+  rewards low-health risk, and Glass Focus trades max health for spell power.
+- **Arena layouts:** each run rebuilds the arena with lane blockers, cover
+  clusters, gate-like walls, and occasional phase-rift hazard strips. Solid
+  geometry blocks player/enemy movement, blink destinations, projectiles, and
+  ranged enemy line of sight.
+- **Spell upgrade trees:** each owned spell has a branching gold-bought tree.
+  The model supports prerequisite branches and mutually exclusive paths through
+  `requires` and `excludes`. Arcane Bolt and Fireball now have deeper proof
+  trees with posture choices and branch follow-ups; the other spells have
+  smaller branching trees ready to grow toward the same 10-20 upgrade target.
+- **Between-wave gold sinks:** reward cards can be rerolled for escalating gold
+  before choosing. After picking a reward, repeatable services offer healing,
+  next-cast focus damage, or run-long guard stamina without adding more spell
+  tree nodes.
+- **Block:** hold right-click to block (stamina-limited, reduces damage). A
+  perfect-timed block negates the hit and reflects enemy projectiles back,
+  credited as "Redirect" damage; perfect-blocked melee is stunned. The HUD
+  crosshair and stamina bar now show the parry window, low stamina, blocked hits,
+  and successful perfect blocks. With Parry Dynamo, perfect blocks also empower
+  the next cast.
+- **Wave modifiers:** Level 2+ waves may roll combat rules that change target
+  priority and positioning: faster hordes, armored enemies, volatile death
+  bursts, regenerating enemies, or extra elite pressure.
+- **Death Summary:** levels cleared, enemies killed, gold earned, total damage,
+  per-spell damage rows, and light best-run / lifetime run context. No "top
+  spell" judgment labels.
+
+## Assets
+
+External assets live in `assets/` (~5.7 MB, all **CC0 1.0**). Audio samples
+(Kenney.nl Sci-Fi / Impact / Interface packs), arena floor / wall / pillar
+textures (ambientCG), and enemy GLB models (Quaternius Ultimate Monsters)
+replace the original procedural stand-ins. VFX and UI remain procedural. See
+`CREDITS.md` for per-file attribution.
+
+The game still runs fully offline after first load. All assets are static files
+in the repo, with no runtime CDN fetches. If any asset 404s or fails to decode,
+the affected slot falls back to the original procedural path with a warning
+instead of crashing.
+
+## Status
+
+**Implemented:** full loop (menu -> spell archetype selection -> combat -> waves
+-> rewards -> spell upgrades and services -> death -> summary -> restart), FPS
+movement/look/jump, randomized solid arena layouts with cover/projectile/LoS
+blocking and rift hazards, 6 solo-viable spells incl. AoE/chain/DOT/slow/split/
+pierce/meteor, auto-cast-gated in-run spell unlocks, branching per-spell upgrade
+trees with mutually exclusive forks, focused current-manual-spell reward
+filtering, reward rarity, build-defining relics, randomized wave modifiers,
+hold-to-block with stamina + perfect-block projectile redirect, 6 enemy pressure
+types incl. elite and linebreaker, wave scaling, gold sinks, blink, HUD, procedural
+VFX/SFX, central damage + run stats, persistent settings/profile saves, safe
+record reset, fullscreen/windowed preference, lightweight performance options,
+and Electron packaging.
+
+**Not done / known limitations:**
+
+- Collision is lightweight AABB/sphere based rather than navmesh/pathfinding;
+  enemies steer around cover opportunistically and can still get awkward near
+  tight blockers.
+- No meta-progression behavior or detailed run history yet; only best-run and
+  aggregate profile stats persist.
+- Block mitigation is omnidirectional.
+- Enemy AI is intentionally simple.
+- Balance is first-pass and will need tuning now that every spell is a solo
+  archetype.

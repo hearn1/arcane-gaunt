@@ -1,0 +1,48 @@
+{
+  "name": "arcane-gaunt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ArcaneGaunt desktop package",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "pack:win": "electron-builder --win dir",
+    "dist:win": "electron-builder --win nsis",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.arcanegaunt.game",
+    "productName": "ArcaneGaunt",
+    "asar": true,
+    "files": [
+      "index.html",
+      "src/**/*",
+      "vendor/**/*",
+      "assets/**/*",
+      "electron/**/*",
+      "CREDITS.md",
+      "README.md"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "dir",
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ArcaneGaunt"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.1.0",
+    "electron-builder": "^26.10.0"
+  }
+}
