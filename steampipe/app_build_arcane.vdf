@@ -1,0 +1,14 @@
+"appbuild"
+{
+  "appid"   "__APPID__"
+  "desc"    "ArcaneGaunt Windows build"
+  "buildoutput" "build_output"
+  "contentroot" ".."
+  "setlive" ""
+  "preview" "0"
+  "local"   ""
+  "depots"
+  {
+    "__DEPOTID__" "depot_build_arcane_windows.vdf"
+  }
+}

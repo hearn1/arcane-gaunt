@@ -12,7 +12,8 @@
     "dev": "electron .",
     "pack:win": "electron-builder --win dir",
     "dist:win": "electron-builder --win nsis",
-    "dist:portable": "electron-builder --win portable"
+    "dist:portable": "electron-builder --win portable",
+    "steam:prep": "npm run pack:win"
   },
   "build": {
     "appId": "com.arcanegaunt.game",

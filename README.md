@@ -124,7 +124,23 @@ Output:
 dist/ArcaneGaunt 0.1.0.exe
 ```
 
-Notes for later Steam polish:
+## Steam upload
+
+SteamPipe build scripts live in `steampipe/`. To prepare a Windows build for
+Steam upload:
+
+```sh
+npm run steam:prep
+```
+
+This runs `pack:win` and produces `dist/win-unpacked/ArcaneGaunt.exe`. See
+`steampipe/README.md` for the full operator guide — installing SteamCMD,
+substituting App ID / Depot ID placeholders, running the upload, and the
+recommended branch/promotion strategy.
+
+SteamCMD and Steamworks credentials are not bundled in this repository.
+
+Notes for feature tracking:
 
 - **Feature 3 complete**: Windows `.ico` and 512×512 `.png` icons are checked in
   at `assets/icons/` (source SVG under `assets/icons/icon_sources/`).
