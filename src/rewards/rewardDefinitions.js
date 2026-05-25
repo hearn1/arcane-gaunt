@@ -31,10 +31,10 @@ export function spellBuffsFor(inst) {
   const out = [];
   const s = inst.stats;
 
-  out.push(spellBuff(inst, "dmg", "+25% Damage",
-    (st) => { st.damage = Math.round(st.damage * 1.25); }, "Increase this spell's damage by 25%."));
-  out.push(spellBuff(inst, "cd", "-18% Cooldown",
-    (st) => { st.cooldown = Math.max(0.12, st.cooldown * 0.82); }, "Reduce this spell's cooldown by 18%."));
+  out.push(spellBuff(inst, "dmg", "+22% Damage",
+    (st) => { st.damage = Math.round(st.damage * 1.22); }, "Increase this spell's damage by 22%."));
+  out.push(spellBuff(inst, "cd", "-15% Cooldown",
+    (st) => { st.cooldown = Math.max(0.12, st.cooldown * 0.85); }, "Reduce this spell's cooldown by 15%."));
 
   if (inst.castType === "projectile" || inst.castType === "projectile_dot") {
     out.push(spellBuff(inst, "pierce", "+1 Pierce",

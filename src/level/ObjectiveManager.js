@@ -3,7 +3,7 @@ import { Health } from "../core/Health.js";
 import { applyDamage } from "../core/Damage.js";
 import { MeleeEnemy } from "../enemies/Enemy.js";
 
-const OBJECTIVE_CHANCE = 0.36;
+const OBJECTIVE_CHANCE = 0.32;
 const OBJECTIVE_LEVEL_GATE = 3;
 
 const OBJECTIVES = {
@@ -240,8 +240,8 @@ export class ObjectiveManager {
 
   _startHold(level) {
     const pos = this._point(7, true);
-    const radius = 4.8;
-    const required = Math.min(11, 7.5 + level * 0.35);
+    const radius = 5.0;
+    const required = Math.min(12, 8.0 + level * 0.4);
     this.group = new THREE.Group();
     this.group.position.set(pos.x, 0, pos.z);
     this.world.scene.add(this.group);
@@ -279,7 +279,7 @@ export class ObjectiveManager {
         kind: "cleanse",
         label: "Rift Anchor",
         pos: this._point(7),
-        hp: Math.round(42 + level * 4),
+        hp: Math.round(45 + level * 4.5),
         radius: 0.95,
         cleanseRadius: 3.2,
         cleanseRequired: 1.35,
@@ -287,7 +287,7 @@ export class ObjectiveManager {
       });
       this.anchors.push(anchor);
     }
-    this._cleansePulseT = 7.0;
+    this._cleansePulseT = 7.5;
     this._setStatus(`${this._destroyedCount()} / ${this.anchors.length} anchors cleansed`);
   }
 
@@ -296,15 +296,15 @@ export class ObjectiveManager {
       kind: "ritual",
       label: "Ritual Anchor",
       pos: this._point(8, true),
-      hp: Math.round(72 + level * 7),
+      hp: Math.round(78 + level * 7.5),
       radius: 1.05,
       cleanseRadius: 4.0,
       color: 0xffcf4d,
     });
     this.anchors.push(anchor);
     this.ritual = {
-      timer: 11.5,
-      maxTimer: 11.5,
+      timer: 12.0,
+      maxTimer: 12.0,
       spawnCount: 0,
     };
     this._setStatus(`Ritual pulse in ${this.ritual.timer.toFixed(0)}s`);
@@ -350,7 +350,7 @@ export class ObjectiveManager {
     this._setStatus(`${destroyed} / ${total} anchors cleansed`);
     this._cleansePulseT -= dt;
     if (this._cleansePulseT <= 0) {
-      this._cleansePulseT = 7.0;
+      this._cleansePulseT = 7.5;
       let playerInPulse = false;
       for (const a of this.anchors) {
         if (!a.alive) continue;
@@ -360,7 +360,7 @@ export class ObjectiveManager {
         }
       }
       if (playerInPulse) {
-        applyDamage(this.world.player, 5 + this.active.level * 0.35, {
+        applyDamage(this.world.player, 6 + this.active.level * 0.4, {
           owner: "enemy",
           spellId: "rift_anchor_pulse",
           spellName: "Rift Anchor Pulse",
@@ -383,7 +383,7 @@ export class ObjectiveManager {
     this.world.vfx.shock(anchor.position, 0xffcf4d, 8.0, 0.42);
     this.world.vfx.flash(anchor.position.clone().setY(1.0), 0xffcf4d, 1.0, 0.2);
     if (flatDist(anchor.position, this.world.player.feet) <= 18) {
-      applyDamage(this.world.player, 7 + this.active.level * 0.45, {
+      applyDamage(this.world.player, 8 + this.active.level * 0.5, {
         owner: "enemy",
         spellId: "ritual_pulse",
         spellName: "Ritual Pulse",
