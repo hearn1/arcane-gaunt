@@ -2,3 +2,5 @@ node_modules/
 dist/
 .tools/
 npm-debug.log*
+steampipe/build_output/
+steam_appid.txt
