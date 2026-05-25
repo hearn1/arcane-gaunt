@@ -1,81 +1,144 @@
 # ArcaneGaunt Production Release Todo
 
-The original feature checklist is complete. This file now tracks the production
-verticals that need to be flushed out before a Steam release. Keep changes
-focused on stabilization, product completeness, release readiness, and polish
-rather than rebuilding the core game loop.
+The original gameplay checklist is complete. Remaining production work is
+tracked at two levels:
 
-## P0 - Release Blockers
+- **This file** is the high-level tracker. It lists what is done, what is
+  outstanding, and which `feature_*.md` planning file owns each remaining
+  item.
+- **`feature_*.md` files** at the project root contain per-feature
+  rationale, file lists, implementation steps, verification, and
+  guardrails. Each is sized for a single implementation session.
 
-1. [x] Add persistent settings for audio volume/mute, mouse sensitivity, fullscreen/windowed mode, and any performance options. **Done:** audio mute/volume, mouse sensitivity, fullscreen preference, render scale, and effects density persist through the shared settings save.
-2. [ ] Add save persistence for best runs, player stats, selected preferences, and any future unlock/meta state. **Partial:** selected settings/preferences, best-run records, and aggregate player stats persist through the shared storage abstraction; future unlock/meta behavior remains reserved but not built.
-3. [x] Add a safe reset/delete-save flow. **Done:** main-menu Reset Records flow uses a confirmation step and clears profile best-run/lifetime totals while keeping settings.
-4. [x] Choose and document a Steam Cloud-ready save location. **Done:** Electron stores settings at `%APPDATA%/ArcaneGaunt/saves/settings.v1.json` and profile stats at `%APPDATA%/ArcaneGaunt/saves/profile.v1.json`; `saves/settings.v1.json` and `saves/profile.v1.json` are documented Steam Cloud targets.
-5. [ ] Add full gamepad support for gameplay, menus, rewards, upgrades, pause, restart, and main menu flow.
-6. [ ] Make UI and prompts work cleanly for Steam Deck-style controller use.
-7. [x] Add a pause/settings menu that can be reached without relying on pointer-lock release alone.
-8. [ ] Add production Electron metadata: app icon, Windows icon, version metadata, and final product identity.
-9. [ ] Add SteamPipe app/depot build scripts and verify launch options against the packaged executable.
-10. [x] Add production crash/error handling with a user-readable fallback and local log output. **Done:** renderer boot/runtime fatal errors and unhandled promise rejections show a readable overlay; Electron writes local `logs/renderer.log` and `logs/main.log` files through a narrow preload IPC bridge, with browser fallback to console/on-screen error output.
-11. [ ] Establish automated smoke tests for boot, start run, wave clear, reward pick, death, restart, and main menu cleanup. **Partial:** `?smoke=boot-start-menu` now drives the real browser app through boot, start-run focus, first-wave entry, pause, and main-menu cleanup assertions; wave clear, reward pick, death, and restart coverage remain.
+Do not duplicate per-feature detail in this file. Update both when scope
+changes.
 
-### Completed Milestone 1 Foundation - 2026-05-22
+## P0 — Release Blockers
 
-- Added persistent settings for audio mute, audio volume, and mouse sensitivity.
-- Added persistent fullscreen/windowed preference plus small render scale and effects density performance options.
-- Added persistent profile stats for runs started/completed, best run, levels cleared, enemies killed, gold earned, and total damage.
-- Added a confirmed Reset Records flow that clears run records without changing settings.
-- Added a basic Settings menu reachable from the main menu, focus/continue prompts, and pause menu.
-- Reworked Esc/pointer-lock loss into a practical pause menu with Resume, Settings, and Main Menu actions.
-- Added a storage abstraction with a browser localStorage fallback and an Electron JSON bridge for settings and profile saves.
-- Added Electron fullscreen IPC and startup fullscreen seeding from the settings save.
-- Added renderer render-scale application and reduced effects-density support without changing gameplay systems.
-- Tightened input clearing across menu, settings, pause, reward, upgrade, summary, restart, and reset transitions.
-- Added production crash/error handling with a readable renderer fallback panel, browser console fallback, narrow Electron renderer-log IPC, recoverable storage fallback diagnostics, and local Electron log files under `%APPDATA%/ArcaneGaunt/logs/`.
-- Hardened run/reward boundaries so death wins same-frame objective/wave-clear races, reward and next-wave advancement require a live player, and run starts / reward transitions perform player health and safe-location checks.
-- Added the first browser smoke harness at `?smoke=boot-start-menu` for boot, start-run focus, first-wave entry, pause, and main-menu cleanup.
-- Added explicit transient combat UI cleanup for pause, death, fatal, new-run, and main-menu transitions so wave banners and combat indicators do not linger outside active play.
-- Documented the Steam Cloud-friendly settings/profile paths and reset behavior in `README.md`.
-- Documented local Electron error log paths and no-network log behavior in `README.md`.
-- Documented the browser smoke harness in `README.md`.
-- Verified boot, settings persistence after reload, start run, pause/settings/menu return, restart starting at full health after death, Reset Records behavior, profile cleanup, and renderer/performance options in the browser with no console warnings/errors.
-- Node/npm/Electron command verification remains blocked in the current Codex desktop environment: `node.exe` is access-denied from the WindowsApps Codex bundle, `.bin/electron.cmd` hits the same blocked Node path, and `npm` is not on PATH.
+| # | Item | Status | Owner |
+|---|------|--------|-------|
+| 1 | Persistent settings (audio volume/mute, mouse sensitivity, fullscreen, performance) | **Done** (Milestone 1) | — |
+| 2 | Save persistence for best runs, stats, preferences, future unlocks | **Partial** — settings + profile done; future unlock/meta reserved | (extended in feature_7, feature_8) |
+| 3 | Safe reset/delete-save flow | **Done** (Milestone 1) | — |
+| 4 | Document Steam Cloud-ready save location | **Done** (Milestone 1) | — |
+| 5 | Full gamepad support (gameplay + menus) | **Not started** | [feature_1](feature_1_gamepad_steam_deck.md) |
+| 6 | Steam Deck UI readiness | **Not started** | [feature_1](feature_1_gamepad_steam_deck.md) |
+| 7 | Pause/settings menu without relying on pointer-lock release | **Done** (Milestone 1) | — |
+| 8 | Production Electron metadata (icon, version, identity) | **Not started** | [feature_3](feature_3_electron_metadata.md) |
+| 9 | SteamPipe app/depot build scripts | **Not started** | [feature_4](feature_4_steampipe_build.md) |
+| 10 | Production crash/error handling | **Done** (Milestone 1) | — |
+| 11 | Expanded automated smoke tests | **Done** | [feature_2](feature_2_smoke_tests.md) |
+
+### Completed Milestone 1 Foundation — 2026-05-22
+
+- Persistent settings (audio mute/volume, mouse sensitivity, fullscreen,
+  render scale, effects density).
+- Persistent profile (runs started/completed, best run, levels cleared,
+  enemies killed, gold earned, total damage).
+- Confirmed Reset Records flow that clears run records but keeps settings.
+- Settings menu reachable from main menu and pause menu.
+- Pause menu (Esc → Resume / Settings / Main Menu).
+- Storage abstraction: browser localStorage fallback + Electron JSON bridge.
+- Electron fullscreen IPC + startup fullscreen seeding.
+- Renderer render-scale + effects-density support (no gameplay impact).
+- Input cleared across every menu / state transition.
+- Production crash/error handling with fatal overlay, browser console
+  fallback, narrow Electron renderer-log IPC, and local
+  `%APPDATA%/ArcaneGaunt/logs/{renderer,main}.log` files.
+- Run/reward boundary hardening so death wins same-frame races and reward
+  transitions require a live player at a safe location.
+- Browser smoke harness at `?smoke=boot-start-menu` (boot, start, pause,
+  main menu cleanup).
+- Steam Cloud save paths documented (`saves/settings.v1.json`,
+  `saves/profile.v1.json`).
 
 ### Remaining Milestone 1 Work
 
-- Add production Electron metadata such as final icon/version identity.
-- Expand automated smoke tests to cover wave clear, reward pick, death, restart, and deeper main menu cleanup.
-- Re-run `node --check`, `npm start`, and packaged/direct Electron launch verification in an environment where Node/npm/Electron are available.
+- Production Electron metadata — tracked in
+  [feature_3](feature_3_electron_metadata.md).
+- Re-run `node --check`, `npm start`, and packaged Electron launch
+  verification in an environment with working Node/npm/Electron.
 
-## P1 - Game Polish And Balance
+## P1 — Game Polish & Balance
 
-12. Define target run length, wave pacing, and expected difficulty curve.
-13. Balance all six starter spells for solo viability across early, mid, and boss waves.
-14. Balance reward economy, reroll costs, upgrade costs, and between-wave services.
-15. Tune objective wave frequency, completion timing, damage pressure, and reward pacing.
-16. Tune dynamic layout events so gates and rift surges stay readable, fair, and cleanup-safe.
-17. Tune boss waves so they remain distinct without causing unfair layout or collision pressure.
-18. Expand underfilled spell upgrade trees toward comparable depth and quality.
-19. Add more build-defining relics and behavior-changing rewards where replay variety is thin.
-20. Improve first-run onboarding for block, blink, Auto-Cast unlocks, objectives, hazards, and boss waves.
-21. Polish run summary and death recap so progress, damage sources, and best-run info feel release-ready.
+| # | Item | Status | Owner |
+|---|------|--------|-------|
+| 12 | Define target run length, wave pacing, and difficulty curve | **Not started** | [feature_5](feature_5_balance_pass.md) |
+| 13 | Balance six starter spells across early/mid/boss waves | **Not started** | [feature_5](feature_5_balance_pass.md) |
+| 14 | Balance reward economy, reroll, upgrade, and service costs | **Not started** | [feature_5](feature_5_balance_pass.md) |
+| 15 | Tune objective waves | **Not started** | [feature_5](feature_5_balance_pass.md) |
+| 16 | Tune dynamic layout events (gates, rift surges) | **Not started** | [feature_5](feature_5_balance_pass.md) |
+| 17 | Tune boss waves | **Not started** | [feature_5](feature_5_balance_pass.md) |
+| 18 | Expand underfilled spell upgrade trees | **Not started** | [feature_6](feature_6_content_expansion.md) |
+| 19 | Add more build-defining relics | **Not started** | [feature_6](feature_6_content_expansion.md) |
+| 20 | First-run onboarding for block / blink / Auto-Cast / objectives / hazards / bosses | **Not started** | [feature_7](feature_7_onboarding_recap.md) |
+| 21 | Polish run summary and death recap | **Not started** | [feature_7](feature_7_onboarding_recap.md) |
 
-## P2 - Steam And Store Readiness
+## P2 — Steam & Store Readiness
 
-22. Add Steamworks integration for achievements and run stats.
-23. Add Steam Cloud support once save persistence is finalized. **Partial prep:** settings/profile save file paths are now stable and documented; Steamworks/Steam Cloud configuration remains.
-24. Consider leaderboards for highest wave or other stable score categories.
-25. Create final Steam store capsules, library assets, screenshots, trailer, and short/long descriptions.
-26. Verify Steam graphical assets follow current capsule rules: artwork, game name, and official subtitle only on base capsules.
-27. Audit final packaged files so unused source asset folders, dev artifacts, and large build leftovers are not included.
-28. Audit credits and licenses for all bundled assets and Electron dependencies.
-29. Add a privacy policy if telemetry, analytics, or crash reporting sends data off-device.
-30. Run a Steam client install test from a private branch/default branch build before release review.
+| # | Item | Status | Owner |
+|---|------|--------|-------|
+| 22 | Steamworks achievements + run stats | **Not started** | [feature_8](feature_8_steamworks_integration.md) |
+| 23 | Steam Cloud configuration | **Partial prep** (save paths stable) | [feature_8](feature_8_steamworks_integration.md) |
+| 24 | Leaderboards (optional) | **Not scoped** | [feature_8](feature_8_steamworks_integration.md) (guarded behind first release) |
+| 25 | Store capsules, library art, screenshots, trailer | **Not started** | [feature_9](feature_9_store_release_audit.md) |
+| 26 | Capsule rules audit | **Not started** | [feature_9](feature_9_store_release_audit.md) |
+| 27 | Packaged-file audit | **Not started** | [feature_9](feature_9_store_release_audit.md) |
+| 28 | Credits / license audit | **Not started** | [feature_9](feature_9_store_release_audit.md) |
+| 29 | Privacy policy | **Not started** | [feature_9](feature_9_store_release_audit.md) |
+| 30 | Steam client install test | **Not started** | [feature_9](feature_9_store_release_audit.md) |
 
-## Suggested Milestones
+## Feature File Index
 
-1. Settings, save system, pause menu, clean packaging, and no console warnings.
-2. Controller support and Steam Deck readiness pass.
-3. Balance/content polish across spells, bosses, objectives, modifiers, and rewards.
-4. Steamworks achievements/stats/cloud and SteamPipe release pipeline.
-5. Store assets, trailer, screenshots, release checklist, and external playtest.
+- [feature_1 — Gamepad + Steam Deck](feature_1_gamepad_steam_deck.md)
+- [feature_2 — Expanded Smoke Tests](feature_2_smoke_tests.md)
+- [feature_3 — Electron Metadata](feature_3_electron_metadata.md)
+- [feature_4 — SteamPipe Build Scripts](feature_4_steampipe_build.md)
+- [feature_5 — Difficulty Curve & Balance Tuning](feature_5_balance_pass.md)
+- [feature_6 — Upgrade Tree & Relic Expansion](feature_6_content_expansion.md)
+- [feature_7 — Onboarding & Death Recap Polish](feature_7_onboarding_recap.md)
+- [feature_8 — Steamworks Integration](feature_8_steamworks_integration.md)
+- [feature_9 — Store Assets & Release Audit](feature_9_store_release_audit.md)
+
+## Dependency Graph
+
+```
+feature_2 (smoke tests)  ──────────────► feature_5 (balance) ──► feature_6 (content)
+                                                                       │
+feature_3 (electron metadata) ──► feature_4 (steampipe) ──► feature_8 (steamworks)
+                                                                       │
+feature_1 (gamepad)              feature_7 (onboarding)                │
+                                                                       ▼
+                                       feature_9 (store + release audit)
+```
+
+- feature_1, feature_2, feature_3 are standalone and can land in parallel.
+- feature_4 depends on feature_3 (final identity) and benefits from
+  feature_2 (smoke coverage on the upload pipeline).
+- feature_5 depends on feature_2 (regression safety) and is recommended
+  before feature_6 so new content lands on a stable base curve.
+- feature_6 expands content; depends on feature_5.
+- feature_7 is standalone but benefits from feature_1 (gamepad prompts).
+- feature_8 depends on feature_3 and feature_4 (app id + depots) and
+  benefits from feature_2 (no-op coverage).
+- feature_9 is the final feature; depends on most of the above for
+  screenshots, store assets, and the install test.
+
+## Recommended Implementation Order
+
+1. **feature_2** — Smoke tests first. Every subsequent feature is safer to
+   land with regression coverage in place.
+2. **feature_3** — Electron metadata. Small, low-risk, unlocks feature_4
+   and feature_8.
+3. **feature_1** — Gamepad + Steam Deck. Independent of feature_3/4; the
+   sooner controller support exists, the sooner downstream UI work
+   (feature_7) can include device-aware prompts in one pass.
+4. **feature_4** — SteamPipe build scripts. Needs feature_3.
+5. **feature_5** — Balance tuning. Use feature_2 to validate.
+6. **feature_6** — Content expansion on top of the stable balance.
+7. **feature_7** — Onboarding + recap polish. Best after balance/content
+   are stable so prompts reflect real shipping numbers.
+8. **feature_8** — Steamworks integration. Needs feature_3 + feature_4.
+9. **feature_9** — Store assets + release audit. Last; needs everything
+   above to capture shipping-quality screenshots and pass the install
+   smoke test.

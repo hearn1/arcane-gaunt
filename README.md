@@ -44,20 +44,32 @@ With `serve.py` running, open:
 http://localhost:8000/?smoke=boot-start-menu
 ```
 
-This runs the first lightweight automated smoke harness in the browser. It
-boots the real static app, starts a run without pointer-lock input, enters the
-first wave, pauses, returns to the main menu, and verifies HUD/crosshair/banner,
-enemy, projectile, timer, and input cleanup. The result is shown in a small
-on-screen panel and exposed as:
+This runs the lightweight automated smoke harness in the browser. The following
+scenarios are available as the `smoke` query parameter:
 
-```js
-window.__arcaneSmokeResult
+| Scenario | Description |
+|----------|-------------|
+| `boot-start-menu` | Boot, start run, enter first wave, pause, return to main menu — verifies HUD/crosshair/banner, enemy, projectile, timer, and input cleanup. |
+| `wave-clear` | Clear a full wave by killing all enemies, assert reward state and reward cards. |
+| `reward-and-upgrade` | Pick a reward, verify upgrade panel renders, buy a heal service, resume to focus prompt. |
+| `death-restart` | Force player death, assert game-over UI and summary reachable, restart at full health. |
+| `settings-persistence` | Write custom settings, round-trip through save/load, restore originals. |
+| `reset-records` | Persist a synthetic best run, trigger reset, assert profile cleared but settings unchanged. |
+
+Pass `?smoke=all` to run every scenario in sequence:
+
+```text
+http://localhost:8000/?smoke=all
 ```
+
+Each scenario runs independently with state restored between them. The result
+panel shows per-scenario pass/fail counts, and `window.__arcaneSmokeResult`
+exposes the full result tree.
 
 The smoke runner is inert unless the `smoke` query parameter is present, skips
 audio startup, and avoids writing profile progress while it drives the flow.
-Future smoke scenarios should extend this same query-parameter harness rather
-than adding a separate app architecture.
+All scenarios use the same query-parameter harness rather than a separate app
+architecture.
 
 ## Run as a desktop app
 
