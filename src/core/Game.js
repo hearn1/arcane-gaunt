@@ -165,7 +165,9 @@ export class Game {
 
     this.player.health.onDeath = () => this.onPlayerDeath();
     this.input.onBlink = () => { if (this.state === STATE.PLAYING) this.blink.trigger(); };
+    this.input.onPause = () => { if (this.state === STATE.PLAYING) this.pauseGame(true); };
     this.input.onLockChange = (locked) => this.onLockChange(locked);
+    this._lastInputDevice = "kbm";
     getStorageMeta().then((meta) => { this.storageMeta = meta; });
 
     addEventListener("resize", () => this._resize());
@@ -437,6 +439,8 @@ export class Game {
   applySettings() {
     this.audio?.setSettings(this.settings.audio);
     this.player?.setMouseSensitivity(this.settings.controls.mouseSensitivity);
+    this.player.stickLookSensitivity = this.settings.controls.stickLookSensitivity ?? 1;
+    this.player.invertY = this.settings.controls.invertY ?? false;
     this.vfx?.setDensity(this.settings.performance.vfxDensity);
     this._applyRendererSettings();
   }
@@ -890,6 +894,16 @@ export class Game {
     let dt = (now - this._last) / 1000;
     this._last = now;
     if (dt > 0.05) dt = 0.05; // clamp tab-out spikes
+
+    this.input.pump(dt);
+
+    if (this.input.lastInputDevice !== this._lastInputDevice) {
+      this._lastInputDevice = this.input.lastInputDevice;
+      // Re-render hint glyphs if a menu overlay is visible
+      if (this.state !== STATE.PLAYING && this.state !== STATE.FOCUS) {
+        this.ui.rebuildHints?.(this.input.lastInputDevice);
+      }
+    }
 
     if (this.state === STATE.PLAYING) {
       this.block.update(dt, this.input);

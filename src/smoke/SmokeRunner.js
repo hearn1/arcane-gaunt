@@ -5,6 +5,7 @@ import runRewardAndUpgrade from "./scenarios/rewardAndUpgrade.js";
 import runDeathRestart from "./scenarios/deathRestart.js";
 import runSettingsPersistence from "./scenarios/settingsPersistence.js";
 import runResetRecords from "./scenarios/resetRecords.js";
+import runGamepadMenuNav from "./scenarios/gamepadMenuNav.js";
 
 const SCENARIOS = {
   "boot-start-menu": runBootStartMenu,
@@ -13,6 +14,7 @@ const SCENARIOS = {
   "death-restart": runDeathRestart,
   "settings-persistence": runSettingsPersistence,
   "reset-records": runResetRecords,
+  "gamepad-menu-nav": runGamepadMenuNav,
 };
 
 async function runSingleScenario(game, scenario) {

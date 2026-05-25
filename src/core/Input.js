@@ -1,19 +1,32 @@
-// Keyboard + pointer-lock mouse. No gameplay logic here.
+import { Gamepad } from "./Gamepad.js";
+
+const STICK_DEADZONE = 0.18;
+
 export class Input {
   constructor(domElement) {
     this.dom = domElement;
     this.keys = {};
     this.mouseDX = 0;
     this.mouseDY = 0;
-    this.firing = false;
-    this.rightDown = false; // right mouse held (block), consumed by Block
+    this._mouseFiring = false;
+    this._mouseRightDown = false;
+    this._gpFiring = false;
+    this._gpRightDown = false;
     this.locked = false;
-    this._selectSpell = -1; // 1..6 set on keydown, consumed by caster
-    this._wheel = 0;        // net wheel steps, consumed by caster
+    this._selectSpell = -1;
+    this._wheel = 0;
     this.onBlink = null;
+    this.onPause = null;
+
+    this.gamepad = new Gamepad();
+    this.lastInputDevice = "kbm";
+    this._lookAxes = { x: 0, y: 0 };
+    this.leftStickX = 0;
+    this.leftStickY = 0;
 
     addEventListener("keydown", (e) => {
       this.keys[e.code] = true;
+      if (this.lastInputDevice !== "kbm") this.lastInputDevice = "kbm";
       if (e.code >= "Digit1" && e.code <= "Digit9") {
         this._selectSpell = parseInt(e.code.slice(5), 10);
       }
@@ -36,12 +49,13 @@ export class Input {
     });
     addEventListener("mousedown", (e) => {
       if (!this.locked) return;
-      if (e.button === 0) this.firing = true;
-      if (e.button === 2) this.rightDown = true;
+      if (this.lastInputDevice !== "kbm") this.lastInputDevice = "kbm";
+      if (e.button === 0) this._mouseFiring = true;
+      if (e.button === 2) this._mouseRightDown = true;
     });
     addEventListener("mouseup", (e) => {
-      if (e.button === 0) this.firing = false;
-      if (e.button === 2) this.rightDown = false;
+      if (e.button === 0) this._mouseFiring = false;
+      if (e.button === 2) this._mouseRightDown = false;
     });
     addEventListener("contextmenu", (e) => e.preventDefault());
     addEventListener("wheel", (e) => {
@@ -50,6 +64,9 @@ export class Input {
       this._wheel += Math.sign(e.deltaY);
     }, { passive: false });
   }
+
+  get firing() { return this._mouseFiring || this._gpFiring; }
+  get rightDown() { return this._mouseRightDown || this._gpRightDown; }
 
   requestLock() {
     try {
@@ -69,8 +86,8 @@ export class Input {
   exitLock() {
     const wasLocked = this.locked;
     document.exitPointerLock?.();
-    this.firing = false;
-    this.rightDown = false;
+    this._mouseFiring = false;
+    this._mouseRightDown = false;
     if (wasLocked && document.pointerLockElement !== this.dom) {
       this.locked = false;
       this.onLockChange?.(false);
@@ -80,6 +97,15 @@ export class Input {
   consumeMouse() {
     const d = { x: this.mouseDX, y: this.mouseDY };
     this.mouseDX = 0; this.mouseDY = 0;
+    return d;
+  }
+
+  consumeStickLook(dt) {
+    const d = { x: this._lookAxes.x, y: this._lookAxes.y };
+    this._lookAxes.x = 0;
+    this._lookAxes.y = 0;
+    d.x *= dt;
+    d.y *= dt;
     return d;
   }
 
@@ -95,14 +121,43 @@ export class Input {
     return w;
   }
 
+  pump(dt) {
+    const gp = this.gamepad.poll();
+    if (!gp.active) return;
+
+    const hasInput = gp.buttons.some(Boolean) || gp.axes.some((a) => Math.abs(a) > 0.05);
+    if (hasInput && this.lastInputDevice !== "gamepad") this.lastInputDevice = "gamepad";
+
+    this._lookAxes.x += gp.axes[2];
+    this._lookAxes.y += gp.axes[3];
+
+    this.leftStickX = gp.axes[0];
+    this.leftStickY = gp.axes[1];
+
+    this._gpFiring = gp.buttons[0] || gp.buttons[7];
+    this._gpRightDown = gp.buttons[6];
+
+    if (gp.justPressed[1]) this.onBlink?.();
+    if (gp.justPressed[9]) this.onPause?.();
+
+    if (gp.justPressed[4]) this._wheel -= 1;
+    if (gp.justPressed[5]) this._wheel += 1;
+  }
+
   down(code) { return !!this.keys[code]; }
   clearKeys() {
     this.keys = {};
     this.mouseDX = 0;
     this.mouseDY = 0;
-    this.firing = false;
-    this.rightDown = false;
+    this._mouseFiring = false;
+    this._mouseRightDown = false;
+    this._gpFiring = false;
+    this._gpRightDown = false;
     this._selectSpell = -1;
     this._wheel = 0;
+    this._lookAxes.x = 0;
+    this._lookAxes.y = 0;
+    this.leftStickX = 0;
+    this.leftStickY = 0;
   }
 }

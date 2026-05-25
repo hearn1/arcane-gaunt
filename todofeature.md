@@ -21,8 +21,8 @@ changes.
 | 2 | Save persistence for best runs, stats, preferences, future unlocks | **Partial** — settings + profile done; future unlock/meta reserved | (extended in feature_7, feature_8) |
 | 3 | Safe reset/delete-save flow | **Done** (Milestone 1) | — |
 | 4 | Document Steam Cloud-ready save location | **Done** (Milestone 1) | — |
-| 5 | Full gamepad support (gameplay + menus) | **Not started** | [feature_1](feature_1_gamepad_steam_deck.md) |
-| 6 | Steam Deck UI readiness | **Not started** | [feature_1](feature_1_gamepad_steam_deck.md) |
+| 5 | Full gamepad support (gameplay + menus) | **Partial** — pump, pump, pump, stick, block, blink, menus nav, settings, prompts, smoke stub | [feature_1](feature_1_gamepad_steam_deck.md) |
+| 6 | Steam Deck UI readiness | **Partial** — focus-visible styles, device-aware prompts; manual test needed on Deck | [feature_1](feature_1_gamepad_steam_deck.md) |
 | 7 | Pause/settings menu without relying on pointer-lock release | **Done** (Milestone 1) | — |
 | 8 | Production Electron metadata (icon, version, identity) | **Done** | [feature_3](feature_3_electron_metadata.md) |
 | 9 | SteamPipe app/depot build scripts | **Not started** | [feature_4](feature_4_steampipe_build.md) |

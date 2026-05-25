@@ -1,4 +1,25 @@
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
+import { attach } from "./uiNav.js";
+
+const PROMPTS = {
+  move: { kbm: "WASD", gamepad: "Left Stick" },
+  look: { kbm: "Mouse", gamepad: "Right Stick" },
+  cast: { kbm: "Left Click", gamepad: "RT" },
+  block: { kbm: "Right Click (hold)", gamepad: "LT (hold)" },
+  blink: { kbm: "Shift / Q", gamepad: "B" },
+  jump: { kbm: "Space", gamepad: "A" },
+  pause: { kbm: "Esc", gamepad: "Start" },
+  cycle: { kbm: "Mouse Wheel", gamepad: "LB / RB" },
+  select: { kbm: "Number Keys", gamepad: "D-Pad" },
+  confirm: { kbm: "Left Click", gamepad: "A" },
+  back: { kbm: "Esc", gamepad: "B" },
+};
+
+function devicePrompt(key) {
+  const game = window.__arcaneGame;
+  const device = game?.input?.lastInputDevice || "kbm";
+  return PROMPTS[key]?.[device] || PROMPTS[key]?.kbm || key;
+}
 
 // All DOM/CSS UI. Reads state and calls back into managers via callbacks.
 // Contains no gameplay logic.
@@ -39,6 +60,7 @@ export class UI {
     this.bossBarFill = document.getElementById("bb-fill");
     this.bossBarName = document.getElementById("bb-name");
 
+    this._navDetach = null;
     this._spellSlots = [];
   }
 
@@ -74,14 +96,22 @@ export class UI {
     this.bossBarEl.classList.add("show");
   }
 
-  _show(html) { this.root.classList.remove("hidden"); this.root.innerHTML = html; }
-  hideOverlay() { this.root.classList.add("hidden"); this.root.innerHTML = ""; }
+  _detachNav() { this._navDetach?.(); this._navDetach = null; }
+  _show(html) { this._detachNav(); this.root.classList.remove("hidden"); this.root.innerHTML = html; }
+  hideOverlay() { this._detachNav(); this.root.classList.add("hidden"); this.root.innerHTML = ""; }
   setHud(on) {
     this.hud.classList.toggle("active", on);
     this.crosshair.classList.toggle("active", on);
   }
 
+  rebuildHints() {
+    // Stub: device-aware prompts are resolved at render time via devicePrompt().
+    // If the device changes while a static screen is shown, re-render that screen.
+    // Currently no overlay screens are long-lived enough to need this.
+  }
+
   clearTransientCombatUi() {
+    this._detachNav();
     clearTimeout(this._wb);
     clearTimeout(this._tt);
     this.waveBannerEl?.classList.remove("show", "has-mod", "has-boss", "has-objective");
@@ -111,16 +141,17 @@ export class UI {
   mainMenu(onStart, selectedSpellId = STARTER_SPELL_ID, onSettings = null, profile = null, onResetProfile = null) {
     this.setHud(false);
     const spellOptions = Object.values(SPELL_DEFINITIONS).map((def) => `
-      <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""}" data-spell="${def.id}">
+      <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""}" data-spell="${def.id}" data-nav>
         <span class="spell-choice-name">${def.displayName}</span>
         <span class="spell-choice-desc">${def.description}</span>
       </button>
     `).join("");
+    const hasMulti = Object.keys(SPELL_DEFINITIONS).length > 1;
     const settingsButton = onSettings
-      ? `<button class="btn secondary" id="btn-settings">Settings</button>`
+      ? `<button class="btn secondary" id="btn-settings" data-nav>Settings</button>`
       : "";
     const resetButton = onResetProfile
-      ? `<button class="btn secondary" id="btn-reset-profile">Reset Records</button>`
+      ? `<button class="btn secondary" id="btn-reset-profile" data-nav>Reset Records</button>`
       : "";
     const records = this._profileSnapshot(profile);
     this._show(`
@@ -134,16 +165,21 @@ export class UI {
         <div><span class="profile-label">Damage</span><b>${records.damage}</b></div>
       </div>
       <div class="btn-row">
-        <button class="btn" id="btn-start">Start Run</button>
+        <button class="btn" id="btn-start" data-nav>Start Run</button>
         ${settingsButton}
         ${resetButton}
       </div>
       <div class="hint">
-        <b>WASD</b> move &nbsp;&middot;&nbsp; <b>Mouse</b> look &nbsp;&middot;&nbsp; <b>Left Click</b> cast &nbsp;&middot;&nbsp; <b>Right Click</b> block<br/>
-        <b>Space</b> jump &nbsp;&middot;&nbsp; <b>Shift / Q</b> blink &nbsp;&middot;&nbsp; <b>Esc</b> release mouse
+        <b>${devicePrompt("move")}</b> move &nbsp;&middot;&nbsp; <b>${devicePrompt("look")}</b> look &nbsp;&middot;&nbsp;
+        <b>${devicePrompt("cast")}</b> cast &nbsp;&middot;&nbsp; <b>${devicePrompt("block")}</b> block<br/>
+        <b>${devicePrompt("jump")}</b> jump &nbsp;&middot;&nbsp; <b>${devicePrompt("blink")}</b> blink &nbsp;&middot;&nbsp;
+        <b>${devicePrompt("pause")}</b> ${hasMulti ? "release mouse / pause" : "release mouse"}
       </div>
       <div class="credits-note">Audio, arena textures, and enemy models: Kenney.nl, ambientCG, and Quaternius (CC0). See CREDITS.md.</div>
     `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+    });
     let selected = SPELL_DEFINITIONS[selectedSpellId] ? selectedSpellId : STARTER_SPELL_ID;
     this.root.querySelectorAll(".spell-choice").forEach((el) => {
       el.onclick = () => {
@@ -180,20 +216,23 @@ export class UI {
   focusPrompt(onFocus, label = "Click to play", actions = {}) {
     this.setHud(false);
     const settingsButton = actions.onSettings
-      ? `<button class="btn secondary" id="btn-focus-settings">Settings</button>`
+      ? `<button class="btn secondary" id="btn-focus-settings" data-nav>Settings</button>`
       : "";
     const menuButton = actions.onMenu
-      ? `<button class="btn secondary" id="btn-focus-menu">Main Menu</button>`
+      ? `<button class="btn secondary" id="btn-focus-menu" data-nav>Main Menu</button>`
       : "";
     this._show(`
       <h1 class="title" style="font-size:42px;">ArcaneGaunt</h1>
       <div class="btn-row">
-        <button class="btn" id="btn-focus">${label}</button>
+        <button class="btn" id="btn-focus" data-nav>${label}</button>
         ${settingsButton}
         ${menuButton}
       </div>
-      <div class="hint">Mouse will be captured. Press <b>Esc</b> any time to release it.</div>
+      <div class="hint">Press <b>${devicePrompt("confirm")}</b> to capture mouse &nbsp;&middot;&nbsp; <b>${devicePrompt("pause")}</b> releases it.</div>
     `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+    });
     document.getElementById("btn-focus").onclick = onFocus;
     const btnSettings = document.getElementById("btn-focus-settings");
     if (btnSettings && actions.onSettings) btnSettings.onclick = actions.onSettings;
@@ -206,12 +245,16 @@ export class UI {
     this._show(`
       <h1 class="title" style="font-size:42px;">Paused</h1>
       <div class="btn-row">
-        <button class="btn" id="btn-pause-resume">Resume</button>
-        <button class="btn secondary" id="btn-pause-settings">Settings</button>
-        <button class="btn secondary" id="btn-pause-menu">Main Menu</button>
+        <button class="btn" id="btn-pause-resume" data-nav>Resume</button>
+        <button class="btn secondary" id="btn-pause-settings" data-nav>Settings</button>
+        <button class="btn secondary" id="btn-pause-menu" data-nav>Main Menu</button>
       </div>
-      <div class="hint">Combat is paused while this menu is open.</div>
+      <div class="hint">Combat is paused while this menu is open. <b>${devicePrompt("back")}</b> to resume.</div>
     `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+      onBack: onResume,
+    });
     document.getElementById("btn-pause-resume").onclick = onResume;
     document.getElementById("btn-pause-settings").onclick = onSettings;
     document.getElementById("btn-pause-menu").onclick = onMenu;
@@ -227,10 +270,14 @@ export class UI {
         Settings are not changed.
       </div>
       <div class="btn-row">
-        <button class="btn danger" id="btn-reset-confirm">Reset Run Records</button>
-        <button class="btn secondary" id="btn-reset-cancel">Cancel</button>
+        <button class="btn danger" id="btn-reset-confirm" data-nav>Reset Run Records</button>
+        <button class="btn secondary" id="btn-reset-cancel" data-nav>Cancel</button>
       </div>
     `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+      onBack: onCancel,
+    });
     document.getElementById("btn-reset-confirm").onclick = onConfirm;
     document.getElementById("btn-reset-cancel").onclick = onCancel;
   }
@@ -239,6 +286,8 @@ export class UI {
     this.setHud(false);
     const volumePct = Math.round((settings.audio?.volume ?? 0.35) * 100);
     const sensitivityPct = Math.round((settings.controls?.mouseSensitivity ?? 1) * 100);
+    const stickSensPct = Math.round((settings.controls?.stickLookSensitivity ?? 1) * 100);
+    const invertY = !!settings.controls?.invertY;
     const muted = !!settings.audio?.muted;
     const fullscreen = !!settings.display?.fullscreen;
     const renderScale = settings.performance?.renderScale ?? 1;
@@ -263,6 +312,15 @@ export class UI {
           <input id="set-sensitivity" type="range" min="30" max="200" step="5" value="${sensitivityPct}"/>
           <span class="settings-value" id="set-sensitivity-value">${sensitivityPct}%</span>
         </div>
+        <div class="settings-row">
+          <label for="set-stick-sensitivity">Stick Look Sensitivity</label>
+          <input id="set-stick-sensitivity" type="range" min="30" max="200" step="5" value="${stickSensPct}"/>
+          <span class="settings-value" id="set-stick-sensitivity-value">${stickSensPct}%</span>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-invert-y" ${invertY ? "checked" : ""}/>
+          <span>Invert Y-Axis</span>
+        </label>
         <label class="settings-toggle">
           <input type="checkbox" id="set-fullscreen" ${fullscreen ? "checked" : ""}/>
           <span>Fullscreen</span>
@@ -286,27 +344,32 @@ export class UI {
         </div>
         <div class="settings-storage">${storageText}</div>
       </div>
-      <button class="btn secondary" id="btn-settings-back">Back</button>
+      <button class="btn secondary" id="btn-settings-back" data-nav>Back</button>
     `);
 
     const mutedEl = document.getElementById("set-muted");
     const volumeEl = document.getElementById("set-volume");
     const sensitivityEl = document.getElementById("set-sensitivity");
+    const stickSensEl = document.getElementById("set-stick-sensitivity");
+    const invertYEl = document.getElementById("set-invert-y");
     const fullscreenEl = document.getElementById("set-fullscreen");
     const renderScaleEl = document.getElementById("set-render-scale");
     const vfxDensityEl = document.getElementById("set-vfx-density");
     const volumeValue = document.getElementById("set-volume-value");
     const sensitivityValue = document.getElementById("set-sensitivity-value");
+    const stickSensValue = document.getElementById("set-stick-sensitivity-value");
     const renderScaleValue = document.getElementById("set-render-scale-value");
     const vfxDensityValue = document.getElementById("set-vfx-density-value");
 
     const emit = () => {
       const nextVolume = Number(volumeEl.value);
       const nextSensitivity = Number(sensitivityEl.value);
+      const nextStickSens = Number(stickSensEl.value);
       const nextRenderScale = Number(renderScaleEl.value);
       const nextVfxDensity = vfxDensityEl.value;
       volumeValue.textContent = `${nextVolume}%`;
       sensitivityValue.textContent = `${nextSensitivity}%`;
+      stickSensValue.textContent = `${nextStickSens}%`;
       renderScaleValue.textContent = `${Math.round(nextRenderScale * 100)}%`;
       vfxDensityValue.textContent = nextVfxDensity === "reduced" ? "Reduced" : "Full";
       onChange({
@@ -316,6 +379,8 @@ export class UI {
         },
         controls: {
           mouseSensitivity: nextSensitivity / 100,
+          stickLookSensitivity: nextStickSens / 100,
+          invertY: invertYEl.checked,
         },
         display: {
           fullscreen: fullscreenEl.checked,
@@ -330,16 +395,21 @@ export class UI {
     mutedEl.onchange = emit;
     volumeEl.oninput = emit;
     sensitivityEl.oninput = emit;
+    stickSensEl.oninput = emit;
+    invertYEl.onchange = emit;
     fullscreenEl.onchange = emit;
     renderScaleEl.onchange = emit;
     vfxDensityEl.onchange = emit;
+    this._navDetach = attach(this.root, {
+      onBack: onBack,
+    });
     document.getElementById("btn-settings-back").onclick = onBack;
   }
 
   reward(level, rewards, onPick, economy = null, world = null) {
     this.setHud(false);
     const cards = rewards.map((r, i) => `
-      <div class="reward-card" data-i="${i}">
+      <div class="reward-card" data-i="${i}" data-nav>
         <div class="r-type"><span>${r.type}</span><span class="r-rarity ${r.rarity || "common"}">${r.rarity || "common"}</span></div>
         <div class="r-title">${r.title}</div>
         <div class="r-desc">${r.description}</div>
@@ -355,9 +425,12 @@ export class UI {
       <div class="subtitle">Choose a Reward</div>
       ${nudge}
       <div id="reward-cards">${cards}</div>
-      ${economy ? `<button class="btn secondary" id="btn-reroll" ${economy.canReroll ? "" : "disabled"}>Reroll Rewards &middot; ${economy.rerollCost}g</button>
-      <div class="hint">Gold: <b style="color:var(--gold);">${economy.gold}</b></div>` : ""}
+      ${economy ? `<button class="btn secondary" id="btn-reroll" data-nav ${economy.canReroll ? "" : "disabled"}>Reroll Rewards &middot; ${economy.rerollCost}g</button>
+      <div class="hint">Gold: <b style="color:var(--gold);">${economy.gold}</b> &nbsp;&middot;&nbsp; <b>${devicePrompt("confirm")}</b> pick &nbsp;&middot;&nbsp; <b>${devicePrompt("back")}</b> back</div>` : ""}
     `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+    });
     this.root.querySelectorAll(".reward-card").forEach((el) => {
       el.onclick = () => onPick(rewards[parseInt(el.dataset.i, 10)]);
     });
@@ -374,7 +447,7 @@ export class UI {
           <div class="svc-title">${svc.title}</div>
           <div class="svc-desc">${svc.description}</div>
         </div>
-        <button class="up-buy svc-buy" data-svc="${svc.id}" ${svc.disabled || gold < svc.cost ? "disabled" : ""}>Buy &middot; ${svc.cost}g</button>
+        <button class="up-buy svc-buy" data-svc="${svc.id}" data-nav ${svc.disabled || gold < svc.cost ? "disabled" : ""}>Buy &middot; ${svc.cost}g</button>
       </div>
     `).join("");
     const spells = world.caster.loadout
@@ -398,7 +471,7 @@ export class UI {
           if (st === "owned") {
             btn = `<span class="up-tag owned">Owned</span>`;
           } else if (st === "available") {
-            btn = `<button class="up-buy" data-sp="${id}" data-nd="${node.id}" ${affordable ? "" : "disabled"}>Buy &middot; ${node.cost}g</button>`;
+            btn = `<button class="up-buy" data-sp="${id}" data-nd="${node.id}" data-nav ${affordable ? "" : "disabled"}>Buy &middot; ${node.cost}g</button>`;
           } else {
             btn = `<span class="up-tag locked">Locked &middot; ${node.cost}g</span>`;
           }
@@ -427,8 +500,11 @@ export class UI {
       <div class="subtitle">Gold: <b style="color:var(--gold);">${gold}</b> &nbsp;&middot;&nbsp; Spend before the next wave</div>
       <div id="service-panel">${services}</div>
       <div id="upgrade-panel">${spells || `<div class="up-empty">No upgrades available for this spell yet.</div>`}</div>
-      <button class="btn" id="btn-up-continue">Continue to Next Wave</button>
+      <button class="btn" id="btn-up-continue" data-nav>Continue to Next Wave</button>
     `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+    });
     this.root.querySelectorAll(".up-buy").forEach((el) => {
       if (el.classList.contains("svc-buy")) return;
       el.onclick = () => onBuy(el.dataset.sp, el.dataset.nd);
@@ -445,11 +521,14 @@ export class UI {
       <h1 class="title" style="color:#ff5566;-webkit-text-fill-color:#ff5566;">YOU DIED</h1>
       <div class="subtitle">The arena claims another wizard</div>
       <div class="btn-row">
-        <button class="btn" id="btn-summary">View Run Summary</button>
-        <button class="btn secondary" id="btn-restart">Restart</button>
-        <button class="btn secondary" id="btn-menu">Main Menu</button>
+        <button class="btn" id="btn-summary" data-nav>View Run Summary</button>
+        <button class="btn secondary" id="btn-restart" data-nav>Restart</button>
+        <button class="btn secondary" id="btn-menu" data-nav>Main Menu</button>
       </div>
     `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+    });
     document.getElementById("btn-summary").onclick = onSummary;
     document.getElementById("btn-restart").onclick = onRestart;
     document.getElementById("btn-menu").onclick = onMenu;
@@ -477,8 +556,12 @@ export class UI {
       <div class="profile-note">${bestText} &nbsp;&middot;&nbsp; Lifetime runs: ${totals.runsCompleted || 0}/${totals.runsStarted || 0}</div>
       <div class="subtitle" style="margin-top:6px;">Damage by Spell</div>
       <div id="dmg-breakdown">${list}</div>
-      <button class="btn secondary" id="btn-back">Back</button>
+      <button class="btn secondary" id="btn-back" data-nav>Back</button>
     `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+      onBack: onBack,
+    });
     document.getElementById("btn-back").onclick = onBack;
   }
 
