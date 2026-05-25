@@ -12,6 +12,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   }),
   controls: Object.freeze({
     mouseSensitivity: 1,
+    stickLookSensitivity: 1,
+    invertY: false,
   }),
   display: Object.freeze({
     fullscreen: false,
@@ -46,6 +48,13 @@ export function sanitizeSettings(input = {}) {
         2,
         DEFAULT_SETTINGS.controls.mouseSensitivity,
       ),
+      stickLookSensitivity: clampNumber(
+        input.controls?.stickLookSensitivity,
+        0.3,
+        2,
+        DEFAULT_SETTINGS.controls.stickLookSensitivity,
+      ),
+      invertY: !!input.controls?.invertY,
     },
     display: {
       fullscreen: !!input.display?.fullscreen,

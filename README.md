@@ -55,6 +55,7 @@ scenarios are available as the `smoke` query parameter:
 | `death-restart` | Force player death, assert game-over UI and summary reachable, restart at full health. |
 | `settings-persistence` | Write custom settings, round-trip through save/load, restore originals. |
 | `reset-records` | Persist a synthetic best run, trigger reset, assert profile cleared but settings unchanged. |
+| `gamepad-menu-nav` | Programmatic uiNav focus/activate through main menu, pause, and settings screens (no real gamepad). Verifies data-nav wiring and new settings rows. |
 
 Pass `?smoke=all` to run every scenario in sequence:
 
@@ -136,15 +137,21 @@ Notes for later Steam polish:
 
 ## Controls
 
-| Input | Action |
-|-------|--------|
-| `W A S D` | Move |
-| Mouse | Look |
-| Left click | Cast the selected run spell |
-| Right click (hold) | Block; perfect-timed block reflects projectiles |
-| `Space` | Jump |
-| `Shift` or `Q` | Blink (short dash) |
-| `Esc` | Pause / release mouse |
+| Input | Gamepad | Action |
+|-------|---------|--------|
+| `W A S D` | Left Stick | Move |
+| Mouse | Right Stick | Look |
+| Left Click | RT / A | Cast the selected run spell |
+| Right Click (hold) | LT (hold) | Block; perfect-timed block reflects projectiles |
+| `Space` | A | Jump |
+| `Shift` / `Q` | B | Blink (short dash) |
+| `Esc` | Start | Pause / release mouse |
+| `1`–`6` | D-Pad | Select equipped spell |
+| Mouse Wheel | LB / RB | Cycle equipped spell |
+| — | Back / View | Open settings (main menu) |
+
+**Stick Look Sensitivity** and **Invert Y-Axis** are configurable in the
+Settings menu. Stick sensitivity defaults to 1.0× (range 0.3×–2.0×).
 
 Runs still begin from one manual spell. If you buy that spell's Auto-Cast node,
 it keeps firing passively while not blocking and can unlock a new manual spell

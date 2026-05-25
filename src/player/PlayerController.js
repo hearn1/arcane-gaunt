@@ -8,6 +8,7 @@ const ACCEL = 60;
 const GRAVITY = 26;
 const JUMP_V = 9;
 const BASE_LOOK_SENS = 0.0022;
+const STICK_DEADZONE = 0.18;
 
 // First-person movement + mouse look. Owns the camera and a Health. Knows
 // nothing about spells/projectiles/damage rules.
@@ -23,6 +24,8 @@ export class PlayerController {
     this.radius = 0.8;
     this.vel = new THREE.Vector3();
     this.lookSens = BASE_LOOK_SENS;
+    this.stickLookSensitivity = 1;
+    this.invertY = false;
 
     this.health = new Health(100, "player");
     this._syncCamera();
@@ -64,8 +67,13 @@ export class PlayerController {
     if (this.health.isDead) return;
 
     const m = input.consumeMouse();
-    this.yaw -= m.x * this.lookSens;
-    this.pitch -= m.y * this.lookSens;
+    const s = input.consumeStickLook(dt);
+    const stickSens = this.lookSens * this.stickLookSensitivity;
+    const yawDelta = m.x * this.lookSens + s.x * stickSens;
+    let pitchDelta = m.y * this.lookSens + s.y * stickSens;
+    if (this.invertY) pitchDelta = -pitchDelta;
+    this.yaw -= yawDelta;
+    this.pitch -= pitchDelta;
     this.pitch = THREE.MathUtils.clamp(this.pitch, -Math.PI / 2 + 0.05, Math.PI / 2 - 0.05);
 
     // Horizontal move relative to yaw.
@@ -76,6 +84,15 @@ export class PlayerController {
     if (input.down("KeyS")) wish.sub(fwd);
     if (input.down("KeyD")) wish.add(right);
     if (input.down("KeyA")) wish.sub(right);
+    // Left-stick movement when keys are not pressed (keys win when both active)
+    if (wish.lengthSq() === 0) {
+      const sx = input.leftStickX;
+      const sy = input.leftStickY;
+      if (Math.abs(sx) > STICK_DEADZONE || Math.abs(sy) > STICK_DEADZONE) {
+        wish.add(right.clone().multiplyScalar(sx));
+        wish.add(fwd.clone().multiplyScalar(-sy));
+      }
+    }
     let moveMul = this.block && this.block.blocking ? 0.55 : 1;
     // Brief speed pulse right after a perfect block (rides the existing 0.42s VFX timer).
     if (this.block && this.block.perfectPulse > 0) moveMul *= 1.2;

@@ -45,6 +45,7 @@
     padding: 12px 30px; cursor: pointer; min-width: 220px;
     transition: transform .08s ease, box-shadow .15s ease;
   }
+  button.btn:focus-visible { outline: 3px solid var(--accent2); outline-offset: 3px; }
   button.btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(122,80,220,0.45); }
   button.btn.secondary { background: linear-gradient(180deg, #2c2848, #1d1a32); border-color: #4a4470; }
   button.btn.danger { background: linear-gradient(180deg, #a63143, #681d2a); border-color: #ff7080; }
@@ -71,6 +72,7 @@
     text-align: left; padding: 14px 16px; color: #d8d4ef; cursor: pointer;
     background: rgba(14, 12, 28, 0.78); border: 1px solid rgba(255,255,255,0.16);
     border-radius: 8px; font: inherit; transition: transform .08s ease, border-color .15s ease, box-shadow .15s ease; }
+  .spell-choice:focus-visible { outline: 3px solid var(--accent2); outline-offset: 3px; }
   .spell-choice:hover { transform: translateY(-2px); border-color: rgba(154,108,255,0.75); }
   .spell-choice.selected { border-color: var(--accent2); box-shadow: 0 0 18px rgba(92,200,255,0.28); }
   .spell-choice-name { font-size: 16px; font-weight: 800; }
@@ -177,6 +179,7 @@
     border: 1px solid #5a4f8c; border-radius: 12px; padding: 20px; cursor: pointer;
     pointer-events: auto; display: flex; flex-direction: column; gap: 10px;
     transition: transform .1s ease, border-color .15s ease, box-shadow .15s ease; text-align: left; }
+  .reward-card:focus-visible { outline: 3px solid var(--accent2); outline-offset: 3px; }
   .reward-card:hover { transform: translateY(-4px); border-color: var(--accent);
     box-shadow: 0 10px 30px rgba(120,80,220,0.4); }
   .reward-card .r-type { display: flex; align-items: center; justify-content: space-between;

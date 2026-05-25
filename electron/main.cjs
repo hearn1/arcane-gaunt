@@ -333,6 +333,8 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // Gamepad API works under Chromium without special flags; the renderer
+      // polls navigator.getGamepads() each frame via src/core/Gamepad.js.
     },
   });
 

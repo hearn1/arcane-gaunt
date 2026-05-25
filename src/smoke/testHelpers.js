@@ -69,7 +69,13 @@ export function inputIsClear(input) {
     input.firing === false &&
     input.rightDown === false &&
     input._selectSpell === -1 &&
-    input._wheel === 0
+    input._wheel === 0 &&
+    input._lookAxes.x === 0 &&
+    input._lookAxes.y === 0 &&
+    input.leftStickX === 0 &&
+    input.leftStickY === 0 &&
+    input._gpFiring === false &&
+    input._gpRightDown === false
   );
 }
 
