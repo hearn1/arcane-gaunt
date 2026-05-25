@@ -125,9 +125,12 @@ dist/ArcaneGaunt 0.1.0.exe
 
 Notes for later Steam polish:
 
-- Replace the default Electron icon by adding a Windows `.ico` file and setting
-  `build.win.icon` in `package.json`.
-- Keep `productName` and the main window title as `ArcaneGaunt`.
+- **Feature 3 complete**: Windows `.ico` and 512×512 `.png` icons are checked in
+  at `assets/icons/` (source SVG under `assets/icons/icon_sources/`).
+  `build.win.icon`, `build.nsis.installerIcon`, and `build.nsis.uninstallerIcon`
+  are set in `package.json`. `app.setAppUserModelId` is set in `electron/main.cjs`.
+  See `assets/icons/icon_sources/README.md` to regenerate.
+- `productName` and the main window title are `ArcaneGaunt`.
 - Future Steamworks integration can live in the Electron main process or a
   native sidecar without changing the static gameplay modules.
 

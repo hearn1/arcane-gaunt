@@ -24,7 +24,7 @@ changes.
 | 5 | Full gamepad support (gameplay + menus) | **Not started** | [feature_1](feature_1_gamepad_steam_deck.md) |
 | 6 | Steam Deck UI readiness | **Not started** | [feature_1](feature_1_gamepad_steam_deck.md) |
 | 7 | Pause/settings menu without relying on pointer-lock release | **Done** (Milestone 1) | — |
-| 8 | Production Electron metadata (icon, version, identity) | **Not started** | [feature_3](feature_3_electron_metadata.md) |
+| 8 | Production Electron metadata (icon, version, identity) | **Done** | [feature_3](feature_3_electron_metadata.md) |
 | 9 | SteamPipe app/depot build scripts | **Not started** | [feature_4](feature_4_steampipe_build.md) |
 | 10 | Production crash/error handling | **Done** (Milestone 1) | — |
 | 11 | Expanded automated smoke tests | **Done** | [feature_2](feature_2_smoke_tests.md) |

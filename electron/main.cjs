@@ -16,6 +16,7 @@ const MAX_LOG_TEXT = 12000;
 const MAX_CONTEXT_TEXT = 4000;
 
 app.setName("ArcaneGaunt");
+app.setAppUserModelId("com.arcanegaunt.game");
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -310,7 +311,14 @@ function createWindow() {
   const startupSettings = readStartupSettings();
   let fallbackLoaded = false;
 
+  const iconPath = path.join(app.getAppPath(), "assets/icons/arcane.ico");
+  const windowIcon = fs.existsSync(iconPath) ? iconPath : undefined;
+  if (!windowIcon) {
+    reportMainError("icon-missing", new Error(`Window icon not found at ${iconPath}`));
+  }
+
   const win = new BrowserWindow({
+    icon: windowIcon,
     title: "ArcaneGaunt",
     width: 1280,
     height: 720,
