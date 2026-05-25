@@ -10,11 +10,11 @@ import { SpellInstance } from "../spells/SpellInstance.js";
 const ENEMY_ATTACKS = {
   ranged_bolt: {
     id: "enemy_ranged", displayName: "Enemy Bolt", castType: "projectile",
-    damage: 8, cooldown: 1, projectileSpeed: 30, range: 70, color: 0x5cc8ff,
+    damage: 7, cooldown: 1, projectileSpeed: 30, range: 70, color: 0x5cc8ff,
   },
   mage_orb: {
     id: "enemy_mage", displayName: "Enemy Orb", castType: "projectile_aoe",
-    damage: 13, cooldown: 1, projectileSpeed: 19, range: 70, areaRadius: 4.2,
+    damage: 11, cooldown: 1, projectileSpeed: 19, range: 70, areaRadius: 4.2,
     color: 0xc06bff,
   },
 };
@@ -421,8 +421,8 @@ export class MeleeEnemy extends Enemy {
   constructor(world, level, spawn) {
     super(world, level, {
       type: "melee", color: 0xff4d4d, radius: 0.6, height: 1.3,
-      hp: scale(34, level, 0.2), speed: 5.6 + level * 0.08,
-      touchDamage: scale(9, level, 0.12), gold: 3, spawn,
+      hp: scale(42, level, 0.18), speed: 5.2 + level * 0.08,
+      touchDamage: scale(8, level, 0.12), gold: 3, spawn,
     });
   }
   behavior(dt, info) { this._moveTo(info.dir, 1, dt); }
@@ -432,7 +432,7 @@ export class RangedEnemy extends Enemy {
   constructor(world, level, spawn) {
     super(world, level, {
       type: "ranged", color: 0x3d7bff, radius: 0.55, height: 1.25,
-      hp: scale(24, level, 0.18), speed: 4.4, touchDamage: 0, gold: 4, spawn,
+      hp: scale(28, level, 0.18), speed: 4.4, touchDamage: 0, gold: 4, spawn,
     });
     this.fireCd = 0;
     this.desired = 18;
@@ -448,7 +448,7 @@ export class RangedEnemy extends Enemy {
     if (info.dist > this.desired + 3) this._moveTo(info.dir, 1, dt);
     else if (info.dist < this.desired - 3) this._moveTo(info.dir.clone().negate(), 0.8, dt);
     this.fireCd -= dt;
-    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("ranged_bolt"); this.fireCd = 2.0; }
+    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("ranged_bolt"); this.fireCd = 2.2; }
   }
 }
 
@@ -456,7 +456,7 @@ export class DasherEnemy extends Enemy {
   constructor(world, level, spawn) {
     super(world, level, {
       type: "dasher", color: 0xff9b30, radius: 0.55, height: 1.2,
-      hp: scale(26, level, 0.18), speed: 4.5, touchDamage: scale(12, level, 0.12),
+      hp: scale(30, level, 0.18), speed: 4.5, touchDamage: scale(10, level, 0.12),
       gold: 4, spawn,
     });
     this.state = "approach";
@@ -469,7 +469,7 @@ export class DasherEnemy extends Enemy {
   }
   _beginTelegraph(info) {
     this.state = "telegraph";
-    this.tele = 0.65;
+    this.tele = 0.7;
     this.dashDir.copy(info.dir).setY(0);
     if (this.dashDir.lengthSq() < 1e-4) this.dashDir.set(0, 0, 1);
     this.dashDir.normalize();
@@ -522,13 +522,13 @@ export class LinebreakerEnemy extends Enemy {
   constructor(world, level, spawn) {
     super(world, level, {
       type: "dasher", color: 0x47ffd2, radius: 0.62, height: 1.25,
-      hp: scale(44, level, 0.2), speed: 5.1, touchDamage: scale(15, level, 0.12),
+      hp: scale(48, level, 0.2), speed: 5.1, touchDamage: scale(12, level, 0.12),
       gold: 7, spawn,
     });
     this.state = "cutoff";
     this.tele = 0;
     this.surgeT = 0;
-    this.cooldown = 1.1 + Math.random() * 1.0;
+    this.cooldown = 1.3 + Math.random() * 1.0;
     this.side = Math.random() < 0.5 ? -1 : 1;
     this.chargeDir = new THREE.Vector3();
     this._teleFx = 0;
@@ -605,7 +605,7 @@ export class LinebreakerEnemy extends Enemy {
       this._moveTo(this.chargeDir, 5.1, dt);
       if (this.surgeT <= 0) {
         this.state = "cutoff";
-        this.cooldown = 2.2 + Math.random() * 0.8;
+        this.cooldown = 2.6 + Math.random() * 0.8;
         this.side *= -1;
         this.attackTimer = 0.25;
       }
@@ -617,7 +617,7 @@ export class MageEnemy extends Enemy {
   constructor(world, level, spawn) {
     super(world, level, {
       type: "mage", color: 0xb24dff, radius: 0.6, height: 1.4,
-      hp: scale(30, level, 0.2), speed: 3.4, touchDamage: 0, gold: 6, spawn,
+      hp: scale(34, level, 0.2), speed: 3.4, touchDamage: 0, gold: 6, spawn,
     });
     this.fireCd = 1.5; this.desired = 24; this.coverSide = Math.random() < 0.5 ? -1 : 1;
   }
@@ -631,7 +631,7 @@ export class MageEnemy extends Enemy {
     if (info.dist > this.desired + 4) this._moveTo(info.dir, 1, dt);
     else if (info.dist < this.desired - 4) this._moveTo(info.dir.clone().negate(), 0.7, dt);
     this.fireCd -= dt;
-    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 3.2; }
+    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 3.6; }
   }
 }
 
@@ -639,7 +639,7 @@ export class EliteEnemy extends Enemy {
   constructor(world, level, spawn) {
     super(world, level, {
       type: "elite", color: 0x2a2440, radius: 1.4, height: 3.0,
-      hp: scale(220, level, 0.28), speed: 3.2, touchDamage: scale(18, level, 0.12),
+      hp: scale(190, level, 0.28), speed: 3.2, touchDamage: scale(15, level, 0.12),
       gold: 30, spawn,
     });
     this._setEmissive(0x40108a);
@@ -668,7 +668,7 @@ export class TwinWardenElite extends EliteEnemy {
     this.partner = null;
     this._raged = false;
     this.syncDelay = 0;
-    this.health.setMax(Math.round(this.health.max * 0.85));
+    this.health.setMax(Math.round(this.health.max * 0.9));
     this._setEmissive(0xff5edb);
   }
   _enterRage() {
@@ -713,7 +713,7 @@ export class ReaverElite extends EliteEnemy {
     super(world, level, spawn);
     this.cfg.type = "reaver";
     this.isBoss = true;
-    this.health.setMax(Math.round(this.health.max * 1.6));
+    this.health.setMax(Math.round(this.health.max * 1.5));
     this._setEmissive(0xff8a3a);
     this.state = "cutoff";
     this.tele = 0;
@@ -799,7 +799,7 @@ export class SentinelElite extends EliteEnemy {
     super(world, level, spawn);
     this.cfg.type = "sentinel";
     this.isBoss = true;
-    this.health.setMax(Math.round(this.health.max * 1.5));
+    this.health.setMax(Math.round(this.health.max * 1.45));
     this._setEmissive(0xffcf4d);
     this.respawnCd = 4.0;
     this.minions = [];

@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import { pointInRect } from "../core/ArenaCollision.js";
 
-const GATE_WARN = 1.25;
-const GATE_OPEN = 5.2;
-const GATE_CLOSE_WARN = 1.15;
-const RIFT_WARN = 1.65;
-const RIFT_ACTIVE = 4.2;
+const GATE_WARN = 1.3;
+const GATE_OPEN = 5.5;
+const GATE_CLOSE_WARN = 1.2;
+const RIFT_WARN = 1.8;
+const RIFT_ACTIVE = 4.5;
 
 function hazardCenter(hazard) {
   return new THREE.Vector3(hazard.x, 0.08, hazard.z);
@@ -160,7 +160,7 @@ export class LayoutEventManager {
       }
       for (const gate of ev.gates) this._closeGate(gate);
       this.event = null;
-      this.cooldown = 12 + Math.random() * 5;
+      this.cooldown = 14 + Math.random() * 5;
     }
   }
 
@@ -178,7 +178,7 @@ export class LayoutEventManager {
       for (const hazard of ev.hazards) {
         hazard.dynamicWarn = false;
         hazard.dynamicActive = true;
-        hazard.dynamicDamageMult = 1.85;
+        hazard.dynamicDamageMult = 1.75;
       }
       ev.phase = "active";
       ev.t = RIFT_ACTIVE;
@@ -190,7 +190,7 @@ export class LayoutEventManager {
     if (ev.phase === "active" && ev.t <= 0) {
       for (const hazard of ev.hazards) this._restoreHazard(hazard);
       this.event = null;
-      this.cooldown = 13 + Math.random() * 6;
+      this.cooldown = 15 + Math.random() * 6;
     }
   }
 

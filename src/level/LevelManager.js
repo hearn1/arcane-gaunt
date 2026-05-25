@@ -13,7 +13,7 @@ const LAYOUT_BIAS = {
 
 // Level gates must match composition() below so we don't add an archetype that
 // the level wouldn't normally include.
-const LEVEL_GATE = { melee: 1, ranged: 2, dasher: 3, linebreaker: 4, mage: 4 };
+const LEVEL_GATE = { melee: 1, ranged: 2, dasher: 3, linebreaker: 5, mage: 4 };
 
 function applyLayoutBias(comp, layoutName, level) {
   // Early waves don't expose all archetypes yet (linebreaker/mage unlock at 4),
@@ -74,12 +74,18 @@ export class LevelManager {
 
   composition(level, layoutName = null) {
     const comp = [];
-    const melee = 3 + Math.floor(level * 0.9);
+    const melee = 4 + Math.floor(level * 0.8);
     comp.push({ type: "melee", count: melee });
-    if (level >= 2) comp.push({ type: "ranged", count: 1 + Math.floor(level * 0.5) });
-    if (level >= 3) comp.push({ type: "dasher", count: 1 + Math.floor((level - 2) * 0.5) });
-    if (level >= 4) comp.push({ type: "linebreaker", count: 1 + Math.floor((level - 4) / 4) });
-    if (level >= 4) comp.push({ type: "mage", count: 1 + Math.floor((level - 3) * 0.34) });
+    if (level >= 2) {
+      const ranged = 1 + Math.floor((level - 1) * 0.4);
+      comp.push({ type: "ranged", count: ranged });
+    }
+    if (level >= 3) {
+      const dasher = 1 + Math.floor((level - 3) * 0.4);
+      comp.push({ type: "dasher", count: dasher });
+    }
+    if (level >= 5) comp.push({ type: "linebreaker", count: 1 + Math.floor((level - 5) / 5) });
+    if (level >= 4) comp.push({ type: "mage", count: 1 + Math.floor((level - 4) * 0.3) });
     return applyLayoutBias(comp, layoutName, level);
   }
 

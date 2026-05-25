@@ -643,7 +643,7 @@ export class Game {
   }
 
   rewardRerollCost() {
-    return 18 + this._rewardLevel * 6 + this._rewardRerolls * 14;
+    return 20 + this._rewardLevel * 7 + this._rewardRerolls * 16;
   }
 
   renderReward() {
@@ -719,7 +719,7 @@ export class Game {
         id: "heal",
         title: "Field Dressing",
         description: `Restore ${healAmount} health before the next wave.`,
-        cost: 24 + level * 6,
+        cost: 26 + level * 7,
         disabled: missingHp <= 0,
       },
     ];
@@ -731,7 +731,7 @@ export class Game {
         id: "sharpen",
         title: "Sharpen Auto-Cast",
         description: "Your Auto-Casts now target the lowest-HP enemy in range.",
-        cost: 40 + level * 5,
+        cost: 42 + level * 6,
         disabled: false,
       });
     } else {
@@ -741,7 +741,7 @@ export class Game {
         id: "stance",
         title: "Stance Drill",
         description: "This wave only: perfect blocks heal 8 HP.",
-        cost: 42 + level * 5,
+        cost: 44 + level * 6,
         disabled: this.combat.perfectHealNext > 0,
       });
     }
@@ -758,7 +758,7 @@ export class Game {
       description: cullTarget
         ? `Remove one ${archetypeOf(cullTarget)} from the next wave before it begins.`
         : "Remove one of the most dangerous enemies from the next wave.",
-      cost: 45 + level * 6,
+      cost: 48 + level * 7,
       disabled: !safeToCull,
     });
 
