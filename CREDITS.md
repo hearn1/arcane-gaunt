@@ -72,6 +72,12 @@ CC0 license text: https://creativecommons.org/publicdomain/zero/1.0/
 - **Skybox / fog** - flat fog color; no CC0 cubemap was sourced.
 - **`audio.impact()`** - defined but uncalled in the game; left procedural.
 
+### Icon art (original work)
+
+| File in repo | Description | Author | License |
+|---|---|---|---|
+| `assets/icons/` (all files) | App icon — stylised "AG" monogram on purple-to-blue gradient. Source SVG at `assets/icons/icon_sources/arcane.svg`. | Original work for ArcaneGaunt | UNLICENSED (project-private) |
+
 If any sample fails to load (404, decode error), `AudioSys` silently falls back
 to the original procedural Web Audio synth path for that slot. Same for
 arena textures and enemy models - the Lambert color/capsule fallback stays

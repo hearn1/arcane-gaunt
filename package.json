@@ -2,7 +2,10 @@
   "name": "arcane-gaunt",
   "version": "0.1.0",
   "private": true,
-  "description": "ArcaneGaunt desktop package",
+  "description": "ArcaneGaunt — a first-person wizard roguelike",
+  "author": "ArcaneGaunt contributors",
+  "homepage": "https://github.com/hearn1/arcane-gaunt",
+  "license": "UNLICENSED",
   "main": "electron/main.cjs",
   "scripts": {
     "start": "electron .",
@@ -15,6 +18,7 @@
     "appId": "com.arcanegaunt.game",
     "productName": "ArcaneGaunt",
     "asar": true,
+    "copyright": "Copyright © 2026 ArcaneGaunt contributors",
     "files": [
       "index.html",
       "src/**/*",
@@ -27,7 +31,10 @@
     "directories": {
       "output": "dist"
     },
+    "fileAssociations": [],
     "win": {
+      "icon": "assets/icons/arcane.ico",
+      "executableName": "ArcaneGaunt",
       "target": [
         "dir",
         "nsis"
@@ -38,7 +45,9 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ArcaneGaunt"
+      "shortcutName": "ArcaneGaunt",
+      "installerIcon": "assets/icons/arcane.ico",
+      "uninstallerIcon": "assets/icons/arcane.ico"
     }
   },
   "devDependencies": {
