@@ -1083,6 +1083,14 @@ export class Game {
         this.player.health.heal(1);
       }
     }
+    // Riftborn Mantle: heal 1 HP/s while standing in a rift hazard
+    if (this.relics.has("riftborn_mantle")) {
+      this.combat.hazardHealAccum = (this.combat.hazardHealAccum || 0) + dt;
+      if (this.combat.hazardHealAccum >= 1) {
+        this.combat.hazardHealAccum -= 1;
+        this.player.health.heal(1);
+      }
+    }
     if (this._hazardTick > 0) return;
     this._hazardTick = 0.45;
     const damageMult = Math.max(1, ...hazardsAtFeet.map((h) => h.dynamicDamageMult || 1));
