@@ -1,4 +1,5 @@
 import { applyDamage } from "./Damage.js";
+import { rectContainsPoint } from "./ArenaCollision.js";
 
 export function cloneSpellForCast(spell) {
   const clone = Object.assign(Object.create(Object.getPrototypeOf(spell)), spell);
@@ -31,11 +32,41 @@ export function preparePlayerCast(world, spell) {
     damageMult *= 1.35;
   }
 
-  if (damageMult !== 1) {
+  // Feature_6 relics — cast-time hooks
+
+  if (world.relics?.has("embered_footing") && combat?.standingTimer >= 1.5) {
+    damageMult *= 1.35;
+    combat.standingTimer = 0;
+    world.onCombatProc?.("Embered Footing — rooted power");
+  }
+
+  if (world.relics?.has("vermillion_catalyst")) {
+    const counter = (combat.castCounter || 0) + 1;
+    combat.castCounter = counter >= 5 ? 0 : counter;
+    if (counter >= 5) {
+      damageMult *= 1.5;
+      combat.vermillionAoE = true;
+      world.onCombatProc?.("Vermilion Catalyst — overload");
+    }
+  }
+
+  const feet = world.player?.feet;
+  const inHazard = world.arenaBounds?.hazards?.some((h) => rectContainsPoint(feet, h));
+  if (world.relics?.has("riftborn_mantle") && inHazard) {
+    cooldownMult *= 1.2;
+  }
+
+  if (damageMult !== 1 || combat?.vermillionAoE) {
     castSpell = cloneSpellForCast(spell);
-    castSpell.stats.damage = Math.max(1, Math.round(castSpell.stats.damage * damageMult));
-    if (castSpell.stats.dotDamage > 0) {
-      castSpell.stats.dotDamage = Math.max(1, Math.round(castSpell.stats.dotDamage * damageMult));
+    if (damageMult !== 1) {
+      castSpell.stats.damage = Math.max(1, Math.round(castSpell.stats.damage * damageMult));
+      if (castSpell.stats.dotDamage > 0) {
+        castSpell.stats.dotDamage = Math.max(1, Math.round(castSpell.stats.dotDamage * damageMult));
+      }
+    }
+    if (combat?.vermillionAoE) {
+      castSpell.stats.areaRadius = Math.max(castSpell.stats.areaRadius || 0, 2.5);
+      combat.vermillionAoE = false;
     }
   }
 
@@ -53,6 +84,20 @@ export function applyPlayerDamage(world, target, amount, source) {
       }
     }
   }
+
+  // Feature_6 relics — per-hit hooks
+
+  if (world.relics?.has("frostbitten_crown") && target?.slowTimer > 0) {
+    final *= 1.2;
+  }
+
+  if (world.relics?.has("stormwitness") && source?.spellId === "chain_lightning") {
+    const blink = world.blink;
+    if (blink && blink.cooldownTimer > 0) {
+      blink.cooldownTimer = Math.max(0, blink.cooldownTimer - 0.3);
+    }
+  }
+
   return applyDamage(target, final, source);
 }
 

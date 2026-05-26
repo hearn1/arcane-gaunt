@@ -97,7 +97,7 @@ export class Game {
     this.ui = new UI();
     this.timers = [];
     this.relics = new Set();
-    this.combat = { nextCastDamageMult: 1, nextCastLabel: "", blinkStrikeTimer: 0, guardTraining: 0, autocastTargetMode: "forward", perfectHealNext: 0 };
+    this.combat = { nextCastDamageMult: 1, nextCastLabel: "", blinkStrikeTimer: 0, guardTraining: 0, autocastTargetMode: "forward", perfectHealNext: 0, castCounter: 0, standingTimer: 0, consecutiveSkips: 0, hollowSigilApplied: false, vermillionAoE: false, emberedFootingReady: false };
     this.currentWaveModifier = null;
     this.currentBossPattern = null;
 
@@ -151,6 +151,8 @@ export class Game {
       },
       onObjectiveComplete: () => self.levelManager?._onObjectiveComplete(),
       onCombatProc: (msg) => self.ui.toast(msg, 900),
+      onRewardTaken: (reward) => {},
+      onPanelClosed: (purchasedCount) => {},
     };
 
     this.block.world = this.world; // perfectHealNext lookup inside Block.notePerfect
@@ -564,6 +566,12 @@ export class Game {
     this.combat.guardTraining = 0;
     this.combat.autocastTargetMode = "forward";
     this.combat.perfectHealNext = 0;
+    this.combat.castCounter = 0;
+    this.combat.standingTimer = 0;
+    this.combat.consecutiveSkips = 0;
+    this.combat.hollowSigilApplied = false;
+    this.combat.vermillionAoE = false;
+    this.combat.emberedFootingReady = false;
     this.currentWaveModifier = null;
     this.currentBossPattern = null;
     this._hazardTick = 0;
@@ -638,6 +646,7 @@ export class Game {
     this.ui.toast(`+${gold} gold`);
     this._rewardLevel = level;
     this._rewardRerolls = 0;
+    this._upgradeCountBeforeReward = this._totalUpgradesBought();
     this._rewardChoices = this.rewardGen.generate(3);
     this.renderReward();
   }
@@ -682,6 +691,7 @@ export class Game {
       return;
     }
     reward.apply(this.world);
+    this.world.onRewardTaken?.(reward);
     this.ui.buildSpellSlots(this.caster.loadout);
     this.audio.reward();
     this.levelManager.continueAfterReward();
@@ -808,6 +818,30 @@ export class Game {
       this.onPlayerDeath();
       return;
     }
+    // Report how many upgrades were purchased this reward cycle.
+    const totalAfter = this._totalUpgradesBought();
+    const purchasedThisCycle = Math.max(0, totalAfter - (this._upgradeCountBeforeReward || 0));
+    this.world.onPanelClosed?.(purchasedThisCycle);
+
+    // Hollow Sigil: 2 consecutive cycles with zero upgrades -> +15% damage.
+    if (this.relics.has("hollow_sigil") && !this.combat.hollowSigilApplied) {
+      if (purchasedThisCycle === 0) {
+        this.combat.consecutiveSkips = (this.combat.consecutiveSkips || 0) + 1;
+        if (this.combat.consecutiveSkips >= 2) {
+          const spell = this.caster.current;
+          if (spell) {
+            spell.stats.damage = Math.round(spell.stats.damage * 1.15);
+            if (spell.stats.dotDamage > 0) spell.stats.dotDamage = Math.round(spell.stats.dotDamage * 1.15);
+            this.combat.hollowSigilApplied = true;
+            this.combat.consecutiveSkips = 0;
+            this.world.onCombatProc?.("Hollow Sigil — focus rewarded");
+          }
+        }
+      } else {
+        this.combat.consecutiveSkips = 0;
+      }
+    }
+
     // The button click is a user gesture -> re-acquire pointer lock now.
     // Keep a Continue prompt as fallback in case the lock request is rejected.
     this.state = STATE.FOCUS;
@@ -815,6 +849,10 @@ export class Game {
     this.clearInputState();
     this.showFocusPrompt("Continue");
     this.input.requestLock();
+  }
+
+  _totalUpgradesBought() {
+    return Object.values(this.upgrades.purchased).reduce((sum, nodes) => sum + nodes.length, 0);
   }
 
   onPlayerDeath() {
@@ -920,6 +958,15 @@ export class Game {
       if (this.combat.blinkStrikeTimer > 0) {
         this.combat.blinkStrikeTimer = Math.max(0, this.combat.blinkStrikeTimer - dt);
       }
+      // Embered Footing: accumulate standing timer while stationary
+      if (this.relics.has("embered_footing")) {
+        const vel = this.player.vel;
+        if (vel && Math.abs(vel.x) < 0.01 && Math.abs(vel.z) < 0.01) {
+          this.combat.standingTimer = Math.min(3, (this.combat.standingTimer || 0) + dt);
+        } else {
+          this.combat.standingTimer = 0;
+        }
+      }
       this.enemyManager.update(dt);
       if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
       this.objectiveManager.update(dt);
@@ -1003,6 +1050,14 @@ export class Game {
       if (!this._warnedHazardThisWave) {
         this._warnedHazardThisWave = true;
         this.ui.toast("Rift damage — move!", 900);
+      }
+    }
+    // Riftborn Mantle: heal 1 HP/s while standing in a rift hazard
+    if (this.relics.has("riftborn_mantle")) {
+      this.combat.hazardHealAccum = (this.combat.hazardHealAccum || 0) + dt;
+      if (this.combat.hazardHealAccum >= 1) {
+        this.combat.hazardHealAccum -= 1;
+        this.player.health.heal(1);
       }
     }
     if (this._hazardTick > 0) return;

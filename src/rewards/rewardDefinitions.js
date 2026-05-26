@@ -254,5 +254,50 @@ export function relicRewards(world) {
       },
       "rare",
     ),
+
+    // Feature_6 — New Relics
+
+    relic(
+      world,
+      "embered_footing",
+      "Embered Footing",
+      "Standing still for 1.5s empowers your next cast by +35% damage. Rewards positional discipline.",
+      (w) => { w.combat.emberedFootingReady = false; },
+    ),
+    relic(
+      world,
+      "stormwitness",
+      "Stormwitness",
+      "Each chain target hit reduces your blink cooldown by 0.3s. Synergy with Chain Lightning.",
+      null,
+    ),
+    relic(
+      world,
+      "frostbitten_crown",
+      "Frostbitten Crown",
+      "Slowed enemies take +20% damage from all sources. Winter's embrace turns lethal.",
+      null,
+    ),
+    relic(
+      world,
+      "vermillion_catalyst",
+      "Vermilion Catalyst",
+      "Every 5th cast deals +50% damage and erupts in a small AoE. Rewards consistent casting.",
+      (w) => { w.combat.castCounter = 0; },
+    ),
+    relic(
+      world,
+      "hollow_sigil",
+      "Hollow Sigil",
+      "Skip buying upgrades for 2 consecutive reward cycles to gain permanent +15% damage. Rewards focus.",
+      null,
+    ),
+    relic(
+      world,
+      "riftborn_mantle",
+      "Riftborn Mantle",
+      "Standing in a rift hazard heals 1 HP/s, but all casts cost +20% cooldown. High-risk identity choice.",
+      null,
+    ),
   ].filter(Boolean);
 }

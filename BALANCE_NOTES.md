@@ -231,10 +231,71 @@ These are estimates for validation. Actual values will vary by build and skill.
 
 ---
 
-## Guardrails Reminder
+---
 
-- No new content (spells, upgrades, relics, enemies, modifiers)
-- No control flow changes
-- No changes to damage path, RunStats, Currency, Profile, Settings
-- All spell definitions remain frozen
-- Only numerical tuning in this pass
+## New Content (Feature_6)
+
+### Upgrade Tree Nodes
+
+**Frost Bolt** (15 total, was 8):
+| Node | Cost | Effect |
+|------|------|--------|
+| chill_stack | 65 | Hitting same enemy within 3s stacks slow (max 3): +0.1 slow, +0.5s each |
+| icicle_splinter | 70 | Impact fires 2 shards at nearby enemies for 40% damage |
+| cold_snap | 85 | Sub-30% HP enemies have 25% freeze chance on hit |
+| cryo_slow ↔ hard_shatter | 90 / 95 | +2s slow duration, 0.9 cap / +40% dmg on freeze break |
+| cryo_conduit | 120 | Slowed enemies spread 30% chill to nearby enemies every 2s |
+| shatter_storm | 130 | Shattering a frozen enemy creates 3m icy explosion (50% dmg) |
+| capstone | 150 (req 6) | Glacial Lance — pierces all, leaves 2s slow zone |
+
+**Poison Bolt** (14 total, was 8):
+| Node | Cost | Effect |
+|------|------|--------|
+| plague_spread | 75 | On enemy death, spreads remaining poison to nearest enemy |
+| wide_spread ↔ deep_stack | 95 / 100 | +2 spread jumps / poison stacks 3x, +30% DOT per stack |
+| corrosive_veins | 120 | Each stack reduces target damage by 5% |
+| necrotic_bloom | 140 (req 4) | Poisoned enemy death: 4m AoE dealing 60% remaining poison dmg |
+| capstone | 155 (req 5) | Pandemic — seeds on all enemies within 4m on hit |
+
+**Chain Lightning** (14 total, was 8):
+| Node | Cost | Effect |
+|------|------|--------|
+| jump_range | 70 | +25% chain jump distance |
+| overcharge_first | 85 | First target takes +30% damage |
+| chain_low_hp ↔ chain_elites | 95 / 95 | Prefers sub-50% HP / +25% vs elites |
+| voltaic_overflow | 125 | Chain kill refunds 0.3s CD (low-HP path) |
+| breaker_shock | 120 | Elite hits reduce their damage 10% for 3s (elite path) |
+| capstone | 165 (req 5) | Chain Storm — +2 chains, +30% arc range |
+
+**Meteor** (14 total, was 8):
+| Node | Cost | Effect |
+|------|------|--------|
+| secondary_impacts | 65 | Follow-up meteors deal +10% damage each |
+| scorched_earth | 75 | Impact leaves burning ground 3s, 6 dmg/tick |
+| blast_radius ↔ travel_speed | 90 / 85 | +30% radius, -15% speed / +40% speed, -10% radius |
+| magma_core | 125 | Scorched Earth: +25% dmg, +1s linger |
+| comet_trail | 120 | Travel path damages enemies for 4 dmg/tick |
+| capstone | 180 (req 5) | Cataclysm — 1s stun + molten pool 3s |
+
+### New Relics
+
+| Relic | Rarity | Mechanic |
+|-------|--------|----------|
+| Embered Footing | rare | Stand still 1.5s → next cast +35% dmg |
+| Stormwitness | rare | Chain hit → -0.3s blink CD |
+| Frostbitten Crown | rare | Slowed enemies take +20% dmg from all sources |
+| Vermilion Catalyst | rare | Every 5th cast: +50% dmg + 2.5m AoE splash |
+| Hollow Sigil | rare | 2 consecutive zero-upgrade reward cycles → +15% permanent dmg |
+| Riftborn Mantle | rare | In hazard: 1 HP/s heal, but casts cost +20% CD |
+
+### Hook Locations
+
+- **CombatBonuses.preparePlayerCast**: Embered Footing (standingTimer), Vermilion Catalyst (castCounter), Riftborn Mantle (hazard CD penalty)
+- **CombatBonuses.applyPlayerDamage**: Frostbitten Crown (target.slowTimer), Stormwitness (source spellId check)
+- **Game.js.updateArenaHazards**: Riftborn Mantle (hazard healing)
+- **Game.js._frame**: Embered Footing (standingTimer accumulation)
+- **Game.js.resumeFromUpgrade**: Hollow Sigil (consecutive skip tracking)
+
+All nodes use existing `requires`/`excludes` fork mechanics. No changes to UpgradeManager contract. New instance flags added to SpellInstance.js for each behavioral node.
+
+---
