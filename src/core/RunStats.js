@@ -7,9 +7,12 @@ export class RunStats {
     this.enemiesKilled = 0;
     this.goldEarned = 0;
     this.totalDamage = 0;
+    this.perfectBlocks = 0;
     this.damageBySpell = {};   // spellId -> damage
     this.spellNames = {};      // spellId -> display name
   }
+
+  registerPerfectBlock() { this.perfectBlocks += 1; }
 
   registerDamage(spellId, spellName, amount) {
     if (!spellId || amount <= 0) return;

@@ -76,6 +76,7 @@ export class Block {
 
   notePerfect() {
     this.perfectPulse = 0.42;
+    this.world?.runStats?.registerPerfectBlock();
     // Refund stamina so a chain of well-timed parries doesn't drain the pool,
     // and resume regen immediately rather than waiting out REGEN_DELAY.
     this.stamina = Math.min(this.maxStamina, this.stamina + PERFECT_REFUND);

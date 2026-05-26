@@ -29,6 +29,7 @@ export class UI {
     this.hud = document.getElementById("hud");
     this.crosshair = document.getElementById("crosshair");
     this.toastEl = document.getElementById("toast");
+    this.onboardingToastEl = document.getElementById("onboarding-toast");
     this.vignette = document.getElementById("vignette");
 
     this.hpFill = document.getElementById("hp-fill");
@@ -114,9 +115,11 @@ export class UI {
     this._detachNav();
     clearTimeout(this._wb);
     clearTimeout(this._tt);
+    clearTimeout(this._ot);
     this.waveBannerEl?.classList.remove("show", "has-mod", "has-boss", "has-objective");
     this.bossBarEl?.classList.remove("show");
     this.toastEl?.classList.remove("show");
+    this.onboardingToastEl?.classList.remove("show");
     this.blockInd?.classList.remove("active", "perfect");
     this.crosshair?.classList.remove("blocking", "perfect-window", "perfect-hit", "block-hit");
   }
@@ -126,6 +129,20 @@ export class UI {
     this.toastEl.classList.add("show");
     clearTimeout(this._tt);
     this._tt = setTimeout(() => this.toastEl.classList.remove("show"), ms);
+  }
+
+  showOnboardingToast(text) {
+    if (!this.onboardingToastEl) return;
+    this.onboardingToastEl.textContent = text;
+    this.onboardingToastEl.classList.add("show");
+    clearTimeout(this._ot);
+    this._ot = setTimeout(() => this.onboardingToastEl.classList.remove("show"), 4000);
+  }
+
+  dismissOnboardingToast() {
+    if (!this.onboardingToastEl) return;
+    clearTimeout(this._ot);
+    this.onboardingToastEl.classList.remove("show");
   }
 
   hurtFlash() {
@@ -534,7 +551,7 @@ export class UI {
     document.getElementById("btn-menu").onclick = onMenu;
   }
 
-  summary(stats, profile, onBack) {
+  summary(stats, profile, world, onBack) {
     this.setHud(false);
     const rows = stats.damageRows();
     const list = rows.length
@@ -542,22 +559,54 @@ export class UI {
       : `<div class="dmg-row"><span class="dn">No damage dealt</span><span class="dv">0</span></div>`;
     const best = profile?.bestRun || {};
     const totals = profile?.totals || {};
-    const bestText = best.levelsCleared > 0 || best.highestWave > 0
-      ? `Best: Wave ${best.highestWave || best.levelsCleared + 1} with ${best.levelsCleared || 0} cleared`
-      : "Best: No completed runs yet";
+
+    const waveReached = Math.max(1, stats.levelsCleared + 1);
+    const bestWave = best.highestWave || 0;
+    const bestLabel = bestWave > 0
+      ? `Best: wave ${bestWave}`
+      : "Best: no completed runs";
+
+    const perfectBlocks = stats.perfectBlocks || 0;
+    const spellsUnlocked = world?.caster?.loadout?.length - 1 || 0;
+    const goldSpent = world?.currency?.lifetimeSpent || 0;
+    const highlights = [];
+    if (perfectBlocks > 0) highlights.push(`Perfect blocks: ${perfectBlocks}`);
+    if (spellsUnlocked > 0) highlights.push(`Spells unlocked: ${spellsUnlocked}`);
+    if (goldSpent > 0) highlights.push(`Gold spent: ${goldSpent}`);
+
+    const lifetimeKills = this._fmt(totals.enemiesKilled || 0);
+    const lifetimeDamage = this._fmt(totals.totalDamage || 0);
+    const lifetimeGold = this._fmt(totals.goldEarned || 0);
+
+    const highlightsHtml = highlights.length
+      ? `<div class="summary-highlights">${highlights.map((h) => `<div class="hl-row">${h}</div>`).join("")}</div>`
+      : "";
+
     this._show(`
       <h1 class="title" style="font-size:40px;">Run Summary</h1>
+      <div class="summary-wave">Wave ${waveReached} reached</div>
+      <div class="summary-best">${bestLabel}</div>
       <div class="summary-grid">
         <div class="lbl">Levels Cleared</div><div class="num">${stats.levelsCleared}</div>
         <div class="lbl">Enemies Killed</div><div class="num">${stats.enemiesKilled}</div>
         <div class="lbl">Gold Earned</div><div class="num">${stats.goldEarned}</div>
         <div class="lbl">Total Damage Dealt</div><div class="num">${Math.round(stats.totalDamage)}</div>
       </div>
-      <div class="profile-note">${bestText} &nbsp;&middot;&nbsp; Lifetime runs: ${totals.runsCompleted || 0}/${totals.runsStarted || 0}</div>
-      <div class="subtitle" style="margin-top:6px;">Damage by Spell</div>
+      ${highlightsHtml}
+      <button class="btn secondary" id="btn-toggle-details" data-nav>Show Details</button>
       <div id="dmg-breakdown">${list}</div>
+      <div class="lifetime-totals">Lifetime: ${lifetimeKills} kills &middot; ${lifetimeDamage} damage &middot; ${lifetimeGold} gold</div>
       <button class="btn secondary" id="btn-back" data-nav>Back</button>
     `);
+    const dmgEl = document.getElementById("dmg-breakdown");
+    const toggleBtn = document.getElementById("btn-toggle-details");
+    let detailsVisible = false;
+    if (dmgEl) dmgEl.style.display = "none";
+    toggleBtn.onclick = () => {
+      detailsVisible = !detailsVisible;
+      if (dmgEl) dmgEl.style.display = detailsVisible ? "" : "none";
+      toggleBtn.textContent = detailsVisible ? "Hide Details" : "Show Details";
+    };
     this._navDetach = attach(this.root, {
       onActivate: (el) => el?.click(),
       onBack: onBack,
