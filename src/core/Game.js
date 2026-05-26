@@ -38,6 +38,7 @@ import { UpgradeManager } from "../spells/UpgradeManager.js";
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
 import { castSpell } from "../spells/Effects.js";
 import { UI } from "../ui/ui.js";
+import { Onboarding } from "../ui/Onboarding.js";
 import { reportFatal } from "./ErrorReporting.js";
 
 const STATE = {
@@ -127,6 +128,7 @@ export class Game {
       get levelManager() { return self.levelManager; },
       get layoutEvents() { return self.layoutEvents; },
       get upgrades() { return self.upgrades; },
+      get ui() { return self.ui; },
       get currentWaveModifier() { return self.currentWaveModifier; },
       set currentWaveModifier(mod) { self.currentWaveModifier = mod; },
       get currentBossPattern() { return self.currentBossPattern; },
@@ -147,6 +149,8 @@ export class Game {
           self.vfx.shock(self.player.position, 0xff5edb, 5.2, 0.45);
           self.audio?.telegraphSurge?.();
         }
+        if (bossPattern) self.onboarding?.triggerIf(self.world, "boss_spawn");
+        if (objective) self.onboarding?.triggerIf(self.world, "objective_active");
         self.layoutEvents?.startWave(lvl, self.arenaLayoutName, bossPattern);
       },
       onObjectiveComplete: () => self.levelManager?._onObjectiveComplete(),
@@ -170,6 +174,12 @@ export class Game {
     this.input.onPause = () => { if (this.state === STATE.PLAYING) this.pauseGame(true); };
     this.input.onLockChange = (locked) => this.onLockChange(locked);
     this._lastInputDevice = "kbm";
+    this.onboarding = new Onboarding(this.profile.meta);
+    this._onboardingMoveTriggered = false;
+    this._onboardingLookTriggered = false;
+    this._onboardingCastTriggered = false;
+    this._onboardingBlockTriggered = false;
+    this._onboardingBlinkTriggered = false;
     getStorageMeta().then((meta) => { this.storageMeta = meta; });
 
     addEventListener("resize", () => this._resize());
@@ -577,6 +587,12 @@ export class Game {
     this._hazardTick = 0;
     this.levelManager.reset();
     this.upgrades.reset();
+    this.onboarding?.startRun();
+    this._onboardingMoveTriggered = false;
+    this._onboardingLookTriggered = false;
+    this._onboardingCastTriggered = false;
+    this._onboardingBlockTriggered = false;
+    this._onboardingBlinkTriggered = false;
     this.ui.buildSpellSlots(this.caster.loadout);
 
     this._pendingStart = true;
@@ -715,6 +731,9 @@ export class Game {
     if (this.upgrades.buy(spellId, nodeId)) {
       this.audio.reward();
       this.ui.buildSpellSlots(this.caster.loadout);
+      if (this.caster.loadout.some((s) => s.autoFire)) {
+        this.onboarding?.triggerIf(this.world, "autocast_unlock");
+      }
     }
     this.openUpgradePanel(); // re-render with fresh gold / state
   }
@@ -878,6 +897,7 @@ export class Game {
   finalizeProfileRun() {
     if (this._runProfileFinalized) return;
     this._runProfileFinalized = true;
+    this.onboarding?.finalizeRun(this.profile);
     const highestWave = Math.max(1, Math.round(this.levelManager?.level || this.runStats.levelsCleared + 1));
     const record = createRunRecord(this.runStats, this.selectedSpellId, highestWave);
     this.persistProfile(recordRunCompleted(this.profile, record));
@@ -899,7 +919,7 @@ export class Game {
   showSummary() {
     this.state = STATE.SUMMARY;
     this.clearInputState();
-    this.ui.summary(this.runStats, this.profile, () => {
+    this.ui.summary(this.runStats, this.profile, this.world, () => {
       this.state = STATE.GAMEOVER;
       this.clearInputState();
       this.ui.gameOver(
@@ -944,6 +964,8 @@ export class Game {
     }
 
     if (this.state === STATE.PLAYING) {
+      this._checkOnboardingTriggers();
+      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
       this.block.update(dt, this.input);
       if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
       this.player.update(dt, this.input);
@@ -1050,6 +1072,15 @@ export class Game {
       if (!this._warnedHazardThisWave) {
         this._warnedHazardThisWave = true;
         this.ui.toast("Rift damage — move!", 900);
+        this.onboarding?.triggerIf(this.world, "hazard_step");
+      }
+    }
+    // Riftborn Mantle: heal 1 HP/s while standing in a rift hazard
+    if (this.relics.has("riftborn_mantle")) {
+      this.combat.hazardHealAccum = (this.combat.hazardHealAccum || 0) + dt;
+      if (this.combat.hazardHealAccum >= 1) {
+        this.combat.hazardHealAccum -= 1;
+        this.player.health.heal(1);
       }
     }
     // Riftborn Mantle: heal 1 HP/s while standing in a rift hazard
@@ -1072,5 +1103,50 @@ export class Game {
     this.world.onPlayerHurt?.();
     this.vfx.flash(this.player.position, 0x7fffe6, 1.4, 0.22);
     this.vfx.shock(this.player.position, 0x7fffe6, 2.2, 0.28);
+  }
+
+  _checkOnboardingTriggers() {
+    if (this.state !== STATE.PLAYING) return;
+
+    if (!this._onboardingMoveTriggered) {
+      const moving = this.input.down("KeyW") || this.input.down("KeyA") ||
+                     this.input.down("KeyS") || this.input.down("KeyD") ||
+                     Math.abs(this.input.leftStickX) > 0.18 ||
+                     Math.abs(this.input.leftStickY) > 0.18;
+      if (moving) {
+        this._onboardingMoveTriggered = true;
+        this.onboarding?.triggerIf(this.world, "first_move");
+      }
+    }
+
+    if (!this._onboardingLookTriggered) {
+      const looking = this.input.mouseDX !== 0 || this.input.mouseDY !== 0;
+      if (looking) {
+        this._onboardingLookTriggered = true;
+        this.onboarding?.triggerIf(this.world, "first_look");
+      }
+    }
+
+    if (!this._onboardingCastTriggered && this.input.firing) {
+      this._onboardingCastTriggered = true;
+      this.onboarding?.triggerIf(this.world, "first_cast");
+    }
+
+    if (!this._onboardingBlockTriggered) {
+      const projs = this.hitResolver?.projectiles;
+      if (projs && projs.some((p) => p.faction !== "player")) {
+        this._onboardingBlockTriggered = true;
+        this.onboarding?.triggerIf(this.world, "block_incoming");
+      }
+    }
+
+    if (!this._onboardingBlinkTriggered) {
+      const hp = this.player?.health;
+      if (hp && hp.current > 0 && hp.ratio < 0.6) {
+        this._onboardingBlinkTriggered = true;
+        this.onboarding?.triggerIf(this.world, "blink_low_hp");
+      }
+    }
+
   }
 }

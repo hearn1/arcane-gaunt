@@ -3,9 +3,10 @@ export class Currency {
   constructor(runStats) {
     this.runStats = runStats;
     this.gold = 0;
+    this.lifetimeSpent = 0;
   }
 
-  reset() { this.gold = 0; }
+  reset() { this.gold = 0; this.lifetimeSpent = 0; }
 
   add(amount) {
     if (amount <= 0) return;
@@ -14,7 +15,7 @@ export class Currency {
   }
 
   spend(amount) {
-    if (this.gold >= amount) { this.gold -= amount; return true; }
+    if (this.gold >= amount) { this.gold -= amount; this.lifetimeSpent += amount; return true; }
     return false;
   }
 }

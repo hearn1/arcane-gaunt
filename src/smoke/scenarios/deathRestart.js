@@ -26,6 +26,29 @@ export default async function runDeathRestartSmoke(game, result) {
     assert(isShown("#btn-menu"), "Menu button not visible on game over");
   });
 
+  await step(result, "summary screen shows wave reached, highlights, and details toggle", async () => {
+    document.getElementById("btn-summary").click();
+    await nextFrame();
+    await waitFor("summary state", () => game.state === "summary");
+    assert(isShown(".summary-wave"), "Summary should show wave reached");
+    assert(isShown(".summary-best"), "Summary should show best comparison");
+    const hlSection = game.ui.root.querySelector(".summary-highlights");
+    assert(hlSection === null, "No highlights expected on zero-stat summary");
+    assert(isShown("#btn-toggle-details"), "Show Details toggle should exist");
+    assert(isShown(".lifetime-totals"), "Lifetime totals should exist");
+    // Toggle details on
+    document.getElementById("btn-toggle-details").click();
+    const dmgEl = document.getElementById("dmg-breakdown");
+    assert(dmgEl && dmgEl.style.display !== "none", "Damage breakdown should be visible after toggle");
+  });
+
+  await step(result, "back from summary returns to game over", async () => {
+    document.getElementById("btn-back").click();
+    await nextFrame();
+    await waitFor("gameover after back from summary", () => game.state === "gameover");
+    assert(isShown("#btn-restart"), "Restart button should be visible after back from summary");
+  });
+
   await step(result, "restart restores full health and returns to focus", async () => {
     document.getElementById("btn-restart").click();
     await nextFrame();
