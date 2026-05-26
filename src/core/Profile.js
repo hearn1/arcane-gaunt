@@ -1,5 +1,6 @@
 import { deleteSaveJson, loadSaveJson, saveSaveJson, SAVE_DEFINITIONS } from "./SaveStorage.js";
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
+import { steamEvent } from "./Steam.js";
 
 export const PROFILE_VERSION = 1;
 export const PROFILE_LOCAL_STORAGE_KEY = SAVE_DEFINITIONS.profile.localStorageKey;
@@ -115,6 +116,7 @@ export function createRunRecord(stats, starterSpellId, highestWave = 1, timestam
     enemiesKilled: stats?.enemiesKilled,
     goldEarned: stats?.goldEarned,
     totalDamage: stats?.totalDamage,
+    relicCount: 0,
     timestamp,
   });
 }
@@ -135,7 +137,7 @@ function isBetterRun(candidate, current) {
   return candidate.totalDamage > current.totalDamage;
 }
 
-export function recordRunCompleted(profile, runRecord) {
+export function recordRunCompleted(profile, runRecord, relicCount = 0) {
   const next = sanitizeProfile(profile);
   const record = sanitizeBestRun(runRecord);
 
@@ -148,6 +150,15 @@ export function recordRunCompleted(profile, runRecord) {
   if (isBetterRun(record, next.bestRun)) {
     next.bestRun = record;
   }
+
+  steamEvent("run.completed", {
+    highestWave: record.highestWave,
+    kills: record.enemiesKilled,
+    gold: record.goldEarned,
+    damage: record.totalDamage,
+    starterSpellId: record.starterSpellId,
+    relicCount,
+  });
 
   return next;
 }

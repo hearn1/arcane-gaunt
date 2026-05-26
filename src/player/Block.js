@@ -1,4 +1,5 @@
 import { SpellInstance } from "../spells/SpellInstance.js";
+import { steamEvent } from "../core/Steam.js";
 
 const MAX_STAM = 100;
 const DRAIN = 38;        // stamina/sec while blocking
@@ -77,6 +78,7 @@ export class Block {
   notePerfect() {
     this.perfectPulse = 0.42;
     this.world?.runStats?.registerPerfectBlock();
+    steamEvent("block.perfect", { spellId: this.world?.caster?.current?.id || "" });
     // Refund stamina so a chain of well-timed parries doesn't drain the pool,
     // and resume regen immediately rather than waiting out REGEN_DELAY.
     this.stamina = Math.min(this.maxStamina, this.stamina + PERFECT_REFUND);

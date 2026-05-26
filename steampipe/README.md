@@ -54,6 +54,19 @@ Configure these in the Steamworks partner site:
 | OS | Windows |
 | Architecture | 64-bit |
 
+## Steam Cloud Configuration
+
+Configure Cloud Sync in the Steamworks partner site (App Admin → Steam Cloud):
+
+| Setting | Value |
+|---------|-------|
+| Root override | `%APPDATA%/ArcaneGaunt/saves/` |
+| File mappings | `saves/settings.v1.json`, `saves/profile.v1.json` |
+
+The game writes saves to `%APPDATA%/ArcaneGaunt/saves/` unchanged. Steam
+handles sync automatically at the filesystem level — no code changes are
+needed in the game's storage layer.
+
 ## Helper Script
 
 Run `scripts/prep_steam_upload.ps1` from the repo root to pack and print the SteamCMD command:

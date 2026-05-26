@@ -1,4 +1,5 @@
 import { pickWaveModifier } from "./waveModifiers.js";
+import { steamEvent } from "../core/Steam.js";
 
 // Per-layout archetype shifts. Each pair is applied to the base composition
 // (negatives clamped at 0, positives only added to archetypes whose level gate
@@ -171,6 +172,7 @@ export class LevelManager {
     this.world.audio.waveClear();
     // "This wave only" service flags expire at the wave-end boundary.
     if (this.world.combat) this.world.combat.perfectHealNext = 0;
+    steamEvent("wave.cleared", { wave: this.level });
     this.world.openReward(this.level, gold); // pauses combat; resumes via continueAfterReward
   }
 

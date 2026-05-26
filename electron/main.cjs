@@ -2,6 +2,8 @@ const { app, BrowserWindow, Menu, net, protocol, ipcMain, dialog } = require("el
 const fs = require("node:fs");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
+const steamworks = require("./steamworks.cjs");
+const achievements = require("./achievements.cjs");
 
 const APP_PROTOCOL = "arcane";
 const SAVE_FILES = Object.freeze({
@@ -304,6 +306,16 @@ function registerStorageIpc() {
     rendererLogPath: logFileForKind("renderer"),
     mainLogPath: logFileForKind("main"),
   }));
+
+  ipcMain.handle("arcane:steam-event", async (_event, name, payload) => {
+    try {
+      achievements.reduceEvent(name, payload || {});
+      return true;
+    } catch (err) {
+      reportMainError("steam-event", err);
+      return false;
+    }
+  });
 }
 
 function createWindow() {
@@ -386,6 +398,8 @@ app.whenReady().then(() => {
   try {
     registerAppProtocol();
     registerStorageIpc();
+    steamworks.init();
+    achievements.seedFromSteam();
     createWindow();
   } catch (err) {
     reportMainError("startup", err, true);
@@ -405,6 +419,10 @@ app.whenReady().then(() => {
 }).catch((err) => {
   reportMainError("app-ready", err, true);
   app.quit();
+});
+
+app.on("before-quit", () => {
+  steamworks.shutdown();
 });
 
 app.on("window-all-closed", () => {

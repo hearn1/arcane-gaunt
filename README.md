@@ -56,6 +56,7 @@ scenarios are available as the `smoke` query parameter:
 | `settings-persistence` | Write custom settings, round-trip through save/load, restore originals. |
 | `reset-records` | Persist a synthetic best run, trigger reset, assert profile cleared but settings unchanged. |
 | `gamepad-menu-nav` | Programmatic uiNav focus/activate through main menu, pause, and settings screens (no real gamepad). Verifies data-nav wiring and new settings rows. |
+| `steam-noop-when-unavailable` | Verify `Steam.event()` is a no-op in browser dev (no bridge, no errors). |
 
 Pass `?smoke=all` to run every scenario in sequence:
 
@@ -140,6 +141,53 @@ recommended branch/promotion strategy.
 
 SteamCMD and Steamworks credentials are not bundled in this repository.
 
+## Steamworks Integration
+
+ArcaneGaunt integrates Steamworks through a thin Electron-side wrapper
+(`electron/steamworks.cjs`) so the static ES-module game code never imports
+Steamwork APIs directly. The main process initializes the SDK on app ready;
+the renderer fires fire-and-forget events via the existing IPC bridge.
+
+**Steamworks is optional.** The game runs fully in browser dev and when
+launched outside Steam. If Steam init fails, the main process logs
+`[steam] init failed — running without Steam` and continues normally.
+
+### Achievements (7)
+
+| API Name | Display Name | Condition |
+|----------|-------------|-----------|
+| `ACH_FIRST_RUN` | First Blood | Complete one run |
+| `ACH_WAVE_5` | Wave Warrior | Reach wave 5 |
+| `ACH_WAVE_10` | Double Digits | Reach wave 10 |
+| `ACH_WAVE_15` | Fifteen Deep | Reach wave 15 |
+| `ACH_PERFECT_BLOCK_10` | Bulletproof | 10 perfect blocks (lifetime) |
+| `ACH_BOSS_TRIPLE` | Boss Collector | Defeat all three boss variants |
+| `ACH_RELIC_COLLECTOR` | Relic Collector | Own 3 relics in a single run |
+
+### Stats (6)
+
+`STAT_RUNS_COMPLETED`, `STAT_HIGHEST_WAVE`, `STAT_LIFETIME_KILLS`,
+`STAT_LIFETIME_DAMAGE`, `STAT_PERFECT_BLOCKS`, `STAT_RELICS_OWNED_PEAK`.
+
+### Steam Cloud
+
+Steam Cloud mirrors the existing save paths:
+
+```
+%APPDATA%/ArcaneGaunt/saves/*  ↔  saves/*
+```
+
+On the Steamworks partner site, configure the Cloud section with:
+- **Root override:** `%APPDATA%/ArcaneGaunt/saves/` (mapped to install root)
+- **File mappings:** `saves/settings.v1.json` and `saves/profile.v1.json`
+
+The game's save code is unchanged — Steam handles sync at the filesystem level.
+
+### CSV exports
+
+`assets/store/achievements.csv` and `assets/store/stats.csv` mirror the
+achievement and stat definitions for upload to the Steamworks partner site.
+
 Notes for feature tracking:
 
 - **Feature 3 complete**: Windows `.ico` and 512×512 `.png` icons are checked in
@@ -148,8 +196,6 @@ Notes for feature tracking:
   are set in `package.json`. `app.setAppUserModelId` is set in `electron/main.cjs`.
   See `assets/icons/icon_sources/README.md` to regenerate.
 - `productName` and the main window title are `ArcaneGaunt`.
-- Future Steamworks integration can live in the Electron main process or a
-  native sidecar without changing the static gameplay modules.
 
 ## Controls
 

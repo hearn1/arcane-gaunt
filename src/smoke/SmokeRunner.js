@@ -7,6 +7,7 @@ import runSettingsPersistence from "./scenarios/settingsPersistence.js";
 import runResetRecords from "./scenarios/resetRecords.js";
 import runGamepadMenuNav from "./scenarios/gamepadMenuNav.js";
 import runCatalogValidate from "./scenarios/catalogValidate.js";
+import runSteamNoop from "./scenarios/steamNoop.js";
 
 const SCENARIOS = {
   "boot-start-menu": runBootStartMenu,
@@ -17,6 +18,7 @@ const SCENARIOS = {
   "reset-records": runResetRecords,
   "gamepad-menu-nav": runGamepadMenuNav,
   "catalog-validate": runCatalogValidate,
+  "steam-noop-when-unavailable": runSteamNoop,
 };
 
 async function runSingleScenario(game, scenario) {

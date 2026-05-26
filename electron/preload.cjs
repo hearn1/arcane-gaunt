@@ -16,3 +16,7 @@ contextBridge.exposeInMainWorld("arcaneLog", {
   write: (entry) => ipcRenderer.invoke("arcane:write-renderer-log", entry),
   meta: () => ipcRenderer.invoke("arcane:log-meta"),
 });
+
+contextBridge.exposeInMainWorld("arcaneSteam", {
+  event: (name, payload) => ipcRenderer.invoke("arcane:steam-event", name, payload),
+});
