@@ -69,8 +69,8 @@ changes.
 | 15 | Tune objective waves | **Not started** | [feature_5](feature_5_balance_pass.md) |
 | 16 | Tune dynamic layout events (gates, rift surges) | **Not started** | [feature_5](feature_5_balance_pass.md) |
 | 17 | Tune boss waves | **Not started** | [feature_5](feature_5_balance_pass.md) |
-| 18 | Expand underfilled spell upgrade trees | **Not started** | [feature_6](feature_6_content_expansion.md) |
-| 19 | Add more build-defining relics | **Not started** | [feature_6](feature_6_content_expansion.md) |
+| 18 | Expand underfilled spell upgrade trees | **Done** | [feature_6](feature_6_content_expansion.md) |
+| 19 | Add more build-defining relics | **Done** | [feature_6](feature_6_content_expansion.md) |
 | 20 | First-run onboarding for block / blink / Auto-Cast / objectives / hazards / bosses | **Not started** | [feature_7](feature_7_onboarding_recap.md) |
 | 21 | Polish run summary and death recap | **Not started** | [feature_7](feature_7_onboarding_recap.md) |
 

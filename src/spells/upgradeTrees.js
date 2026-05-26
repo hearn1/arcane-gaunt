@@ -293,12 +293,66 @@ export const UPGRADE_TREES = Object.freeze({
         inst.stats.slowDuration += 1.5;
       },
     ),
+    node(
+      "frost_bolt_chill_stack", 65,
+      "Chill Stack",
+      "Hitting the same enemy within 3s builds a chill stack (max 3). Each stack: +10% slow, +0.5s duration.",
+      ["frost_bolt_cd"],
+      (inst) => { inst.frostChillStack = true; },
+    ),
+    node(
+      "frost_bolt_icicle_splinter", 70,
+      "Icicle Splinter",
+      "Impact fires 2 small ice shards at nearby enemies for 40% damage each.",
+      ["frost_bolt_cd"],
+      (inst) => { inst.icicleSplinter = true; },
+    ),
+    node(
+      "frost_bolt_cold_snap", 85,
+      "Cold Snap",
+      "Enemies below 30% HP have a 25% chance to freeze solid on hit.",
+      ["frost_bolt_cd"],
+      (inst) => { inst.coldSnap = true; },
+    ),
+    node(
+      "frost_bolt_cryo_slow", 90,
+      "Cryo Slow",
+      "Chill lingers longer and bites deeper: +2s slow duration, slow cap raised to 0.9.",
+      ["frost_bolt_chill_stack"],
+      (inst) => {
+        inst.stats.slowDuration += 2;
+        inst.cryoSlow = true;
+      },
+      ["frost_bolt_hard_shatter"],
+    ),
+    node(
+      "frost_bolt_hard_shatter", 95,
+      "Hard Shatter",
+      "Frozen enemies take +40% damage when the freeze breaks.",
+      ["frost_bolt_chill_stack"],
+      (inst) => { inst.hardShatter = true; },
+      ["frost_bolt_cryo_slow"],
+    ),
+    node(
+      "frost_bolt_cryo_conduit", 120,
+      "Cryo Conduit",
+      "Slowed enemies spread 30% of their chill to nearby enemies every 2s.",
+      ["frost_bolt_cryo_slow"],
+      (inst) => { inst.cryoConduit = true; },
+    ),
+    node(
+      "frost_bolt_shatter_storm", 130,
+      "Shatter Storm",
+      "Shattering a frozen enemy creates an icy explosion (3m radius) dealing 50% damage to nearby enemies.",
+      ["frost_bolt_hard_shatter"],
+      (inst) => { inst.shatterStorm = true; },
+    ),
     auto("frost_bolt", 125),
     capstone(
       "frost_bolt", 150,
       "Glacial Lance",
       "The bolt becomes a lance: it pierces every enemy in its path and leaves a 2-second slow zone (radius 4) where it expires. Crowds become lanes. Tradeoff: +50% cooldown -- this is a battlefield-shaping cast, not a panic button.",
-      4,
+      6,
       (inst) => {
         inst.glacialLance = true;
         inst.stats.pierceCount += 99;
@@ -349,12 +403,53 @@ export const UPGRADE_TREES = Object.freeze({
         inst.stats.dotDamage = Math.round(inst.stats.dotDamage * 1.25);
       },
     ),
+    node(
+      "poison_bolt_plague_spread", 75,
+      "Plague Spread",
+      "On enemy death, spreads remaining poison duration to the nearest enemy.",
+      ["poison_bolt_cd"],
+      (inst) => { inst.plagueSpread = true; },
+    ),
+    node(
+      "poison_bolt_wide_spread", 95,
+      "Wide Spread",
+      "Contagion and plague spread jump to 2 extra enemies.",
+      ["poison_bolt_plague_spread"],
+      (inst) => { inst.wideSpread = true; },
+      ["poison_bolt_deep_stack"],
+    ),
+    node(
+      "poison_bolt_deep_stack", 100,
+      "Deep Stack",
+      "Poison stacks up to 3x on the same target. Each stack: +30% DOT damage.",
+      ["poison_bolt_plague_spread"],
+      (inst) => { inst.deepStack = true; },
+      ["poison_bolt_wide_spread"],
+    ),
+    node(
+      "poison_bolt_corrosive_veins", 120,
+      "Corrosive Veins",
+      "Each poison stack reduces the target's damage output by 5%.",
+      ["poison_bolt_deep_stack"],
+      (inst) => { inst.corrosiveVeins = true; },
+    ),
+    // Necrotic Bloom — a gated branch node (not a capstone, but uses
+    // requiresOwnedCount to ensure build commitment before unlocking).
+    Object.freeze({
+      id: "poison_bolt_necrotic_bloom", cost: 140,
+      title: "Necrotic Bloom",
+      description: "On poisoned enemy death, erupts in a 4m radius dealing 60% of the poison's remaining damage as instant AoE.",
+      requires: ["poison_bolt_cd"],
+      excludes: [],
+      requiresOwnedCount: 4,
+      apply: (inst) => { inst.necroticBloom = true; },
+    }),
     auto("poison_bolt", 125),
     capstone(
       "poison_bolt", 155,
       "Pandemic",
       "On direct hit, the poison seeds on every enemy within 4m of the primary target -- a true outbreak, not a single jump. Replaces Contagion's behavior when both are owned. Tradeoff: -20% direct impact damage and +15% cooldown.",
-      4,
+      5,
       (inst) => {
         inst.pandemicSpread = true;
         inst.stats.damage = Math.max(1, Math.round(inst.stats.damage * 0.8));
@@ -402,12 +497,56 @@ export const UPGRADE_TREES = Object.freeze({
         inst.stats.chainCount += 1;
       },
     ),
+    node(
+      "chain_lightning_jump_range", 70,
+      "Extended Arcs",
+      "+25% chain jump distance. Thread targets from farther away.",
+      ["chain_lightning_cd"],
+      (inst) => { inst.jumpRangeBoost = true; },
+    ),
+    node(
+      "chain_lightning_overcharge_first", 85,
+      "Overcharge First",
+      "The first target hit by the chain takes +30% damage.",
+      ["chain_lightning_cd"],
+      (inst) => { inst.overchargeFirst = true; },
+    ),
+    node(
+      "chain_lightning_chain_low_hp", 95,
+      "Chain: Low-HP Priority",
+      "Chains prefer targets below 50% HP. Killing a chained target refunds 0.3s CD.",
+      ["chain_lightning_cd"],
+      (inst) => { inst.chainLowHp = true; },
+      ["chain_lightning_chain_elites"],
+    ),
+    node(
+      "chain_lightning_chain_elites", 95,
+      "Chain: Elite Bane",
+      "Chains concentrate bonus damage on elite targets: +25% vs elites.",
+      ["chain_lightning_cd"],
+      (inst) => { inst.chainElites = true; },
+      ["chain_lightning_chain_low_hp"],
+    ),
+    node(
+      "chain_lightning_voltaic_overflow", 125,
+      "Voltaic Overflow",
+      "Chain low-HP path: each kill via chain refunds 0.3s cooldown.",
+      ["chain_lightning_chain_low_hp"],
+      (inst) => { inst.voltaicOverflow = true; },
+    ),
+    node(
+      "chain_lightning_breaker_shock", 120,
+      "Breaker Shock",
+      "Chain elite path: hits vs elites reduce their damage output by 10% for 3s.",
+      ["chain_lightning_chain_elites"],
+      (inst) => { inst.breakerShock = true; },
+    ),
     auto("chain_lightning", 125),
     capstone(
       "chain_lightning", 165,
       "Chain Storm",
       "+2 chain jumps and the arc reaches 30% farther between targets, threading enemies the cast normally couldn't reach. Tradeoff: +40% cooldown.",
-      4,
+      5,
       (inst) => {
         inst.stormChain = true;
         inst.stats.chainCount += 2;
@@ -452,12 +591,62 @@ export const UPGRADE_TREES = Object.freeze({
       ["meteor_wider_crater"],
       (inst) => { inst.stats.damage = Math.round(inst.stats.damage * 1.35); },
     ),
+    node(
+      "meteor_secondary_impacts", 65,
+      "Secondary Impacts",
+      "Each follow-up meteor from Aftershocks deals +10% bonus damage.",
+      ["meteor_cd"],
+      (inst) => { inst.secondaryImpactsUpgrade = true; },
+    ),
+    node(
+      "meteor_scorched_earth", 75,
+      "Scorched Earth",
+      "Impact leaves burning ground for 3s, dealing 6 damage per tick to enemies standing in it.",
+      ["meteor_cd"],
+      (inst) => { inst.scorchedGround = true; },
+    ),
+    node(
+      "meteor_blast_radius", 90,
+      "Colossal Crater",
+      "+30% blast radius, but the meteor travels 15% slower. Control the zone.",
+      ["meteor_cd"],
+      (inst) => {
+        inst.stats.areaRadius *= 1.3;
+        inst.blastRadiusUpgrade = true;
+      },
+      ["meteor_travel_speed"],
+    ),
+    node(
+      "meteor_travel_speed", 85,
+      "Comet Speed",
+      "The meteor flies 40% faster, but its blast radius shrinks 10%. Precision strike.",
+      ["meteor_cd"],
+      (inst) => {
+        inst.stats.projectileSpeed += Math.round((inst.stats.projectileSpeed || 20) * 0.4);
+        inst.travelSpeedUpgrade = true;
+      },
+      ["meteor_blast_radius"],
+    ),
+    node(
+      "meteor_magma_core", 125,
+      "Magma Core",
+      "Scorched Earth deals +25% damage and lingers 1s longer.",
+      ["meteor_scorched_earth"],
+      (inst) => { inst.magmaCore = true; },
+    ),
+    node(
+      "meteor_comet_trail", 120,
+      "Comet Trail",
+      "The meteor leaves a damage trail as it flies, burning enemies it passes over for 4 damage per tick.",
+      ["meteor_travel_speed"],
+      (inst) => { inst.cometTrail = true; },
+    ),
     auto("meteor", 135),
     capstone(
       "meteor", 180,
       "Cataclysm",
       "The primary impact stuns every enemy in its blast radius for 1 second, and the crater stays molten -- a damaging pool ticks for ~3 seconds at the full crater radius. Tradeoff: +25% cooldown.",
-      4,
+      5,
       (inst) => {
         inst.cataclysm = true;
         inst.stats.cooldown *= 1.25;

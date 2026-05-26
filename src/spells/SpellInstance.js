@@ -48,5 +48,37 @@ export class SpellInstance {
     this.pandemicSpread = false;
     this.stormChain = false;
     this.cataclysm = false;
+
+    // Feature_6 upgrade-tree flags — Frost Bolt
+    this.frostChillStack = false;
+    this.icicleSplinter = false;
+    this.coldSnap = false;
+    this.cryoSlow = false;
+    this.hardShatter = false;
+    this.cryoConduit = false;
+    this.shatterStorm = false;
+
+    // Feature_6 upgrade-tree flags — Poison Bolt
+    this.plagueSpread = false;
+    this.wideSpread = false;
+    this.deepStack = false;
+    this.corrosiveVeins = false;
+    this.necroticBloom = false;
+
+    // Feature_6 upgrade-tree flags — Chain Lightning
+    this.jumpRangeBoost = false;
+    this.overchargeFirst = false;
+    this.chainLowHp = false;
+    this.chainElites = false;
+    this.voltaicOverflow = false;
+    this.breakerShock = false;
+
+    // Feature_6 upgrade-tree flags — Meteor
+    this.secondaryImpactsUpgrade = false;
+    this.scorchedGround = false;
+    this.blastRadiusUpgrade = false;
+    this.travelSpeedUpgrade = false;
+    this.magmaCore = false;
+    this.cometTrail = false;
   }
 }
