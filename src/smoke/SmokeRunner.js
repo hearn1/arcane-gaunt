@@ -9,6 +9,9 @@ import runGamepadMenuNav from "./scenarios/gamepadMenuNav.js";
 import runCatalogValidate from "./scenarios/catalogValidate.js";
 import runSteamNoop from "./scenarios/steamNoop.js";
 import runPrivacyNoNetwork from "./scenarios/privacyNoNetwork.js";
+import runDataValidate from "./scenarios/dataValidate.js";
+import runRewardGenerateValidate from "./scenarios/rewardGenerateValidate.js";
+import runLevelCompositionValidate from "./scenarios/levelCompositionValidate.js";
 
 const SCENARIOS = {
   "boot-start-menu": runBootStartMenu,
@@ -21,6 +24,9 @@ const SCENARIOS = {
   "catalog-validate": runCatalogValidate,
   "steam-noop-when-unavailable": runSteamNoop,
   "privacy-no-network": runPrivacyNoNetwork,
+  "data-validate": runDataValidate,
+  "reward-generate-validate": runRewardGenerateValidate,
+  "level-composition-validate": runLevelCompositionValidate,
 };
 
 async function runSingleScenario(game, scenario) {

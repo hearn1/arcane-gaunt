@@ -48,16 +48,23 @@ No install step is needed for browser development. Any static file server pointe
 at the project root also works; `serve.py` just adds no-cache headers and
 correct ES-module MIME types.
 
-## Browser smoke check
+## Testing
 
-With `serve.py` running, open:
+ArcaneGaunt includes two tiers of testing: **automated smoke/data-validation
+tests** (run in-browser or via headless Electron) and **manual gameplay tests**
+that require human verification.
+
+### Automated Tests
+
+#### Test scenarios
+
+With `serve.py` running, open a browser to:
 
 ```text
-http://localhost:8000/?smoke=boot-start-menu
+http://localhost:8000/?smoke=<scenario>
 ```
 
-This runs the lightweight automated smoke harness in the browser. The following
-scenarios are available as the `smoke` query parameter:
+All available scenarios:
 
 | Scenario | Description |
 |----------|-------------|
@@ -68,8 +75,12 @@ scenarios are available as the `smoke` query parameter:
 | `settings-persistence` | Write custom settings, round-trip through save/load, restore originals. |
 | `reset-records` | Persist a synthetic best run, trigger reset, assert profile cleared but settings unchanged. |
 | `gamepad-menu-nav` | Programmatic uiNav focus/activate through main menu, pause, and settings screens (no real gamepad). Verifies data-nav wiring and new settings rows. |
+| `catalog-validate` | Validates upgrade tree node shapes, cross-references, and spell instance compatibility. |
 | `steam-noop-when-unavailable` | Verify `Steam.event()` is a no-op in browser dev (no bridge, no errors). |
 | `privacy-no-network` | Assert no external network requests (`fetch`/`XMLHttpRequest` to non-local origins) during gameplay. |
+| `data-validate` | Validates all static data integrity: spell definitions, upgrade trees, rarity weights, wave modifiers, onboarding prompts, relic rewards, and `SpellInstance` construction. Runs ~20 checks. |
+| `reward-generate-validate` | Stress-tests `RewardGenerator` across all spells: validates card shapes, no duplicates, type consistency, `apply()` execution, relic dedup, and Spell Unlock availability. |
+| `level-composition-validate` | Validates `LevelManager.composition()` for levels 1-50 across all layout biases, level gates, boss patterns, wave modifier constraints, and `reset()` state cleanup. |
 
 Pass `?smoke=all` to run every scenario in sequence:
 
@@ -85,6 +96,144 @@ The smoke runner is inert unless the `smoke` query parameter is present, skips
 audio startup, and avoids writing profile progress while it drives the flow.
 All scenarios use the same query-parameter harness rather than a separate app
 architecture.
+
+#### Headless run (Electron)
+
+Run all smoke tests headlessly via Electron (no visible window):
+
+```sh
+npm test
+# or
+npm run test:smoke
+```
+
+Run a single scenario:
+
+```sh
+node test/run.mjs data-validate
+node test/run.mjs reward-generate-validate
+node test/run.mjs level-composition-validate
+```
+
+Or use the npm shortcuts:
+
+```sh
+npm run test:validate
+npm run test:reward
+npm run test:level
+```
+
+The headless runner:
+1. Starts the Python dev server on port 8000
+2. Launches Electron with a hidden window pointed at `http://localhost:8000/?smoke=<scenario>`
+3. Polls for `window.__arcaneSmokeResult` (up to 120s timeout)
+4. Writes the result JSON to a temp file, prints a summary, and exits with code 0 (pass) or 1 (fail)
+
+No additional packages are needed — the test runner uses the existing Electron
+and Node.js installations.
+
+### Manual Test Plan
+
+The following scenarios require human verification. Start the dev server with
+`python serve.py` and open `http://localhost:8000`.
+
+#### 1. Main Menu & Spell Selection
+
+| Test Case | Steps | Expected |
+|-----------|-------|----------|
+| Default state | Load `http://localhost:8000` | Main menu visible with title, Start Run button, 6 spell cards |
+| Spell selection | Click each spell card | Selected spell highlights visually; description updates |
+| Gamepad navigation | Navigate with gamepad D-pad + A | Focus moves between spell cards and Start; A selects |
+| Settings menu | Click Settings gear or press Back | Settings overlay opens with audio sliders, sensitivity, invert Y, render scale, VFX density, fullscreen toggle, Reset Records |
+| Settings back | Click Back or press Escape | Settings closes, returns to main menu |
+| Reset Records | Settings → Reset Records → Confirm | Best-run and lifetime totals cleared; settings unchanged |
+| Fullscreen toggle | Toggle fullscreen in settings | Window enters/exits fullscreen (supported in Electron only) |
+
+#### 2. Gameplay — Movement & Combat
+
+| Test Case | Steps | Expected |
+|-----------|-------|----------|
+| Start run | Select a spell → Start Run | Focus prompt appears: "Click to Enter Arena" |
+| Enter arena | Click or press Enter | Game transitions to PLAYING; HUD, crosshair, wave banner, enemies spawn |
+| WASD movement | Press W/A/S/D | Player moves forward/left/backward/right; camera stays fixed |
+| Mouse look | Move mouse | Camera rotates; no vertical limit |
+| Jump | Press Space | Player lifts off ground, lands |
+| Cast spell | Left-click | Projectile fires from player toward crosshair; cooldown on HUD |
+| Cast while moving | Left-click while WASD | Projectile fires; movement continues uninterrupted |
+| Spell cooldown display | Cast repeatedly | HUD shows cooldown ring/fill on spell icon |
+| Cycle spells | Mouse wheel or 1-6 keys (if multiple spells owned) | Equipped spell changes; HUD updates |
+| Blink | Press Shift/Q/B | Player dashes forward ~8 units; brief cooldown |
+| Block | Hold right-click | Block animation plays; damage reduced; stamina drains |
+| Perfect block | Right-click just before hit | Hit negated; projectile reflects back; "Perfect Block" indicator |
+
+#### 3. Enemies & Waves
+
+| Test Case | Steps | Expected |
+|-----------|-------|----------|
+| Wave 1 composition | Start a run | Melee enemies only (4-5). No ranged, no dashers. |
+| Wave 2 composition | Clear wave 1 | Melee + ranged enemies appear |
+| Wave 3+ composition | Progress past wave 3 | Dashers appear, and later mages (wave 4+), linebreakers (wave 5+) |
+| Enemy AI — melee | Stand still | Melee enemies approach and attack |
+| Enemy AI — ranged | Keep distance | Ranged enemies maintain distance and fire projectiles |
+| Enemy AI — dasher | Wait for dasher | Dasher charges at player with burst speed |
+| Wave clear | Kill all enemies | Gold reward banner; reward cards appear; wave counter advances |
+| Wave modifier (level 2+) | Progress past wave 2 | Modifier banner shown at wave start (e.g., "Swift Horde", "Armored") |
+
+#### 4. Rewards & Upgrade Panel
+
+| Test Case | Steps | Expected |
+|-----------|-------|----------|
+| Reward cards | Clear a wave | 3 reward cards shown; can click one to select |
+| Reroll | Click reroll button | Cards re-draw; cost increases each reroll |
+| Upgrade panel | Select a reward | Upgrade panel opens with spell tree, service buys |
+| Buy upgrade node | Click an available node with enough gold | Gold deducted; node purchased; stat changed |
+| Locked node | Click a node with unmet requires | Node shows lock icon; cannot purchase |
+| Buy heal service | Click heal (if damaged) | Health restored; gold deducted |
+| Resume after rewards | Click Continue | Focus prompt appears; next wave ready |
+| Spell Unlock reward | Own an auto-cast spell; clear wave | "Attune <Spell>" rare card may appear; selecting it adds new manual spell |
+
+#### 5. Death & Summary
+
+| Test Case | Steps | Expected |
+|-----------|-------|----------|
+| Player death | Take lethal damage | Game over screen appears: Summary, Restart, Main Menu buttons |
+| Run Summary | Click Summary | Wave reached, kills, gold, damage, per-spell breakdown shown; best-run comparison |
+| Toggle details | Click Show Details | Damage breakdown section toggles visibility |
+| Back from summary | Click Back | Returns to game over screen |
+| Restart | Click Restart | Player respawns at full health; back to focus prompt; same spell |
+| Return to menu | Click Main Menu | Main menu shown; can select different spell completely |
+
+#### 6. Persistence
+
+| Test Case | Steps | Expected |
+|-----------|-------|----------|
+| Settings survive reload | Change settings → refresh page | Settings values persist |
+| Profile updates after run | Complete a run (die) → check Reset Records | Best run updated; lifetime totals incremented |
+| Cross-session profile | Complete run → reload → check summary | Best run retained |
+
+#### 7. Edge Cases
+
+| Test Case | Steps | Expected |
+|-----------|-------|----------|
+| Tab-out during wave | Press Alt+Tab during combat | When tab returns, dt clamps at 50ms; game state preserved |
+| Rapid spell swap | Mouse wheel + number keys rapidly | Loadout swaps cleanly; no stuck state |
+| Zero gold | Spend all gold; check services | Buy buttons disabled when gold insufficient |
+| Max stamina block | Hold block until stamina empty | Block deactivates; stamina bar empty; regenerates over time |
+| Block right before hit / late | Time block too early or too late | Damage taken normally; no perfect block |
+| Multiple enemies hit by AoE | Fireball/Meteor into crowd | All enemies in radius damaged |
+| Blink into wall | Blink toward arena edge | Blink ends at collision edge (clamped) |
+| Wave clear with DOT kill | Poison enemy; let it die to DOT | Wave completes; reward triggers correctly |
+| Window resize | Resize browser window | Game canvas and HUD scale proportionally |
+
+#### 8. Controls — Gamepad
+
+| Test Case | Steps | Expected |
+|-----------|-------|----------|
+| Left stick | Move left stick | Player movement |
+| Right stick | Move right stick | Camera look |
+| RT / A | Press | Cast spell |
+| LT (hold) | Hold | Block |
+| D-Pad | Press up/down | Cycle selected spell |
 
 ## Run as a desktop app
 
