@@ -900,7 +900,7 @@ export class Game {
     this.onboarding?.finalizeRun(this.profile);
     const highestWave = Math.max(1, Math.round(this.levelManager?.level || this.runStats.levelsCleared + 1));
     const record = createRunRecord(this.runStats, this.selectedSpellId, highestWave);
-    this.persistProfile(recordRunCompleted(this.profile, record));
+    this.persistProfile(recordRunCompleted(this.profile, record, this.relics.size));
   }
 
   _queueDeathCleanup() {

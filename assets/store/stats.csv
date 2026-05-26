@@ -1,0 +1,7 @@
+apiName,displayName,type
+STAT_RUNS_COMPLETED,Runs Completed,int
+STAT_HIGHEST_WAVE,Highest Wave,int
+STAT_LIFETIME_KILLS,Lifetime Kills,int
+STAT_LIFETIME_DAMAGE,Lifetime Damage,int
+STAT_PERFECT_BLOCKS,Perfect Blocks,int
+STAT_RELICS_OWNED_PEAK,Peak Relics,int

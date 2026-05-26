@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { ENEMY_CLASSES } from "./Enemy.js";
+import { steamEvent } from "../core/Steam.js";
 
 // Owns wave-level enemy tracking. Individual AI lives in the enemy classes.
 // Fires onAllEnemiesDefeated exactly once per wave.
@@ -75,6 +76,9 @@ export class EnemyManager {
 
   onEnemyDead(enemy) {
     this.world.runStats.registerKill();
+    if (enemy.isBoss && enemy.cfg?.type) {
+      steamEvent("boss.killed", { variant: enemy.cfg.type });
+    }
     if (this._waveActive && this.aliveCount === 0) {
       this._waveActive = false;
       const gold = this._waveGold;

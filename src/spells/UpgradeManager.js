@@ -1,4 +1,5 @@
 import { UPGRADE_TREES } from "./upgradeTrees.js";
+import { steamEvent } from "../core/Steam.js";
 
 // Pure logic: tracks purchased upgrade nodes per spell for the current run,
 // validates gold + requires + excludes constraints, applies the node to the
@@ -84,6 +85,7 @@ export class UpgradeManager {
     if (!this.world.currency.spend(node.cost)) return false;
     node.apply(inst, this.world);
     (this.purchased[spellId] || (this.purchased[spellId] = [])).push(node.id);
+    steamEvent("upgrade.bought", { spellId, nodeId });
     return true;
   }
 }
