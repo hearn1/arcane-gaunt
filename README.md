@@ -9,6 +9,18 @@ waves, and see how deep you get before you die.
 > `TECHNICAL_ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `UI_AND_SCENE_FLOW.md`,
 > and `ASSET_GUIDELINES.md`.
 
+## Privacy
+
+ArcaneGaunt does not collect, transmit, or store any personal data off your device.
+No remote telemetry, analytics, or crash reporting. See [`PRIVACY_POLICY.md`](./PRIVACY_POLICY.md)
+for full details, including local save and log paths.
+
+## Release
+
+The operator release checklist is at [`RELEASE_CHECKLIST.md`](./RELEASE_CHECKLIST.md),
+covering capsule art, store descriptions, packaged-file audit, credits/license audit,
+privacy policy, screenshots, trailer, and the Steam client install smoke test.
+
 ## Stack
 
 - **three.js** (vendored at `vendor/three.module.js`) for WebGL 3D.
@@ -57,6 +69,7 @@ scenarios are available as the `smoke` query parameter:
 | `reset-records` | Persist a synthetic best run, trigger reset, assert profile cleared but settings unchanged. |
 | `gamepad-menu-nav` | Programmatic uiNav focus/activate through main menu, pause, and settings screens (no real gamepad). Verifies data-nav wiring and new settings rows. |
 | `steam-noop-when-unavailable` | Verify `Steam.event()` is a no-op in browser dev (no bridge, no errors). |
+| `privacy-no-network` | Assert no external network requests (`fetch`/`XMLHttpRequest` to non-local origins) during gameplay. |
 
 Pass `?smoke=all` to run every scenario in sequence:
 
@@ -122,7 +135,7 @@ npm run dist:portable
 Output:
 
 ```text
-dist/ArcaneGaunt 0.1.0.exe
+dist/ArcaneGaunt 1.0.0.exe
 ```
 
 ## Steam upload

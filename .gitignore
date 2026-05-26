@@ -4,3 +4,4 @@ dist/
 npm-debug.log*
 steampipe/build_output/
 steam_appid.txt
+assets/store/trailer/working/
