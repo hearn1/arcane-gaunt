@@ -9,6 +9,9 @@ Original implementation for the **ArcaneGaunt** prototype.
 | Library | Version | Source | License | Usage |
 |---------|---------|--------|---------|-------|
 | three.js | 0.160.0 | https://github.com/mrdoob/three.js (fetched via unpkg) | MIT | 3D rendering, GLTF loading, and skinned model cloning. Vendored locally under `vendor/` so the game runs fully offline. |
+| electron | ^42.1.0 | https://github.com/electron/electron | MIT | Desktop shell. Electron-wrapped build packages the game for Windows. |
+| electron-builder | ^26.10.0 | https://github.com/electron-userland/electron-builder | MIT | Packaging and installer generation. |
+| steamworks.js | ^0.4.0 | https://github.com/ceifa/steamworks.js | MIT | Steam SDK bridge for achievements, stats, and Cloud sync. Only active when launched through Steam. |
 
 ## Art & audio assets
 

@@ -8,6 +8,7 @@ import runResetRecords from "./scenarios/resetRecords.js";
 import runGamepadMenuNav from "./scenarios/gamepadMenuNav.js";
 import runCatalogValidate from "./scenarios/catalogValidate.js";
 import runSteamNoop from "./scenarios/steamNoop.js";
+import runPrivacyNoNetwork from "./scenarios/privacyNoNetwork.js";
 
 const SCENARIOS = {
   "boot-start-menu": runBootStartMenu,
@@ -19,6 +20,7 @@ const SCENARIOS = {
   "gamepad-menu-nav": runGamepadMenuNav,
   "catalog-validate": runCatalogValidate,
   "steam-noop-when-unavailable": runSteamNoop,
+  "privacy-no-network": runPrivacyNoNetwork,
 };
 
 async function runSingleScenario(game, scenario) {
