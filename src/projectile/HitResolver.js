@@ -142,12 +142,17 @@ export class HitResolver {
           }
         }
       } else if (s.contagion) {
-        // Contagion: spread the DOT once to the nearest other enemy. Only the
-        // directly-hit enemy spreads (no spread-from-spread) -> naturally capped.
-        const near = this._nearestOther(enemy, 6);
-        if (near) {
-          near.applyDot(s.stats.dotDamage, s.stats.dotDuration, s.stats.dotTickRate, dotSrc);
-          this.world.vfx.mist(near.position.clone(), 0x66dd55, 1.5, 0.7, 12);
+        // Contagion: spread the DOT to all enemies within contagionRadius.
+        // Only the directly-hit enemy spreads (no spread-from-spread) -> naturally capped.
+        const radius = s.contagionRadius || 3.5;
+        const potency = s.contagionPotency || 0.6;
+        const dotDmg = Math.round(s.stats.dotDamage * potency);
+        for (const other of this.world.getEnemies()) {
+          if (other === enemy || !other.alive) continue;
+          if (other.position.distanceTo(enemy.position) <= radius) {
+            other.applyDot(dotDmg, s.stats.dotDuration, s.stats.dotTickRate, dotSrc);
+            this.world.vfx.mist(other.position.clone(), 0x66dd55, 1.5, 0.7, 12);
+          }
         }
       }
     }

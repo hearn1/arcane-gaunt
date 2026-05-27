@@ -239,6 +239,26 @@ export default async function runDataValidate(game, result) {
     }
   });
 
+  await step(result, "SPELL_DEFINITIONS — unique mechanic fields per spell", () => {
+    const fb = SPELL_DEFINITIONS.fireball;
+    assert(fb.burnPatch === true, "fireball missing burnPatch");
+    assert(typeof fb.gravity === "number" && fb.gravity > 0, "fireball missing gravity");
+
+    const fb2 = SPELL_DEFINITIONS.frost_bolt;
+    assert(fb2.chillStacks === true, "frost_bolt missing chillStacks");
+    assert(typeof fb2.chillMaxStacks === "number" && fb2.chillMaxStacks > 0, "frost_bolt missing chillMaxStacks");
+    assert(typeof fb2.shatterDamage === "number" && fb2.shatterDamage > 0, "frost_bolt missing shatterDamage");
+
+    const pb = SPELL_DEFINITIONS.poison_bolt;
+    assert(pb.contagion === true, "poison_bolt missing contagion");
+    assert(typeof pb.contagionRadius === "number" && pb.contagionRadius > 0, "poison_bolt missing contagionRadius");
+    assert(typeof pb.contagionPotency === "number" && pb.contagionPotency > 0 && pb.contagionPotency < 1, "poison_bolt missing contagionPotency");
+
+    const ab = SPELL_DEFINITIONS.arcane_bolt;
+    assert(ab.cadenceStacks === true, "arcane_bolt missing cadenceStacks");
+    assert(typeof ab.cadenceMaxStacks === "number" && ab.cadenceMaxStacks > 0, "arcane_bolt missing cadenceMaxStacks");
+  });
+
   const validRewardTypes = ["Spell Upgrade", "Vitality", "Mobility", "Targeting", "Relic", "Spell Unlock"];
   const validRaritiesForRewards = ["common", "uncommon", "rare"];
 
