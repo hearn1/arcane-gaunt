@@ -710,7 +710,7 @@ export class TwinWardenElite extends EliteEnemy {
     this.partner = null;
     this._raged = false;
     this.syncDelay = 0;
-    this.health.setMax(Math.round(this.health.max * 0.9));
+    this.health.setMax(Math.round(this.health.max * 1.1));
     this.speed *= 1.2;
     this.touchDamage = Math.round(this.touchDamage * 1.5);
     this._phase2Triggered = false;
@@ -779,7 +779,7 @@ export class ReaverElite extends EliteEnemy {
     super(world, level, spawn);
     this.cfg.type = "reaver";
     this.isBoss = true;
-    this.health.setMax(Math.round(this.health.max * 1.5));
+    this.health.setMax(Math.round(this.health.max * 1.8));
     this.speed *= 1.2;
     this.touchDamage = Math.round(this.touchDamage * 1.5);
     this._phase2Triggered = false;
@@ -864,7 +864,7 @@ export class ReaverElite extends EliteEnemy {
       this._moveTo(this.chargeDir, 5.1, dt);
       if (this.surgeT <= 0) {
         this.state = "cutoff";
-        this.cooldown = 4.6 + Math.random() * 0.8;
+        this.cooldown = 3.4 + Math.random() * 0.8;
         this.attackTimer = 0.25;
       }
     }
@@ -878,7 +878,7 @@ export class SentinelElite extends EliteEnemy {
     super(world, level, spawn);
     this.cfg.type = "sentinel";
     this.isBoss = true;
-    this.health.setMax(Math.round(this.health.max * 1.45));
+    this.health.setMax(Math.round(this.health.max * 1.7));
     this.speed *= 1.2;
     this.touchDamage = Math.round(this.touchDamage * 1.5);
     this._phase2Triggered = false;
@@ -897,11 +897,11 @@ export class SentinelElite extends EliteEnemy {
     }
     this.minions = this.minions.filter((m) => m && m.alive);
     this.respawnCd -= dt;
-    if (this.respawnCd <= 0 && this.minions.length < 3) {
+    if (this.respawnCd <= 0 && this.minions.length < 4) {
       const lvl = this.world.levelManager?.level ?? 1;
       const m = this.world.enemyManager.spawnExtra(MeleeEnemy, lvl, this.position);
       if (m) this.minions.push(m);
-      this.respawnCd = 6.0;
+      this.respawnCd = 4.5;
       this.world.vfx.shock(this.position, 0xffcf4d, 2.0, 0.28);
     }
     if (!this._canSeePlayer(0.25)) {

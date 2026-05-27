@@ -96,9 +96,9 @@ const mage = (level >= 4 ? 1 : 0) + Math.floor((level - 4) * 0.3);     // unchan
 | elite | touchDamage | 18 | 15 | Less punishing |
 
 **Boss Adjustments**:
-- Twin Warden: 0.85× elite HP → 0.9× (two targets, slightly tougher)
-- Reaver: 1.6× elite HP → 1.5× (single target, adjust for 60s)
-- Sentinel: 1.5× elite HP → 1.45× (spawns minions, slight adjust)
+- Twin Warden: 0.85× elite HP → 1.1× (two targets, significantly tougher per instance)
+- Reaver: 1.6× elite HP → 1.8× (single target, tankier)
+- Sentinel: 1.5× elite HP → 1.7× (spawns minions, but tankier)
 
 ---
 
@@ -420,9 +420,9 @@ All bosses received stat upgrades to increase difficulty:
 
 | Boss | Stat Change |
 |------|-------------|
-| Twin Warden | fireCd 2.6s → 1.8s (raged 1.3s → 0.9s) |
-| Reaver | fireCd 3.0s → 2.1s |
-| Sentinel | fireCd 2.4s → 1.7s |
+| Twin Warden | fireCd 2.6s → 1.8s (raged 1.3s → 0.9s); HP ×1.1 |
+| Reaver | fireCd 3.0s → 2.1s; surge cooldown 4.6s → 3.4s; HP ×1.8 |
+| Sentinel | fireCd 2.4s → 1.7s; respawnCd 6.0s → 4.5s; minion cap 3 → 4; HP ×1.7 |
 | All bosses | speed ×1.2, touchDamage ×1.5 |
 
 ### Phase 2 (Triggered at <50% HP)
