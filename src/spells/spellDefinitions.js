@@ -67,6 +67,8 @@ export const SPELL_DEFINITIONS = Object.freeze({
     dotDuration: 4.5,
     dotTickRate: 0.5,
     contagion: true,
+    contagionRadius: 3.5,
+    contagionPotency: 0.6,
     color: 0x66dd55,
     colorblindColor: 0xff9933,
     soundId: "poison",

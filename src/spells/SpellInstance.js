@@ -61,6 +61,8 @@ export class SpellInstance {
     this.stormChain = false;
     this.cataclysm = false;
 
+    this.contagionRadius = def.contagionRadius || 3.5;
+    this.contagionPotency = def.contagionPotency || 0.6;
     if (def.burnPatch) this.burnPatch = true;
     if (def.contagion) this.contagion = true;
 
