@@ -39,7 +39,7 @@ import { LayoutEventManager } from "../level/LayoutEventManager.js";
 import { RewardGenerator } from "../rewards/RewardGenerator.js";
 import { UpgradeManager } from "../spells/UpgradeManager.js";
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
-import { getDifficultyTier } from "./Difficulty.js";
+import { DIFFICULTY_TIERS, getDifficultyTier } from "./Difficulty.js";
 import { castSpell } from "../spells/Effects.js";
 import { UI } from "../ui/ui.js";
 import { Onboarding } from "../ui/Onboarding.js";
@@ -991,11 +991,21 @@ export class Game {
     const finalProfile = recordRunCompleted(progressResult.profile, record, this.relics.size);
     this.persistProfile(finalProfile);
 
+    const toasts = [];
     if (progressResult.newlyUnlocked.length > 0) {
       const names = progressResult.newlyUnlocked.map(
         (id) => SPELL_DEFINITIONS[id]?.displayName || id
       );
-      this.ui.toast(`New spell unlocked: ${names.join(", ")}!`, 3000);
+      toasts.push(`New spell unlocked: ${names.join(", ")}!`);
+    }
+    if (progressResult.newlyUnlockedTiers?.length > 0) {
+      const names = progressResult.newlyUnlockedTiers.map(
+        (tl) => DIFFICULTY_TIERS.find((t) => t.level === tl)?.name || `Tier ${tl}`
+      );
+      toasts.push(`New difficulty unlocked: ${names.join(", ")}!`);
+    }
+    if (toasts.length > 0) {
+      this.ui.toast(toasts.join("  "), 3000);
     }
   }
 

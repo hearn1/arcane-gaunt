@@ -1,5 +1,5 @@
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
-import { DIFFICULTY_TIERS, UNLOCK_TIER } from "../core/Difficulty.js";
+import { DIFFICULTY_TIERS, SPELL_UNLOCK_LEVELS, getTierUnlockDescription } from "../core/Difficulty.js";
 import { attach } from "./uiNav.js";
 import { t, setLang } from "../core/i18n.js";
 
@@ -160,19 +160,23 @@ export class UI {
   mainMenu(onStart, selectedSpellId = STARTER_SPELL_ID, onSettings = null, profile = null, onResetProfile = null, difficultyLevel = 1, onDifficultyChange = null) {
     this.setHud(false);
     const unlockedSpells = profile?.unlockedSpells || ["arcane_bolt"];
+    const unlockedTiers = profile?.unlocks?.unlockedTiers || [1];
 
-    const difficultyOptions = DIFFICULTY_TIERS.map((tier) => `
-      <button class="diff-pill ${tier.level === difficultyLevel ? "selected" : ""}" data-diff="${tier.level}" data-nav>
-        <span class="diff-pill-name">${tier.name}</span>
-        <span class="diff-pill-level">${t("ui.tier")} ${tier.level}</span>
-      </button>
-    `).join("");
+    const difficultyOptions = DIFFICULTY_TIERS.map((tier) => {
+      const unlocked = unlockedTiers.includes(tier.level);
+      const title = !unlocked ? getTierUnlockDescription(tier) || "" : "";
+      return `
+        <button class="diff-pill ${tier.level === difficultyLevel ? "selected" : ""} ${unlocked ? "" : "locked"}" data-diff="${tier.level}" data-nav ${unlocked ? "" : "disabled"} title="${title}">
+          <span class="diff-pill-name">${unlocked ? "" : '<span class="lock-icon">&#128274;</span>'}${tier.name}</span>
+          <span class="diff-pill-level">${t("ui.tier")} ${tier.level}</span>
+        </button>
+      `;
+    }).join("");
 
-    const UNLOCK_TIER_MAP = UNLOCK_TIER;
     const spellOptions = Object.values(SPELL_DEFINITIONS).map((def) => {
       const unlocked = unlockedSpells.includes(def.id);
-      const required = UNLOCK_TIER_MAP[def.id];
-      const title = !unlocked && required ? `${t("ui.unlocked_at_difficulty_tier")} ${required}` : "";
+      const required = SPELL_UNLOCK_LEVELS[def.id];
+      const title = !unlocked && required ? `Unlock: Reach level ${required} on any difficulty` : "";
       const lockHtml = !unlocked ? '<span class="lock-icon">&#128274;</span>' : "";
       return `
         <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""} ${unlocked ? "" : "locked"}" data-spell="${def.id}" data-nav ${unlocked ? "" : "disabled"} title="${title}">
@@ -222,6 +226,7 @@ const settingsButton = onSettings
 
     this.root.querySelectorAll(".diff-pill").forEach((el) => {
       el.onclick = () => {
+        if (el.disabled) return;
         const level = parseInt(el.dataset.diff, 10);
         selectedDiff = level;
         if (onDifficultyChange) onDifficultyChange(level);

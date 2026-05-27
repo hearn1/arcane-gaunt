@@ -1,7 +1,7 @@
 import { deleteSaveJson, loadSaveJson, saveSaveJson, SAVE_DEFINITIONS } from "./SaveStorage.js";
 import { SPELL_DEFINITIONS } from "../spells/spellDefinitions.js";
 import { steamEvent } from "./Steam.js";
-import { getDifficultyTier, UNLOCK_TIER } from "./Difficulty.js";
+import { DIFFICULTY_TIERS, SPELL_UNLOCK_LEVELS } from "./Difficulty.js";
 
 export const PROFILE_VERSION = 2;
 export const PROFILE_LOCAL_STORAGE_KEY = SAVE_DEFINITIONS.profile.localStorageKey;
@@ -32,7 +32,10 @@ export const DEFAULT_PROFILE = Object.freeze({
   bestRun: EMPTY_BEST_RUN,
   totals: EMPTY_TOTALS,
   meta: Object.freeze({}),
-  unlocks: Object.freeze({}),
+  unlocks: Object.freeze({
+    highestLevelByTier: Object.freeze({}),
+    unlockedTiers: Object.freeze([1]),
+  }),
   unlockedSpells: Object.freeze(["arcane_bolt"]),
   highestDifficultyCleared: 0,
 });
@@ -79,12 +82,24 @@ export function sanitizeProfile(input = {}) {
   const inputVersion = input.version || 1;
   const hasV2Fields = inputVersion >= 2;
 
+  const unlocks = plainObject(input.unlocks);
+  const highestLevelByTier = plainObject(unlocks.highestLevelByTier || {});
+  for (const key of Object.keys(highestLevelByTier)) {
+    highestLevelByTier[key] = wholeNumber(highestLevelByTier[key]);
+  }
+
   return {
     version: PROFILE_VERSION,
     bestRun: sanitizeBestRun(input.bestRun),
     totals: sanitizeTotals(input.totals),
     meta: plainObject(input.meta),
-    unlocks: plainObject(input.unlocks),
+    unlocks: {
+      ...unlocks,
+      highestLevelByTier,
+      unlockedTiers: hasV2Fields
+        ? (Array.isArray(unlocks.unlockedTiers) ? [...unlocks.unlockedTiers] : [1])
+        : [1],
+    },
     unlockedSpells: hasV2Fields
       ? (Array.isArray(input.unlockedSpells) ? [...input.unlockedSpells] : ["arcane_bolt"])
       : ["arcane_bolt"],
@@ -149,25 +164,40 @@ function isBetterRun(candidate, current) {
   return candidate.totalDamage > current.totalDamage;
 }
 
-export function recordRunProgress(profile, levelsCleared, difficultyLevel) {
+export function recordRunProgress(profile, levelsCleared, tierId) {
   const next = sanitizeProfile(profile);
-  const tier = getDifficultyTier(difficultyLevel);
-  const tierLevel = tier.level;
 
-  if (tierLevel > next.highestDifficultyCleared) {
-    next.highestDifficultyCleared = tierLevel;
+  if (tierId > next.highestDifficultyCleared) {
+    next.highestDifficultyCleared = tierId;
   }
 
-  const newlyUnlocked = [];
-  const effectiveLevel = next.highestDifficultyCleared;
-  for (const [spellId, requiredLevel] of Object.entries(UNLOCK_TIER)) {
-    if (!next.unlockedSpells.includes(spellId) && requiredLevel <= effectiveLevel) {
+  const hlbT = next.unlocks.highestLevelByTier;
+  const prevBest = hlbT[tierId] || 0;
+  if (levelsCleared > prevBest) {
+    hlbT[tierId] = levelsCleared;
+  }
+
+  const newlyUnlockedSpells = [];
+  for (const [spellId, requiredLevel] of Object.entries(SPELL_UNLOCK_LEVELS)) {
+    if (!next.unlockedSpells.includes(spellId) && levelsCleared >= requiredLevel) {
       next.unlockedSpells.push(spellId);
-      newlyUnlocked.push(spellId);
+      newlyUnlockedSpells.push(spellId);
     }
   }
 
-  return { profile: next, newlyUnlocked };
+  const newlyUnlockedTiers = [];
+  for (const tier of DIFFICULTY_TIERS) {
+    if (next.unlocks.unlockedTiers.includes(tier.level)) continue;
+    const req = tier.unlock;
+    if (!req) continue;
+    const tierHighest = hlbT[req.tierId] || 0;
+    if (tierHighest >= req.level) {
+      next.unlocks.unlockedTiers.push(tier.level);
+      newlyUnlockedTiers.push(tier.level);
+    }
+  }
+
+  return { profile: next, newlyUnlocked: newlyUnlockedSpells, newlyUnlockedTiers };
 }
 
 export function recordRunCompleted(profile, runRecord, relicCount = 0) {
