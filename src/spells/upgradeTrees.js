@@ -164,9 +164,9 @@ export const UPGRADE_TREES = Object.freeze({
     node(
       "fireball_cinder_patch", 75,
       "Cinder Patch",
-      "The blast leaves a burning patch that scorches enemies for a few seconds.",
+      "Burning patch deals +25% damage and lingers with extra heat.",
       ["fireball_cd"],
-      (inst) => { inst.burnPatch = true; },
+      (inst) => { inst.cinderPotency = true; },
       ["fireball_bigger_blast"],
     ),
     node(
@@ -296,9 +296,12 @@ export const UPGRADE_TREES = Object.freeze({
     node(
       "frost_bolt_chill_stack", 65,
       "Chill Stack",
-      "Hitting the same enemy within 3s builds a chill stack (max 3). Each stack: +10% slow, +0.5s duration.",
+      "Chill stacks harder: +0.15 slow per stack and +1 max stack.",
       ["frost_bolt_cd"],
-      (inst) => { inst.frostChillStack = true; },
+      (inst) => {
+        inst.chillSlowPerStack += 0.15;
+        inst.chillMaxStacks += 1;
+      },
     ),
     node(
       "frost_bolt_icicle_splinter", 70,
@@ -367,9 +370,12 @@ export const UPGRADE_TREES = Object.freeze({
     node(
       "poison_bolt_contagion", 75,
       "Contagion",
-      "The poison spreads once to the nearest other enemy on impact.",
+      "Contagion spreads +30% bonus DOT damage to the secondary target.",
       ["poison_bolt_cd"],
-      (inst) => { inst.contagion = true; },
+      (inst) => {
+        inst.contagion = true;
+        inst.stats.dotDamage = Math.round(inst.stats.dotDamage * 1.3);
+      },
       ["poison_bolt_virulent"],
     ),
     node(

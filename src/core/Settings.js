@@ -14,9 +14,19 @@ export const DEFAULT_SETTINGS = Object.freeze({
     mouseSensitivity: 1,
     stickLookSensitivity: 1,
     invertY: false,
+    keyBindings: Object.freeze({
+      cast: "Mouse0",
+      block: "Mouse2",
+      blink: "Space",
+      pause: "Escape",
+    }),
   }),
   display: Object.freeze({
     fullscreen: false,
+    viewmodel: true,
+    fov: 78,
+    colorblindMode: false,
+    screenShake: true,
   }),
   performance: Object.freeze({
     renderScale: 1,
@@ -28,6 +38,12 @@ function clampNumber(value, min, max, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
+}
+
+function sanitizeKeyBindings(input) {
+  const defaults = DEFAULT_SETTINGS.controls.keyBindings;
+  if (!input || typeof input !== "object") return { ...defaults };
+  return { ...defaults, ...input.keyBindings };
 }
 
 function option(value, allowed, fallback) {
@@ -55,9 +71,14 @@ export function sanitizeSettings(input = {}) {
         DEFAULT_SETTINGS.controls.stickLookSensitivity,
       ),
       invertY: !!input.controls?.invertY,
+      keyBindings: sanitizeKeyBindings(input.controls),
     },
     display: {
       fullscreen: !!input.display?.fullscreen,
+      viewmodel: !!input.display?.viewmodel,
+      fov: clampNumber(input.display?.fov, 60, 110, DEFAULT_SETTINGS.display.fov),
+      colorblindMode: !!input.display?.colorblindMode,
+      screenShake: input.display?.screenShake !== false,
     },
     performance: {
       renderScale: clampNumber(

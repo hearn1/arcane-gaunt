@@ -6,10 +6,15 @@ export class VFX {
     this.scene = scene;
     this.items = []; // { obj, life, max, update(dt, e) }
     this.density = 1;
+    this._screenShake = 1;
   }
 
   setDensity(mode = "full") {
     this.density = mode === "reduced" ? 0.55 : 1;
+  }
+
+  setScreenShake(enabled) {
+    this._screenShake = enabled ? 1 : 0;
   }
 
   _scaledCount(count, min = 1) {
@@ -144,7 +149,8 @@ export class VFX {
     r.rotation.x = -Math.PI / 2;
     r.position.set(pos.x, 0.1, pos.z);
     this._add(r, life, (dt, e) => {
-      const s = (1 - e) * maxR + 0.4;
+      const scaledMaxR = maxR * this._screenShake;
+      const s = (1 - e) * scaledMaxR + 0.4;
       r.scale.set(s, s, s);
       m.opacity = e;
     });

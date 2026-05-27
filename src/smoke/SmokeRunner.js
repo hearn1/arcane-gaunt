@@ -12,6 +12,8 @@ import runPrivacyNoNetwork from "./scenarios/privacyNoNetwork.js";
 import runDataValidate from "./scenarios/dataValidate.js";
 import runRewardGenerateValidate from "./scenarios/rewardGenerateValidate.js";
 import runLevelCompositionValidate from "./scenarios/levelCompositionValidate.js";
+import runBossCcImmune from "./scenarios/bossCcImmune.js";
+import runDifficultyUnlock from "./scenarios/difficultyUnlock.js";
 
 const SCENARIOS = {
   "boot-start-menu": runBootStartMenu,
@@ -27,6 +29,8 @@ const SCENARIOS = {
   "data-validate": runDataValidate,
   "reward-generate-validate": runRewardGenerateValidate,
   "level-composition-validate": runLevelCompositionValidate,
+  "boss-cc-immune": runBossCcImmune,
+  "difficulty-unlock": runDifficultyUnlock,
 };
 
 async function runSingleScenario(game, scenario) {

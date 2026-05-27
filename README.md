@@ -554,7 +554,16 @@ VFX/SFX, central damage + run stats, persistent settings/profile saves, safe
 record reset, fullscreen/windowed preference, lightweight performance options,
 and Electron packaging.
 
-**Not done / known limitations:**
+**Recently added:**
+
+- Shield visual (gold glow while blocking)
+- Wizard staff viewmodel with cast animation
+- Spell variety mechanics: Arcane Bolt cadence stacking, Fireball arcing lob + burn patch, Frost Bolt chill stacks (freeze+shatter), Poison Bolt baseline contagion
+- Boss difficulty: CC immunity, phase 2 attacks, stat boosts
+- 10 difficulty tiers with progressive spell unlocks (Profile v2 with migration)
+- Release-readiness: key remapping, FOV slider, colorblind-safe palette, screen shake toggle, gradient skybox, i18n string extraction
+
+**Known limitations:**
 
 - Collision is lightweight AABB/sphere based rather than navmesh/pathfinding;
   enemies steer around cover opportunistically and can still get awkward near

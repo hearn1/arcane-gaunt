@@ -13,21 +13,33 @@ tracked at two levels:
 Do not duplicate per-feature detail in this file. Update both when scope
 changes.
 
-## P0 — Release Blockers
+## P0 — Release Blocker (all done)
+
+All release-blocking items are complete. See the completed milestones below.
+
+## P1 — Game Polish & Balance
 
 | # | Item | Status | Owner |
 |---|------|--------|-------|
-| 1 | Persistent settings (audio volume/mute, mouse sensitivity, fullscreen, performance) | **Done** (Milestone 1) | — |
-| 2 | Save persistence for best runs, stats, preferences, future unlocks | **Partial** — settings + profile done; future unlock/meta reserved | (extended in feature_7, feature_8) |
-| 3 | Safe reset/delete-save flow | **Done** (Milestone 1) | — |
-| 4 | Document Steam Cloud-ready save location | **Done** (Milestone 1) | — |
-| 5 | Full gamepad support (gameplay + menus) | **Partial** — pump, pump, pump, stick, block, blink, menus nav, settings, prompts, smoke stub | [feature_1](feature_1_gamepad_steam_deck.md) |
-| 6 | Steam Deck UI readiness | **Partial** — focus-visible styles, device-aware prompts; manual test needed on Deck | [feature_1](feature_1_gamepad_steam_deck.md) |
-| 7 | Pause/settings menu without relying on pointer-lock release | **Done** (Milestone 1) | — |
-| 8 | Production Electron metadata (icon, version, identity) | **Done** | [feature_3](feature_3_electron_metadata.md) |
-| 9 | SteamPipe app/depot build scripts | **Not started** | [feature_4](feature_4_steampipe_build.md) |
-| 10 | Production crash/error handling | **Done** (Milestone 1) | — |
-| 11 | Expanded automated smoke tests | **Done** | [feature_2](feature_2_smoke_tests.md) |
+| 12 | Shield visual (gold glow while blocking) | **Done** | — |
+| 13 | Wizard staff viewmodel | **Done** | — |
+| 14 | Spell variety — cadence, arcing lob, chill stacks, contagion | **Done** | — |
+| 15 | Boss difficulty — CC immunity, phase 2 attacks | **Done** | — |
+| 16 | Difficulty tiers + progressive spell unlocks | **Done** | — |
+| 17 | Release-readiness audit (FOV, key remapping, colorblind, shake toggle, skybox, i18n) | **Done** | — |
+| 18 | Expand underfilled spell upgrade trees | **Done** | [feature_6](feature_6_content_expansion.md) |
+| 19 | Add more build-defining relics | **Done** | [feature_6](feature_6_content_expansion.md) |
+| 20 | First-run onboarding for block / blink / Auto-Cast / objectives / hazards / bosses | **Not started** | [feature_7](feature_7_onboarding_recap.md) |
+| 21 | Polish run summary and death recap | **Not started** | [feature_7](feature_7_onboarding_recap.md) |
+
+### Completed Milestone 2 — Production Polish — 2026-05-26
+
+- **Shield visual (Issue #20)**: Procedural gold hemisphere viewmodel attached to camera, appears while blocking, pulses on perfect block. Already implemented and wired.
+- **Staff viewmodel (Issue #22)**: `src/player/StaffView.js` — procedural cylinder+spere staff in camera space with idle sway, walk bob, block lowering, cast recoil tween with gem flash + particle burst. `world.staffView` getter. Cast origin moved to staff tip via `tipWorldPos()`. "Show Weapon" toggle in settings.
+- **Spell variety (Issue #21)**: Arcane Bolt cadence stacking (3 stacks, +6 dmg/stack, decay 0.6s). Fireball arcing lob (gravity 18) + baseline burn patch. Frost Bolt chill stacks (3 max, 2.5s decay, freeze+shatter at max stacks, 28 shatter damage). Poison Bolt baseline contagion. Upgrade trees adjusted. Balance tuned to ±15% TTK.
+- **Boss difficulty (Issue #24)**: CC immunity for all bosses (stun/freeze no-op with spark VFX, slow 60% resisted). Stat boosts (speed ×1.2, touchDamage ×1.5, fire CDs -30%). Phase 2 attacks at <50% HP (Twin Warden ground slam, Reaver fan of orbs, Sentinel triple-shot). "CC IMMUNE" label on boss bar. Smoke scenario `boss-cc-immune`.
+- **Difficulty tiers (Issue #23)**: `src/core/Difficulty.js` — 10 tiers (Apprentice→Grandmaster) with HP/damage/spawn/gold multipliers. Progressive spell unlocks (Arcane Bolt always, Chain Lightning@tier3, Frost Bolt@tier5, Fireball@tier7, Poison Bolt@tier8, Meteor@tier10). Profile v2 migration. UI difficulty selector with locked spell display. Smoke scenario `difficulty-unlock`.
+- **Release audit (Issue #25)**: Key remapping (`Input.rebind`, click-to-rebind UI). FOV slider (60-110). Colorblind-safe spell palette (alternate hex per spell). Screen shake toggle. Procedural gradient skybox (vertex-colored sphere). i18n string extraction (`src/core/i18n.js`, all ui strings wrapped in `t()`). Save corruption warning.
 
 ### Completed Milestone 1 Foundation — 2026-05-22
 

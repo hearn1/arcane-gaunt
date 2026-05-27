@@ -9,6 +9,7 @@ import {
   cloneDefaultProfile,
   createRunRecord,
   recordRunCompleted,
+  recordRunProgress,
   recordRunStarted,
   resetProfile,
   sanitizeProfile,
@@ -27,6 +28,8 @@ import { PlayerController } from "../player/PlayerController.js";
 import { SpellCaster } from "../player/SpellCaster.js";
 import { Blink } from "../player/Blink.js";
 import { Block } from "../player/Block.js";
+import { ShieldView } from "../player/ShieldView.js";
+import { StaffView } from "../player/StaffView.js";
 import { HitResolver } from "../projectile/HitResolver.js";
 import { preloadEnemyModels } from "../enemies/Enemy.js";
 import { EnemyManager } from "../enemies/EnemyManager.js";
@@ -36,6 +39,7 @@ import { LayoutEventManager } from "../level/LayoutEventManager.js";
 import { RewardGenerator } from "../rewards/RewardGenerator.js";
 import { UpgradeManager } from "../spells/UpgradeManager.js";
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
+import { getDifficultyTier } from "./Difficulty.js";
 import { castSpell } from "../spells/Effects.js";
 import { UI } from "../ui/ui.js";
 import { Onboarding } from "../ui/Onboarding.js";
@@ -62,6 +66,7 @@ export class Game {
     this.state = STATE.MENU;
     this.arenaBounds = { half: 40, h: 14, obstacles: [], hazards: [] };
     this.selectedSpellId = STARTER_SPELL_ID;
+    this.difficultyLevel = 1;
     this.settings = sanitizeSettings(initialSettings);
     this.profile = sanitizeProfile(initialProfile);
     this.storageMeta = null;
@@ -74,10 +79,17 @@ export class Game {
     document.getElementById("app").appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0a14);
-    this.scene.fog = new THREE.Fog(0x0a0a14, 45, 110);
+    this._buildSkybox();
+    this.scene.fog = new THREE.FogExp2(0x0a0a14, 0.008);
 
-    this.camera = new THREE.PerspectiveCamera(78, innerWidth / innerHeight, 0.1, 400);
+    this.camera = new THREE.PerspectiveCamera(this.settings.display.fov, innerWidth / innerHeight, 0.1, 400);
+
+    this.shieldView = new ShieldView();
+    this.shieldView.attach(this.camera);
+
+    this.staffView = new StaffView();
+    this.staffView.attach(this.camera);
+    this.staffView.group.visible = false;
 
     this._buildArena();
 
@@ -88,13 +100,24 @@ export class Game {
     this.audio = new AudioSys(this.settings.audio);
     this.vfx = new VFX(this.scene);
     this.vfx.setDensity(this.settings.performance.vfxDensity);
-    this.input = new Input(this.renderer.domElement);
+    this.input = new Input(this.renderer.domElement, this.settings);
     this.player = new PlayerController(this.camera, this.arenaBounds);
     this.player.setMouseSensitivity(this.settings.controls.mouseSensitivity);
     this.caster = new SpellCaster(this.player);
+    this.caster.unlockedSpells = this.profile.unlockedSpells;
     this.block = new Block(this.player.health);
     this.player.block = this.block;
     this.player.health.mitigation = (amt) => this.block.mitigate(amt);
+    this._origBlockPerfect = this.block.notePerfect.bind(this.block);
+    this.block.notePerfect = () => {
+      this._origBlockPerfect();
+      this.shieldView?.notePerfect();
+    };
+    this._origBlockNote = this.block.noteBlock.bind(this.block);
+    this.block.noteBlock = () => {
+      this._origBlockNote();
+      this.shieldView?.noteBlock();
+    };
     this.ui = new UI();
     this.timers = [];
     this.relics = new Set();
@@ -107,6 +130,7 @@ export class Game {
     this.world = {
       scene: this.scene,
       vfx: this.vfx,
+      settings: this.settings,
       audio: this.audio,
       runStats: this.runStats,
       currency: this.currency,
@@ -121,6 +145,8 @@ export class Game {
       hasLineOfSight: (from, to, radius = 0.1) => !segmentHitsObstacles(from, to, radius, self.arenaBounds.obstacles),
       findSafeBlinkDestination: (from, to, radius) => findSafeDestination(from, to, radius, self.arenaBounds.obstacles),
       get blink() { return self.blink; },
+      get shieldView() { return self.shieldView; },
+      get staffView() { return self.staffView; },
       get arenaLayoutName() { return self.arenaLayoutName; },
       get enemyManager() { return self.enemyManager; },
       get objectiveManager() { return self.objectiveManager; },
@@ -129,6 +155,7 @@ export class Game {
       get layoutEvents() { return self.layoutEvents; },
       get upgrades() { return self.upgrades; },
       get ui() { return self.ui; },
+      get difficultyTier() { return getDifficultyTier(self.difficultyLevel); },
       get currentWaveModifier() { return self.currentWaveModifier; },
       set currentWaveModifier(mod) { self.currentWaveModifier = mod; },
       get currentBossPattern() { return self.currentBossPattern; },
@@ -214,6 +241,7 @@ export class Game {
     this.enemyManager?.clearAll();
     this.hitResolver?.clear();
     this.vfx?.clear();
+    this.staffView?.dispose();
     this.ui?.clearTransientCombatUi?.();
     this.ui?.setHud(false);
     reportFatal(err, source);
@@ -249,6 +277,48 @@ export class Game {
   ensurePlayerReadyForRunBoundary() {
     if (!this.isPlayerAlive()) return false;
     return this.ensurePlayerLocationSafe();
+  }
+
+  _buildSkybox() {
+    // Procedural gradient skybox — single mesh, no textures.
+    const g = new THREE.SphereGeometry(350, 40, 40);
+    const positions = g.attributes.position.array;
+    const colors = new Float32Array(positions.length);
+    for (let i = 0; i < positions.length; i += 3) {
+      const y = positions[i + 1];
+      const h = (y / 350 + 1) * 0.5; // 0..1 from bottom to top
+      let r, g, b;
+      if (h > 0.6) {
+        // dark purple top
+        const t = (h - 0.6) / 0.4;
+        r = 0.10 + t * 0.05;
+        g = 0.04 + t * 0.02;
+        b = 0.14 + t * 0.08;
+      } else if (h > 0.25) {
+        // deep blue middle
+        r = 0.05;
+        g = 0.05;
+        b = 0.12;
+      } else {
+        // dark ground
+        r = 0.02;
+        g = 0.02;
+        b = 0.04;
+      }
+      colors[i] = r;
+      colors[i + 1] = g;
+      colors[i + 2] = b;
+    }
+    g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    const mat = new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      side: THREE.BackSide,
+      depthWrite: false,
+    });
+    const sky = new THREE.Mesh(g, mat);
+    sky.renderOrder = -1;
+    this.scene.add(sky);
+    this._skyboxMesh = sky;
   }
 
   _buildArena() {
@@ -434,12 +504,16 @@ export class Game {
 
   showMainMenu() {
     this.clearInputState();
+    if (this.shieldView) this.shieldView.group.visible = false;
+    if (this.staffView) this.staffView.group.visible = false;
     this.ui.mainMenu(
       (spellId) => this.startRun(spellId),
       this.selectedSpellId,
       () => this.openSettings(() => this.showMainMenu()),
       this.profile,
       () => this.confirmResetProfile(),
+      this.difficultyLevel,
+      (level) => { this.difficultyLevel = level; },
     );
   }
 
@@ -454,7 +528,15 @@ export class Game {
     this.player.stickLookSensitivity = this.settings.controls.stickLookSensitivity ?? 1;
     this.player.invertY = this.settings.controls.invertY ?? false;
     this.vfx?.setDensity(this.settings.performance.vfxDensity);
+    this.vfx?.setScreenShake(this.settings.display.screenShake);
     this._applyRendererSettings();
+    if (this.camera && this.settings.display?.fov) {
+      this.camera.fov = this.settings.display.fov;
+      this.camera.updateProjectionMatrix();
+    }
+    if (this.input) {
+      this.input.setBindings(this.settings.controls?.keyBindings);
+    }
   }
 
   updateSettings(nextSettings) {
@@ -533,6 +615,7 @@ export class Game {
     this.state = STATE.FOCUS;
     this._pendingStart = false;
     this.clearInputState();
+    if (this.staffView) this.staffView.group.visible = false;
     this.ui.setHud(false);
     this.ui.clearTransientCombatUi();
     if (exitPointer) this.input.exitLock();
@@ -557,6 +640,7 @@ export class Game {
     this.persistProfile(recordRunStarted(this.profile));
     this.currency.reset();
     this.player.reset();
+    this.caster.unlockedSpells = this.profile.unlockedSpells;
     this.caster.reset(this.selectedSpellId);
     this.block.reset();
     this.blink.cooldown = this.blink.baseCooldown;
@@ -879,6 +963,7 @@ export class Game {
     this.state = STATE.GAMEOVER;
     this.finalizeProfileRun();
     this.block.reset();
+    if (this.staffView) this.staffView.group.visible = false;
     this.input.exitLock();
     this.clearInputState();
     this.layoutEvents?.clear();
@@ -900,7 +985,18 @@ export class Game {
     this.onboarding?.finalizeRun(this.profile);
     const highestWave = Math.max(1, Math.round(this.levelManager?.level || this.runStats.levelsCleared + 1));
     const record = createRunRecord(this.runStats, this.selectedSpellId, highestWave);
-    this.persistProfile(recordRunCompleted(this.profile, record, this.relics.size));
+
+    const levelsCleared = this.runStats.levelsCleared;
+    const progressResult = recordRunProgress(this.profile, levelsCleared, this.difficultyLevel);
+    const finalProfile = recordRunCompleted(progressResult.profile, record, this.relics.size);
+    this.persistProfile(finalProfile);
+
+    if (progressResult.newlyUnlocked.length > 0) {
+      const names = progressResult.newlyUnlocked.map(
+        (id) => SPELL_DEFINITIONS[id]?.displayName || id
+      );
+      this.ui.toast(`New spell unlocked: ${names.join(", ")}!`, 3000);
+    }
   }
 
   _queueDeathCleanup() {
@@ -967,7 +1063,14 @@ export class Game {
       this._checkOnboardingTriggers();
       if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
       this.block.update(dt, this.input);
+      this.shieldView?.update(dt, this.block);
       if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.settings.display?.viewmodel !== false) {
+        this.staffView?.update(dt, this.input, this.block);
+        this.staffView.group.visible = true;
+      } else {
+        this.staffView.group.visible = false;
+      }
       this.player.update(dt, this.input);
       if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
       this._updateArenaHazards(dt);

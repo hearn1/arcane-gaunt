@@ -1,5 +1,7 @@
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
+import { DIFFICULTY_TIERS, UNLOCK_TIER } from "../core/Difficulty.js";
 import { attach } from "./uiNav.js";
+import { t, setLang } from "../core/i18n.js";
 
 const PROMPTS = {
   move: { kbm: "WASD", gamepad: "Left Stick" },
@@ -67,8 +69,8 @@ export class UI {
 
   showWaveBanner(level, modifier, layoutName = "", bossPattern = null, objective = null) {
     if (!this.waveBannerEl) return;
-    if (this.wbTitleEl) this.wbTitleEl.textContent = `Wave ${level}`;
-    if (this.wbLayoutEl) this.wbLayoutEl.textContent = layoutName ? `Arena: ${layoutName}` : "";
+    if (this.wbTitleEl) this.wbTitleEl.textContent = `${t("ui.wave")} ${level}`;
+    if (this.wbLayoutEl) this.wbLayoutEl.textContent = layoutName ? `${t("ui.arena")}: ${layoutName}` : "";
     if (this.wbModNameEl) this.wbModNameEl.textContent = modifier?.name || "";
     if (this.wbModDescEl) this.wbModDescEl.textContent = modifier?.description || "";
     if (this.wbBossNameEl) this.wbBossNameEl.textContent = bossPattern?.name || "";
@@ -93,7 +95,7 @@ export class UI {
     const max = bosses.reduce((s, e) => s + e.health.max, 0);
     const pct = max > 0 ? Math.max(0, (cur / max) * 100) : 0;
     this.bossBarFill.style.width = pct + "%";
-    this.bossBarName.textContent = pat.name + (bosses.length > 1 ? `  (${bosses.length})` : "");
+    this.bossBarName.textContent = pat.name + (bosses.length > 1 ? `  (${bosses.length})` : "") + `  ${t("ui.cc_immune")}`;
     this.bossBarEl.classList.add("show");
   }
 
@@ -155,51 +157,83 @@ export class UI {
 
   // --- Screens ------------------------------------------------------------
 
-  mainMenu(onStart, selectedSpellId = STARTER_SPELL_ID, onSettings = null, profile = null, onResetProfile = null) {
+  mainMenu(onStart, selectedSpellId = STARTER_SPELL_ID, onSettings = null, profile = null, onResetProfile = null, difficultyLevel = 1, onDifficultyChange = null) {
     this.setHud(false);
-    const spellOptions = Object.values(SPELL_DEFINITIONS).map((def) => `
-      <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""}" data-spell="${def.id}" data-nav>
-        <span class="spell-choice-name">${def.displayName}</span>
-        <span class="spell-choice-desc">${def.description}</span>
+    const unlockedSpells = profile?.unlockedSpells || ["arcane_bolt"];
+
+    const difficultyOptions = DIFFICULTY_TIERS.map((tier) => `
+      <button class="diff-pill ${tier.level === difficultyLevel ? "selected" : ""}" data-diff="${tier.level}" data-nav>
+        <span class="diff-pill-name">${tier.name}</span>
+        <span class="diff-pill-level">${t("ui.tier")} ${tier.level}</span>
       </button>
     `).join("");
+
+    const UNLOCK_TIER_MAP = UNLOCK_TIER;
+    const spellOptions = Object.values(SPELL_DEFINITIONS).map((def) => {
+      const unlocked = unlockedSpells.includes(def.id);
+      const required = UNLOCK_TIER_MAP[def.id];
+      const title = !unlocked && required ? `${t("ui.unlocked_at_difficulty_tier")} ${required}` : "";
+      const lockHtml = !unlocked ? '<span class="lock-icon">&#128274;</span>' : "";
+      return `
+        <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""} ${unlocked ? "" : "locked"}" data-spell="${def.id}" data-nav ${unlocked ? "" : "disabled"} title="${title}">
+          <span class="spell-choice-name">${lockHtml}${def.displayName}</span>
+          <span class="spell-choice-desc">${def.description}</span>
+        </button>
+      `;
+    }).join("");
     const hasMulti = Object.keys(SPELL_DEFINITIONS).length > 1;
-    const settingsButton = onSettings
-      ? `<button class="btn secondary" id="btn-settings" data-nav>Settings</button>`
+const settingsButton = onSettings
+      ? `<button class="btn secondary" id="btn-settings" data-nav>${t("ui.settings")}</button>`
       : "";
     const resetButton = onResetProfile
-      ? `<button class="btn secondary" id="btn-reset-profile" data-nav>Reset Records</button>`
+      ? `<button class="btn secondary" id="btn-reset-profile" data-nav>${t("ui.reset_records")}</button>`
       : "";
     const records = this._profileSnapshot(profile);
     this._show(`
-      <h1 class="title">ARCANEGAUNT</h1>
-      <div class="subtitle">Choose your run spell</div>
+      <h1 class="title">${t("ui.arcane_gaunt_title")}</h1>
+      <div class="subtitle">${t("ui.choose_difficulty")}</div>
+      <div id="difficulty-select">${difficultyOptions}</div>
+      <div class="subtitle">${t("ui.choose_run_spell")}</div>
       <div id="spell-select">${spellOptions}</div>
       <div class="profile-strip">
-        <div><span class="profile-label">Best</span><b>${records.best}</b></div>
-        <div><span class="profile-label">Runs</span><b>${records.runs}</b></div>
-        <div><span class="profile-label">Kills</span><b>${records.kills}</b></div>
-        <div><span class="profile-label">Damage</span><b>${records.damage}</b></div>
+        <div><span class="profile-label">${t("ui.best")}</span><b>${records.best}</b></div>
+        <div><span class="profile-label">${t("ui.runs")}</span><b>${records.runs}</b></div>
+        <div><span class="profile-label">${t("ui.kills")}</span><b>${records.kills}</b></div>
+        <div><span class="profile-label">${t("ui.damage")}</span><b>${records.damage}</b></div>
       </div>
       <div class="btn-row">
-        <button class="btn" id="btn-start" data-nav>Start Run</button>
+        <button class="btn" id="btn-start" data-nav>${t("ui.start_run")}</button>
         ${settingsButton}
         ${resetButton}
       </div>
       <div class="hint">
-        <b>${devicePrompt("move")}</b> move &nbsp;&middot;&nbsp; <b>${devicePrompt("look")}</b> look &nbsp;&middot;&nbsp;
-        <b>${devicePrompt("cast")}</b> cast &nbsp;&middot;&nbsp; <b>${devicePrompt("block")}</b> block<br/>
-        <b>${devicePrompt("jump")}</b> jump &nbsp;&middot;&nbsp; <b>${devicePrompt("blink")}</b> blink &nbsp;&middot;&nbsp;
-        <b>${devicePrompt("pause")}</b> ${hasMulti ? "release mouse / pause" : "release mouse"}
+        <b>${devicePrompt("move")}</b> ${t("ui.move")} &nbsp;&middot;&nbsp; <b>${devicePrompt("look")}</b> ${t("ui.look")} &nbsp;&middot;&nbsp;
+        <b>${devicePrompt("cast")}</b> ${t("ui.cast")} &nbsp;&middot;&nbsp; <b>${devicePrompt("block")}</b> ${t("ui.block")}<br/>
+        <b>${devicePrompt("jump")}</b> ${t("ui.jump")} &nbsp;&middot;&nbsp; <b>${devicePrompt("blink")}</b> ${t("ui.blink")} &nbsp;&middot;&nbsp;
+        <b>${devicePrompt("pause")}</b> ${hasMulti ? t("ui.release_mouse_pause") : t("ui.release_mouse")}
       </div>
-      <div class="credits-note">Audio, arena textures, and enemy models: Kenney.nl, ambientCG, and Quaternius (CC0). See CREDITS.md.</div>
+      <div class="credits-note">${t("ui.credits_note")}</div>
     `);
     this._navDetach = attach(this.root, {
       onActivate: (el) => el?.click(),
     });
     let selected = SPELL_DEFINITIONS[selectedSpellId] ? selectedSpellId : STARTER_SPELL_ID;
+    let selectedDiff = difficultyLevel;
+
+    this.root.querySelectorAll(".diff-pill").forEach((el) => {
+      el.onclick = () => {
+        const level = parseInt(el.dataset.diff, 10);
+        selectedDiff = level;
+        if (onDifficultyChange) onDifficultyChange(level);
+        this.root.querySelectorAll(".diff-pill").forEach((pill) => {
+          pill.classList.toggle("selected", pill === el);
+        });
+      };
+    });
+
     this.root.querySelectorAll(".spell-choice").forEach((el) => {
       el.onclick = () => {
+        if (el.disabled) return;
         selected = el.dataset.spell;
         this.root.querySelectorAll(".spell-choice").forEach((card) => {
           card.classList.toggle("selected", card === el);
@@ -218,8 +252,8 @@ export class UI {
     const best = profile?.bestRun || {};
     return {
       best: best.levelsCleared > 0 || best.highestWave > 0
-        ? `Wave ${best.highestWave || best.levelsCleared + 1} / ${best.levelsCleared || 0} cleared`
-        : "No runs yet",
+        ? `${t("ui.wave")} ${best.highestWave || best.levelsCleared + 1} / ${best.levelsCleared || 0} ${t("ui.cleared")}`
+        : t("ui.no_runs_yet"),
       runs: `${totals.runsCompleted || 0}/${totals.runsStarted || 0}`,
       kills: this._fmt(totals.enemiesKilled || 0),
       damage: this._fmt(totals.totalDamage || 0),
@@ -230,22 +264,22 @@ export class UI {
     return Math.max(0, Math.round(Number(value) || 0)).toLocaleString();
   }
 
-  focusPrompt(onFocus, label = "Click to play", actions = {}) {
+  focusPrompt(onFocus, label = t("ui.click_to_play"), actions = {}) {
     this.setHud(false);
     const settingsButton = actions.onSettings
-      ? `<button class="btn secondary" id="btn-focus-settings" data-nav>Settings</button>`
+      ? `<button class="btn secondary" id="btn-focus-settings" data-nav>${t("ui.settings")}</button>`
       : "";
     const menuButton = actions.onMenu
-      ? `<button class="btn secondary" id="btn-focus-menu" data-nav>Main Menu</button>`
+      ? `<button class="btn secondary" id="btn-focus-menu" data-nav>${t("ui.main_menu")}</button>`
       : "";
     this._show(`
-      <h1 class="title" style="font-size:42px;">ArcaneGaunt</h1>
+      <h1 class="title" style="font-size:42px;">${t("ui.arcane_gaunt")}</h1>
       <div class="btn-row">
         <button class="btn" id="btn-focus" data-nav>${label}</button>
         ${settingsButton}
         ${menuButton}
       </div>
-      <div class="hint">Press <b>${devicePrompt("confirm")}</b> to capture mouse &nbsp;&middot;&nbsp; <b>${devicePrompt("pause")}</b> releases it.</div>
+      <div class="hint">${t("ui.press_hint_capture")} <b>${devicePrompt("confirm")}</b> ${t("ui.to_capture_mouse")} &nbsp;&middot;&nbsp; <b>${devicePrompt("pause")}</b> ${t("ui.releases_it")}.</div>
     `);
     this._navDetach = attach(this.root, {
       onActivate: (el) => el?.click(),
@@ -260,13 +294,13 @@ export class UI {
   pauseMenu(onResume, onSettings, onMenu) {
     this.setHud(false);
     this._show(`
-      <h1 class="title" style="font-size:42px;">Paused</h1>
+      <h1 class="title" style="font-size:42px;">${t("ui.paused")}</h1>
       <div class="btn-row">
-        <button class="btn" id="btn-pause-resume" data-nav>Resume</button>
-        <button class="btn secondary" id="btn-pause-settings" data-nav>Settings</button>
-        <button class="btn secondary" id="btn-pause-menu" data-nav>Main Menu</button>
+        <button class="btn" id="btn-pause-resume" data-nav>${t("ui.resume")}</button>
+        <button class="btn secondary" id="btn-pause-settings" data-nav>${t("ui.settings")}</button>
+        <button class="btn secondary" id="btn-pause-menu" data-nav>${t("ui.main_menu")}</button>
       </div>
-      <div class="hint">Combat is paused while this menu is open. <b>${devicePrompt("back")}</b> to resume.</div>
+      <div class="hint">${t("ui.combat_paused_hint")} <b>${devicePrompt("back")}</b> ${t("ui.to_resume")}.</div>
     `);
     this._navDetach = attach(this.root, {
       onActivate: (el) => el?.click(),
@@ -281,14 +315,14 @@ export class UI {
     this.setHud(false);
     const totals = profile?.totals || {};
     this._show(`
-      <h1 class="title" style="font-size:40px;color:#ffcf4d;-webkit-text-fill-color:#ffcf4d;">Reset Records?</h1>
+      <h1 class="title" style="font-size:40px;color:#ffcf4d;-webkit-text-fill-color:#ffcf4d;">${t("ui.reset_records_title")}</h1>
       <div class="reset-copy">
-        This clears best run and lifetime totals (${totals.runsStarted || 0} runs started).
-        Settings are not changed.
+        ${t("ui.reset_records_copy")} ${totals.runsStarted || 0} ${t("ui.runs_started")}.
+        ${t("ui.settings_not_changed")}
       </div>
       <div class="btn-row">
-        <button class="btn danger" id="btn-reset-confirm" data-nav>Reset Run Records</button>
-        <button class="btn secondary" id="btn-reset-cancel" data-nav>Cancel</button>
+        <button class="btn danger" id="btn-reset-confirm" data-nav>${t("ui.reset_run_records")}</button>
+        <button class="btn secondary" id="btn-reset-cancel" data-nav>${t("ui.cancel")}</button>
       </div>
     `);
     this._navDetach = attach(this.root, {
@@ -299,6 +333,22 @@ export class UI {
     document.getElementById("btn-reset-cancel").onclick = onCancel;
   }
 
+  _buildKeyBindingsHtml(settings) {
+    const bindings = settings.controls?.keyBindings || {};
+    const actions = [
+      { key: "cast", label: "Cast", default: "Mouse0" },
+      { key: "block", label: "Block", default: "Mouse2" },
+      { key: "blink", label: "Blink", default: "Space" },
+      { key: "pause", label: "Pause", default: "Escape" },
+    ];
+    return actions.map((a) => `
+      <div class="keybinding-row" data-action="${a.key}">
+        <span class="kb-label">${a.label}</span>
+        <span class="kb-key" id="kb-${a.key}" tabindex="0">${bindings[a.key] || a.default}</span>
+      </div>
+    `).join("");
+  }
+
   settingsMenu(settings, onChange, onBack, storageMeta = null) {
     this.setHud(false);
     const volumePct = Math.round((settings.audio?.volume ?? 0.35) * 100);
@@ -307,61 +357,86 @@ export class UI {
     const invertY = !!settings.controls?.invertY;
     const muted = !!settings.audio?.muted;
     const fullscreen = !!settings.display?.fullscreen;
+    const viewmodel = settings.display?.viewmodel !== false;
     const renderScale = settings.performance?.renderScale ?? 1;
     const vfxDensity = settings.performance?.vfxDensity || "full";
+    const fov = settings.display?.fov ?? 78;
+    const colorblind = !!settings.display?.colorblindMode;
+    const screenShake = settings.display?.screenShake !== false;
     const storageText = storageMeta?.path
       ? `Storage: ${storageMeta.path}`
       : `Storage: ${storageMeta?.key || "local settings"}`;
     this._show(`
-      <h1 class="title" style="font-size:40px;">Settings</h1>
+      <h1 class="title" style="font-size:40px;">${t("ui.settings")}</h1>
       <div id="settings-panel">
         <label class="settings-toggle">
           <input type="checkbox" id="set-muted" ${muted ? "checked" : ""}/>
-          <span>Mute audio</span>
+          <span>${t("ui.mute_audio")}</span>
         </label>
         <div class="settings-row">
-          <label for="set-volume">Volume</label>
+          <label for="set-volume">${t("ui.volume")}</label>
           <input id="set-volume" type="range" min="0" max="100" step="1" value="${volumePct}"/>
           <span class="settings-value" id="set-volume-value">${volumePct}%</span>
         </div>
         <div class="settings-row">
-          <label for="set-sensitivity">Mouse Sensitivity</label>
+          <label for="set-sensitivity">${t("ui.mouse_sensitivity")}</label>
           <input id="set-sensitivity" type="range" min="30" max="200" step="5" value="${sensitivityPct}"/>
           <span class="settings-value" id="set-sensitivity-value">${sensitivityPct}%</span>
         </div>
         <div class="settings-row">
-          <label for="set-stick-sensitivity">Stick Look Sensitivity</label>
+          <label for="set-stick-sensitivity">${t("ui.stick_look_sensitivity")}</label>
           <input id="set-stick-sensitivity" type="range" min="30" max="200" step="5" value="${stickSensPct}"/>
           <span class="settings-value" id="set-stick-sensitivity-value">${stickSensPct}%</span>
         </div>
         <label class="settings-toggle">
           <input type="checkbox" id="set-invert-y" ${invertY ? "checked" : ""}/>
-          <span>Invert Y-Axis</span>
+          <span>${t("ui.invert_y")}</span>
         </label>
         <label class="settings-toggle">
           <input type="checkbox" id="set-fullscreen" ${fullscreen ? "checked" : ""}/>
-          <span>Fullscreen</span>
+          <span>${t("ui.fullscreen")}</span>
+        </label>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-viewmodel" ${viewmodel ? "checked" : ""}/>
+          <span>${t("ui.show_weapon")}</span>
         </label>
         <div class="settings-row select-row">
-          <label for="set-render-scale">Render Scale</label>
+          <label for="set-render-scale">${t("ui.render_scale")}</label>
           <select id="set-render-scale">
-            <option value="1" ${renderScale >= 0.95 ? "selected" : ""}>100%</option>
-            <option value="0.85" ${renderScale >= 0.8 && renderScale < 0.95 ? "selected" : ""}>85%</option>
-            <option value="0.7" ${renderScale < 0.8 ? "selected" : ""}>70%</option>
+            <option value="1" ${renderScale >= 0.95 ? "selected" : ""}>${t("ui.percent_100")}</option>
+            <option value="0.85" ${renderScale >= 0.8 && renderScale < 0.95 ? "selected" : ""}>${t("ui.percent_85")}</option>
+            <option value="0.7" ${renderScale < 0.8 ? "selected" : ""}>${t("ui.percent_70")}</option>
           </select>
           <span class="settings-value" id="set-render-scale-value">${Math.round(renderScale * 100)}%</span>
         </div>
         <div class="settings-row select-row">
-          <label for="set-vfx-density">Effects</label>
+          <label for="set-vfx-density">${t("ui.effects")}</label>
           <select id="set-vfx-density">
-            <option value="full" ${vfxDensity === "full" ? "selected" : ""}>Full</option>
-            <option value="reduced" ${vfxDensity === "reduced" ? "selected" : ""}>Reduced</option>
+            <option value="full" ${vfxDensity === "full" ? "selected" : ""}>${t("ui.full")}</option>
+            <option value="reduced" ${vfxDensity === "reduced" ? "selected" : ""}>${t("ui.reduced")}</option>
           </select>
-          <span class="settings-value" id="set-vfx-density-value">${vfxDensity === "reduced" ? "Reduced" : "Full"}</span>
+          <span class="settings-value" id="set-vfx-density-value">${vfxDensity === "reduced" ? t("ui.reduced") : t("ui.full")}</span>
         </div>
+        <div class="settings-row">
+          <label for="set-fov">${t("ui.fov")}</label>
+          <input id="set-fov" type="range" min="60" max="110" step="1" value="${fov}"/>
+          <span class="settings-value" id="set-fov-value">${fov}°</span>
+        </div>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-colorblind" ${colorblind ? "checked" : ""}/>
+          <span>${t("ui.colorblind_mode")}</span>
+        </label>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-screenshake" ${screenShake ? "checked" : ""}/>
+          <span>${t("ui.screen_shake")}</span>
+        </label>
         <div class="settings-storage">${storageText}</div>
+        <div class="keybindings-section">
+          <h3>${t("ui.key_bindings")}</h3>
+          ${this._buildKeyBindingsHtml(settings)}
+        </div>
       </div>
-      <button class="btn secondary" id="btn-settings-back" data-nav>Back</button>
+      <button class="btn secondary" id="btn-settings-back" data-nav>${t("ui.back")}</button>
     `);
 
     const mutedEl = document.getElementById("set-muted");
@@ -370,11 +445,16 @@ export class UI {
     const stickSensEl = document.getElementById("set-stick-sensitivity");
     const invertYEl = document.getElementById("set-invert-y");
     const fullscreenEl = document.getElementById("set-fullscreen");
+    const viewmodelEl = document.getElementById("set-viewmodel");
     const renderScaleEl = document.getElementById("set-render-scale");
     const vfxDensityEl = document.getElementById("set-vfx-density");
+    const fovEl = document.getElementById("set-fov");
+    const colorblindEl = document.getElementById("set-colorblind");
+    const screenShakeEl = document.getElementById("set-screenshake");
     const volumeValue = document.getElementById("set-volume-value");
     const sensitivityValue = document.getElementById("set-sensitivity-value");
     const stickSensValue = document.getElementById("set-stick-sensitivity-value");
+    const fovValue = document.getElementById("set-fov-value");
     const renderScaleValue = document.getElementById("set-render-scale-value");
     const vfxDensityValue = document.getElementById("set-vfx-density-value");
 
@@ -382,13 +462,15 @@ export class UI {
       const nextVolume = Number(volumeEl.value);
       const nextSensitivity = Number(sensitivityEl.value);
       const nextStickSens = Number(stickSensEl.value);
+      const nextFov = Number(fovEl.value);
       const nextRenderScale = Number(renderScaleEl.value);
       const nextVfxDensity = vfxDensityEl.value;
       volumeValue.textContent = `${nextVolume}%`;
       sensitivityValue.textContent = `${nextSensitivity}%`;
       stickSensValue.textContent = `${nextStickSens}%`;
+      fovValue.textContent = `${nextFov}°`;
       renderScaleValue.textContent = `${Math.round(nextRenderScale * 100)}%`;
-      vfxDensityValue.textContent = nextVfxDensity === "reduced" ? "Reduced" : "Full";
+      vfxDensityValue.textContent = nextVfxDensity === "reduced" ? t("ui.reduced") : t("ui.full");
       onChange({
         audio: {
           muted: mutedEl.checked,
@@ -401,6 +483,10 @@ export class UI {
         },
         display: {
           fullscreen: fullscreenEl.checked,
+          viewmodel: viewmodelEl.checked,
+          fov: nextFov,
+          colorblindMode: colorblindEl.checked,
+          screenShake: screenShakeEl.checked,
         },
         performance: {
           renderScale: nextRenderScale,
@@ -415,8 +501,28 @@ export class UI {
     stickSensEl.oninput = emit;
     invertYEl.onchange = emit;
     fullscreenEl.onchange = emit;
+    viewmodelEl.onchange = emit;
     renderScaleEl.onchange = emit;
     vfxDensityEl.onchange = emit;
+    fovEl.oninput = emit;
+    colorblindEl.onchange = emit;
+    screenShakeEl.onchange = emit;
+
+    // Key rebind: click a key span, then listen for the next keydown.
+    document.querySelectorAll(".keybinding-row .kb-key").forEach((el) => {
+      el.onclick = () => {
+        el.textContent = "...";
+        const onKey = (e) => {
+          e.preventDefault();
+          const code = e.code || e.key;
+          el.textContent = code;
+          el.removeEventListener("keydown", onKey);
+        };
+        el.addEventListener("keydown", onKey);
+        el.focus();
+      };
+    });
+
     this._navDetach = attach(this.root, {
       onBack: onBack,
     });
@@ -430,20 +536,20 @@ export class UI {
         <div class="r-type"><span>${r.type}</span><span class="r-rarity ${r.rarity || "common"}">${r.rarity || "common"}</span></div>
         <div class="r-title">${r.title}</div>
         <div class="r-desc">${r.description}</div>
-        ${r.spellName ? `<div class="r-spell">Affects: ${r.spellName}</div>` : ""}
+        ${r.spellName ? `<div class="r-spell">${t("ui.affects")}: ${r.spellName}</div>` : ""}
         ${r.tip ? `<div class="r-tip">${r.tip}</div>` : ""}
       </div>`).join("");
     const hasUnlock = rewards.some((r) => r.type === "Spell Unlock");
     const nudge = !hasUnlock && world && world.caster?.loadout?.some((s) => !s.autoFire)
-      ? `<div class="reward-hint">Tip: take Auto-Cast on an owned spell to unlock a new manual spell next reward.</div>`
+      ? `<div class="reward-hint">${t("ui.tip_auto_cast")}</div>`
       : "";
     this._show(`
-      <h1 class="title" style="font-size:40px;">Level ${level} Cleared</h1>
-      <div class="subtitle">Choose a Reward</div>
+      <h1 class="title" style="font-size:40px;">${t("ui.level")} ${level} ${t("ui.cleared")}</h1>
+      <div class="subtitle">${t("ui.choose_reward")}</div>
       ${nudge}
       <div id="reward-cards">${cards}</div>
-      ${economy ? `<button class="btn secondary" id="btn-reroll" data-nav ${economy.canReroll ? "" : "disabled"}>Reroll Rewards &middot; ${economy.rerollCost}g</button>
-      <div class="hint">Gold: <b style="color:var(--gold);">${economy.gold}</b> &nbsp;&middot;&nbsp; <b>${devicePrompt("confirm")}</b> pick &nbsp;&middot;&nbsp; <b>${devicePrompt("back")}</b> back</div>` : ""}
+      ${economy ? `<button class="btn secondary" id="btn-reroll" data-nav ${economy.canReroll ? "" : "disabled"}>${t("ui.reroll_rewards")} &middot; ${economy.rerollCost}g</button>
+      <div class="hint">${t("ui.gold")}: <b style="color:var(--gold);">${economy.gold}</b> &nbsp;&middot;&nbsp; <b>${devicePrompt("confirm")}</b> ${t("ui.pick")} &nbsp;&middot;&nbsp; <b>${devicePrompt("back")}</b> ${t("ui.back")}</div>` : ""}
     `);
     this._navDetach = attach(this.root, {
       onActivate: (el) => el?.click(),
@@ -464,7 +570,7 @@ export class UI {
           <div class="svc-title">${svc.title}</div>
           <div class="svc-desc">${svc.description}</div>
         </div>
-        <button class="up-buy svc-buy" data-svc="${svc.id}" data-nav ${svc.disabled || gold < svc.cost ? "disabled" : ""}>Buy &middot; ${svc.cost}g</button>
+        <button class="up-buy svc-buy" data-svc="${svc.id}" data-nav ${svc.disabled || gold < svc.cost ? "disabled" : ""}>${t("ui.buy")} &middot; ${svc.cost}g</button>
       </div>
     `).join("");
     const spells = world.caster.loadout
@@ -486,13 +592,13 @@ export class UI {
           const affordable = world.upgrades.canBuy(id, node);
           let btn;
           if (st === "owned") {
-            btn = `<span class="up-tag owned">Owned</span>`;
+            btn = `<span class="up-tag owned">${t("ui.owned")}</span>`;
           } else if (st === "available") {
-            btn = `<button class="up-buy" data-sp="${id}" data-nd="${node.id}" data-nav ${affordable ? "" : "disabled"}>Buy &middot; ${node.cost}g</button>`;
+            btn = `<button class="up-buy" data-sp="${id}" data-nd="${node.id}" data-nav ${affordable ? "" : "disabled"}>${t("ui.buy")} &middot; ${node.cost}g</button>`;
           } else {
-            btn = `<span class="up-tag locked">Locked &middot; ${node.cost}g</span>`;
+            btn = `<span class="up-tag locked">${t("ui.locked")} &middot; ${node.cost}g</span>`;
           }
-          const capstoneTag = node.capstone ? `<span class="up-capstone-tag">Capstone</span>` : "";
+          const capstoneTag = node.capstone ? `<span class="up-capstone-tag">${t("ui.capstone")}</span>` : "";
           return `<div class="up-node ${st} ${node.capstone ? "capstone" : ""}">
             <div class="up-node-info">
               <div class="up-node-title">${node.title}${capstoneTag}</div>
@@ -513,11 +619,11 @@ export class UI {
         </div>`;
       }).join("");
     this._show(`
-      <h1 class="title" style="font-size:36px;">Upgrade Spell</h1>
-      <div class="subtitle">Gold: <b style="color:var(--gold);">${gold}</b> &nbsp;&middot;&nbsp; Spend before the next wave</div>
+      <h1 class="title" style="font-size:36px;">${t("ui.upgrade_spell")}</h1>
+      <div class="subtitle">${t("ui.gold")}: <b style="color:var(--gold);">${gold}</b> &nbsp;&middot;&nbsp; ${t("ui.spend_before_next_wave")}</div>
       <div id="service-panel">${services}</div>
-      <div id="upgrade-panel">${spells || `<div class="up-empty">No upgrades available for this spell yet.</div>`}</div>
-      <button class="btn" id="btn-up-continue" data-nav>Continue to Next Wave</button>
+      <div id="upgrade-panel">${spells || `<div class="up-empty">${t("ui.no_upgrades_available")}</div>`}</div>
+      <button class="btn" id="btn-up-continue" data-nav>${t("ui.continue_to_next_wave")}</button>
     `);
     this._navDetach = attach(this.root, {
       onActivate: (el) => el?.click(),
@@ -535,12 +641,12 @@ export class UI {
   gameOver(onSummary, onRestart, onMenu) {
     this.setHud(false);
     this._show(`
-      <h1 class="title" style="color:#ff5566;-webkit-text-fill-color:#ff5566;">YOU DIED</h1>
-      <div class="subtitle">The arena claims another wizard</div>
+      <h1 class="title" style="color:#ff5566;-webkit-text-fill-color:#ff5566;">${t("ui.you_died")}</h1>
+      <div class="subtitle">${t("ui.arena_claims_another")}</div>
       <div class="btn-row">
-        <button class="btn" id="btn-summary" data-nav>View Run Summary</button>
-        <button class="btn secondary" id="btn-restart" data-nav>Restart</button>
-        <button class="btn secondary" id="btn-menu" data-nav>Main Menu</button>
+        <button class="btn" id="btn-summary" data-nav>${t("ui.view_run_summary")}</button>
+        <button class="btn secondary" id="btn-restart" data-nav>${t("ui.restart")}</button>
+        <button class="btn secondary" id="btn-menu" data-nav>${t("ui.main_menu")}</button>
       </div>
     `);
     this._navDetach = attach(this.root, {
@@ -556,23 +662,23 @@ export class UI {
     const rows = stats.damageRows();
     const list = rows.length
       ? rows.map((r) => `<div class="dmg-row"><span class="dn">${r.name}</span><span class="dv">${r.damage}</span></div>`).join("")
-      : `<div class="dmg-row"><span class="dn">No damage dealt</span><span class="dv">0</span></div>`;
+      : `<div class="dmg-row"><span class="dn">${t("ui.no_damage_dealt")}</span><span class="dv">0</span></div>`;
     const best = profile?.bestRun || {};
     const totals = profile?.totals || {};
 
     const waveReached = Math.max(1, stats.levelsCleared + 1);
     const bestWave = best.highestWave || 0;
     const bestLabel = bestWave > 0
-      ? `Best: wave ${bestWave}`
-      : "Best: no completed runs";
+      ? `${t("ui.best_wave")} ${bestWave}`
+      : t("ui.best_no_completed_runs");
 
     const perfectBlocks = stats.perfectBlocks || 0;
     const spellsUnlocked = world?.caster?.loadout?.length - 1 || 0;
     const goldSpent = world?.currency?.lifetimeSpent || 0;
     const highlights = [];
-    if (perfectBlocks > 0) highlights.push(`Perfect blocks: ${perfectBlocks}`);
-    if (spellsUnlocked > 0) highlights.push(`Spells unlocked: ${spellsUnlocked}`);
-    if (goldSpent > 0) highlights.push(`Gold spent: ${goldSpent}`);
+    if (perfectBlocks > 0) highlights.push(`${t("ui.perfect_blocks")}: ${perfectBlocks}`);
+    if (spellsUnlocked > 0) highlights.push(`${t("ui.spells_unlocked")}: ${spellsUnlocked}`);
+    if (goldSpent > 0) highlights.push(`${t("ui.gold_spent")}: ${goldSpent}`);
 
     const lifetimeKills = this._fmt(totals.enemiesKilled || 0);
     const lifetimeDamage = this._fmt(totals.totalDamage || 0);
@@ -583,20 +689,20 @@ export class UI {
       : "";
 
     this._show(`
-      <h1 class="title" style="font-size:40px;">Run Summary</h1>
-      <div class="summary-wave">Wave ${waveReached} reached</div>
+      <h1 class="title" style="font-size:40px;">${t("ui.run_summary")}</h1>
+      <div class="summary-wave">${t("ui.wave")} ${waveReached} ${t("ui.reached")}</div>
       <div class="summary-best">${bestLabel}</div>
       <div class="summary-grid">
-        <div class="lbl">Levels Cleared</div><div class="num">${stats.levelsCleared}</div>
-        <div class="lbl">Enemies Killed</div><div class="num">${stats.enemiesKilled}</div>
-        <div class="lbl">Gold Earned</div><div class="num">${stats.goldEarned}</div>
-        <div class="lbl">Total Damage Dealt</div><div class="num">${Math.round(stats.totalDamage)}</div>
+        <div class="lbl">${t("ui.levels_cleared")}</div><div class="num">${stats.levelsCleared}</div>
+        <div class="lbl">${t("ui.enemies_killed")}</div><div class="num">${stats.enemiesKilled}</div>
+        <div class="lbl">${t("ui.gold_earned")}</div><div class="num">${stats.goldEarned}</div>
+        <div class="lbl">${t("ui.total_damage")}</div><div class="num">${Math.round(stats.totalDamage)}</div>
       </div>
       ${highlightsHtml}
-      <button class="btn secondary" id="btn-toggle-details" data-nav>Show Details</button>
+      <button class="btn secondary" id="btn-toggle-details" data-nav>${t("ui.show_details")}</button>
       <div id="dmg-breakdown">${list}</div>
-      <div class="lifetime-totals">Lifetime: ${lifetimeKills} kills &middot; ${lifetimeDamage} damage &middot; ${lifetimeGold} gold</div>
-      <button class="btn secondary" id="btn-back" data-nav>Back</button>
+      <div class="lifetime-totals">${t("ui.lifetime")}: ${lifetimeKills} ${t("ui.kills_lower")} &middot; ${lifetimeDamage} ${t("ui.damage_lower")} &middot; ${lifetimeGold} ${t("ui.gold_lower")}</div>
+      <button class="btn secondary" id="btn-back" data-nav>${t("ui.back")}</button>
     `);
     const dmgEl = document.getElementById("dmg-breakdown");
     const toggleBtn = document.getElementById("btn-toggle-details");
@@ -605,7 +711,7 @@ export class UI {
     toggleBtn.onclick = () => {
       detailsVisible = !detailsVisible;
       if (dmgEl) dmgEl.style.display = detailsVisible ? "" : "none";
-      toggleBtn.textContent = detailsVisible ? "Hide Details" : "Show Details";
+      toggleBtn.textContent = detailsVisible ? t("ui.hide_details") : t("ui.show_details");
     };
     this._navDetach = attach(this.root, {
       onActivate: (el) => el?.click(),
@@ -623,7 +729,7 @@ export class UI {
       const el = document.createElement("div");
       el.className = "spell-slot";
       if (s.autoFire) el.classList.add("passive");
-      const key = s.autoFire ? "AUTO" : (manualCount > 1 ? i + 1 : "Run Spell");
+      const key = s.autoFire ? "AUTO" : (manualCount > 1 ? i + 1 : t("ui.run_spell"));
       el.innerHTML = `<span class="key">${key}</span><span class="nm">${s.displayName}</span><div class="cd-fill"></div>`;
       this.spellsEl.appendChild(el);
       return el;
@@ -675,10 +781,10 @@ export class UI {
       this.stamFill.classList.toggle("draining", blk.blocking && !blk.staminaLow && blk.staminaRatio < 0.6);
       this.stamFill.classList.toggle("perfect", blk.perfectActive());
       this.stamFill.classList.toggle("hit", blk.blockPulse > 0);
-      this.stamText.textContent = `${Math.ceil(blk.stamina)} / ${blk.maxStamina} Stamina`;
+      this.stamText.textContent = `${Math.ceil(blk.stamina)} / ${blk.maxStamina} ${t("ui.stamina")}`;
       this.blockInd.classList.toggle("active", blk.blocking);
       this.blockInd.classList.toggle("perfect", blk.perfectPulse > 0);
-      this.blockInd.textContent = blk.perfectPulse > 0 ? "PERFECT" : (blk.perfectActive() ? "PARRY WINDOW" : "BLOCKING");
+      this.blockInd.textContent = blk.perfectPulse > 0 ? t("ui.perfect") : (blk.perfectActive() ? t("ui.parry_window") : t("ui.blocking"));
       this.crosshair.classList.toggle("blocking", blk.blocking);
       this.crosshair.classList.toggle("perfect-window", blk.perfectActive());
       this.crosshair.classList.toggle("perfect-hit", blk.perfectPulse > 0);
@@ -687,10 +793,10 @@ export class UI {
     }
 
     if (world.blink.ready) {
-      this.blinkEl.textContent = "Blink ready";
+      this.blinkEl.textContent = t("ui.blink_ready");
       this.blinkEl.classList.remove("cooling");
     } else {
-      this.blinkEl.textContent = `Blink ${world.blink.timer.toFixed(1)}s`;
+      this.blinkEl.textContent = `${t("ui.blink")} ${world.blink.timer.toFixed(1)}s`;
       this.blinkEl.classList.add("cooling");
     }
   }

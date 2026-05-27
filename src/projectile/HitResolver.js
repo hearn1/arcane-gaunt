@@ -36,6 +36,10 @@ export class HitResolver {
       const before = p.position.clone();
       p.update(dt);
       if (p.alive) {
+        if (p.cadenceStacks !== undefined && p.cadenceStacks > 0) {
+          p.cadenceTimer -= dt;
+          if (p.cadenceTimer <= 0) p.cadenceStacks = 0;
+        }
         const wallHit = world.segmentHitsArenaObstacle?.(before, p.position, p.radius * 0.55);
         if (wallHit) this._vsArena(p, wallHit.point);
         if (p.alive) {
@@ -57,7 +61,7 @@ export class HitResolver {
       this._explode(point.clone(), s, p.faction);
       this.world.audio.explosion();
     } else {
-      this._impact(point, s);
+      this._impact(point, s, p);
     }
     p.expire(true);
   }
@@ -97,13 +101,32 @@ export class HitResolver {
       return;
     }
 
-    // Direct hit damage.
-    applyPlayerDamage(this.world, enemy, s.stats.damage, this._source(s, "player"));
+    // Direct hit damage (with cadence bonus for arcane bolt).
+    let damage = s.stats.damage;
+    if (s.stats.cadenceStacks && p.cadenceStacks !== undefined) {
+      p.cadenceStacks = Math.min(p.cadenceStacks + 1, s.stats.cadenceMaxStacks);
+      p.cadenceTimer = s.stats.cadenceDecayTime;
+      damage += p.cadenceStacks * s.stats.cadenceDamagePerStack;
+    }
+    applyPlayerDamage(this.world, enemy, damage, this._source(s, "player"));
     this.world.audio.enemyHit();
-    this._impact(p.position, s);
+    this._impact(p.position, s, p);
 
-    if (s.freeze) enemy.applyFreeze(1.0);
-    else if (s.stats.slowAmount > 0) enemy.applySlow(s.stats.slowAmount, s.stats.slowDuration);
+    if (s.chillStacks) {
+      const wasMax = enemy.chillStacks >= enemy.chillMaxStacks;
+      enemy.applyChill(1, 2.5);
+      if (wasMax && s.shatterDamage > 0) {
+        const pos = enemy.position.clone();
+        applyPlayerDamage(this.world, enemy, s.shatterDamage, this._source(s, "player"));
+        this.world.vfx.shock(pos, 0x5cc8ff, s.shatterRadius, 0.35);
+        this.world.vfx.burst(pos, 0xdff8ff, 18, 7, 0.48, 0.14);
+        enemy.chillStacks = 0;
+      }
+    } else if (s.freeze) {
+      enemy.applyFreeze(1.0);
+    } else if (s.stats.slowAmount > 0) {
+      enemy.applySlow(s.stats.slowAmount, s.stats.slowDuration);
+    }
     if (s.knockbackOnHit) this._knockback(enemy, p.dir, 3);
     if (s.frostNovaOnHit) this._frostNova(p.position.clone(), enemy);
     if (s.stats.dotDamage > 0) {
@@ -122,7 +145,10 @@ export class HitResolver {
         // Contagion: spread the DOT once to the nearest other enemy. Only the
         // directly-hit enemy spreads (no spread-from-spread) -> naturally capped.
         const near = this._nearestOther(enemy, 6);
-        if (near) near.applyDot(s.stats.dotDamage, s.stats.dotDuration, s.stats.dotTickRate, dotSrc);
+        if (near) {
+          near.applyDot(s.stats.dotDamage, s.stats.dotDuration, s.stats.dotTickRate, dotSrc);
+          this.world.vfx.mist(near.position.clone(), 0x66dd55, 1.5, 0.7, 12);
+        }
       }
     }
 
@@ -187,7 +213,8 @@ export class HitResolver {
 
   _burnPatch(pos, spell) {
     const r = spell.stats.areaRadius || 5;
-    const per = Math.max(2, Math.round(spell.stats.damage * 0.22));
+    const burnMult = spell.cinderPotency ? 1.25 : 1;
+    const per = Math.max(2, Math.round(spell.stats.damage * 0.22 * burnMult));
     const src = this._source(spell, "player", { isDot: true, isAoe: true });
     this.world.vfx.ring(pos, r * 0.8, spell.color, 1.9);
     for (let k = 1; k <= 3; k++) {
@@ -294,11 +321,14 @@ export class HitResolver {
     }
   }
 
-  _impact(pos, spell) {
+  _impact(pos, spell, projectile = null) {
     const id = spell.definitionId;
     if (id === "arcane_bolt") {
       this.world.vfx.shock(pos, spell.color, 1.8, 0.24);
       this.world.vfx.burst(pos, spell.color, 14, 8, 0.34, 0.16);
+      if (projectile && projectile.cadenceStacks >= 3) {
+        this.world.vfx.burst(pos, 0xf2eaff, 20, 10, 0.5, 0.12);
+      }
     } else if (id === "frost_bolt") {
       this.world.vfx.shock(pos, 0xbdefff, 2.2, 0.34);
       this.world.vfx.burst(pos, 0xdff8ff, 18, 7, 0.48, 0.14);
