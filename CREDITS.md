@@ -44,6 +44,19 @@ Source packs:
 | `assets/audio/wave_clear.ogg` | `bong_001.ogg` | Interface Sounds | Kenney | CC0 1.0 |
 | `assets/audio/game_over.ogg` | `error_006.ogg` | Interface Sounds | Kenney | CC0 1.0 |
 
+### Music tracks (CC0)
+
+Epic fantasy music sourced from CC0 libraries. Placeholder tracks are 0-byte files
+that will be replaced with real CC0 OGG files before release.
+
+| File in repo | Intended source | License |
+|---|---|---|
+| `assets/audio/music/menu_loop.ogg` | CC0 epic fantasy (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
+| `assets/audio/music/arena_calm.ogg` | CC0 epic fantasy (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
+| `assets/audio/music/arena_combat.ogg` | CC0 epic fantasy (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
+| `assets/audio/music/boss_bed.ogg` | CC0 epic fantasy (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
+| `assets/audio/music/boss_enrage.ogg` | CC0 sting (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
+
 ### Textures (ambientCG, CC0)
 
 | File in repo | Asset name | Source | Author | License |

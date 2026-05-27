@@ -17,6 +17,7 @@ export class SpellCaster {
   }
 
   reset(spellId = STARTER_SPELL_ID) {
+    this._onboardingAutocastTriggered = false;
     if (this.unlockedSpells && Array.isArray(this.unlockedSpells) &&
         !this.unlockedSpells.includes(spellId) && spellId !== STARTER_SPELL_ID) {
       spellId = STARTER_SPELL_ID;
@@ -31,7 +32,7 @@ export class SpellCaster {
   get current() { return this.loadout[this.equipped]; }
   instanceOf(id) { return this.loadout.find((s) => s.definitionId === id); }
 
-  addSpell(id, equip = true) {
+  addSpell(id, equip = true, world = null) {
     if (this.owns(id)) return this.instanceOf(id);
     if (this.unlockedSpells && Array.isArray(this.unlockedSpells) &&
         !this.unlockedSpells.includes(id)) return null;
@@ -40,6 +41,9 @@ export class SpellCaster {
     const inst = new SpellInstance(def);
     this.loadout.push(inst);
     if (equip) this.equipped = this.loadout.length - 1;
+    if (this.loadout.length >= 2 && world?.onboarding) {
+      world.onboarding.note(world, "spell_switching");
+    }
     return inst;
   }
 
@@ -70,7 +74,13 @@ export class SpellCaster {
     }
 
     const blocked = !!(world.player.block && world.player.block.blocking);
-    if (input.firing) this.tryCast(world);
+    if (input.firing) {
+      this.tryCast(world);
+      if (!this._onboardingAutocastTriggered && this.loadout.some((s) => s.autoFire)) {
+        this._onboardingAutocastTriggered = true;
+        world.onboarding?.note(world, "autocast_hold");
+      }
+    }
     if (!blocked) {
       for (const spell of this.loadout) {
         if (spell.autoFire) this.tryCastSpell(world, spell);

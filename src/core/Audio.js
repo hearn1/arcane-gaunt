@@ -1,13 +1,15 @@
-// Sample-backed SFX (OGG via Web Audio decodeAudioData), with procedural
-// fallbacks so the game still boots if any sample is missing.
 export class AudioSys {
   constructor(settings = {}) {
     this.ctx = null;
     this.master = null;
+    this.musicGain = null;
     this.muted = false;
     this.volume = 0.35;
+    this.musicVolume = 0.25;
     this._buffers = {};
+    this._musicBuffers = {};
     this._loaded = false;
+    this._currentMusic = null;
     this.setSettings(settings);
   }
 
@@ -20,9 +22,13 @@ export class AudioSys {
     if (!AC) return;
     this.ctx = new AC();
     this.master = this.ctx.createGain();
+    this.musicGain = this.ctx.createGain();
     this._applyMasterGain();
+    this._applyMusicGain();
     this.master.connect(this.ctx.destination);
+    this.musicGain.connect(this.ctx.destination);
     this._preload();
+    this._preloadMusic();
   }
 
   setSettings(settings = {}) {
@@ -30,12 +36,21 @@ export class AudioSys {
     if (Number.isFinite(settings.volume)) {
       this.volume = Math.min(1, Math.max(0, settings.volume));
     }
+    if (Number.isFinite(settings.musicVolume)) {
+      this.musicVolume = Math.min(1, Math.max(0, settings.musicVolume));
+    }
     this._applyMasterGain();
+    this._applyMusicGain();
   }
 
   _applyMasterGain() {
     if (!this.master) return;
     this.master.gain.value = this.muted ? 0 : this.volume;
+  }
+
+  _applyMusicGain() {
+    if (!this.musicGain) return;
+    this.musicGain.gain.value = this.muted ? 0 : this.musicVolume;
   }
 
   _preload() {
@@ -66,8 +81,25 @@ export class AudioSys {
     }
   }
 
+  _preloadMusic() {
+    const manifest = {
+      menu_loop:    "assets/audio/music/menu_loop.ogg",
+      arena_calm:   "assets/audio/music/arena_calm.ogg",
+      arena_combat: "assets/audio/music/arena_combat.ogg",
+      boss_bed:     "assets/audio/music/boss_bed.ogg",
+      boss_enrage:  "assets/audio/music/boss_enrage.ogg",
+    };
+    for (const [name, url] of Object.entries(manifest)) {
+      fetch(url)
+        .then(r => r.ok ? r.arrayBuffer() : Promise.reject(new Error(`${url} ${r.status}`)))
+        .then(buf => this.ctx.decodeAudioData(buf))
+        .then(audio => { this._musicBuffers[name] = audio; })
+        .catch(err => console.warn(`[audio] missing music ${name}:`, err.message || err));
+    }
+  }
+
   _sample(name, vol = 1) {
-    if (!this.ctx || this.muted) return true; // suppress fallback when muted
+    if (!this.ctx || this.muted) return true;
     const buf = this._buffers[name];
     if (!buf) return false;
     const src = this.ctx.createBufferSource();
@@ -78,8 +110,6 @@ export class AudioSys {
     src.start(this.ctx.currentTime);
     return true;
   }
-
-  // --- Procedural fallbacks (kept verbatim from the original synth SFX) ---
 
   _tone(freq, dur, type = "sine", vol = 1, slideTo = null) {
     if (!this.ctx || this.muted) return;
@@ -135,8 +165,6 @@ export class AudioSys {
   _procTelegraphDash()  { this._tone(540, 0.18, "sine", 0.45, 920); }
   _procTelegraphSurge() { this._tone(380, 0.28, "sawtooth", 0.5, 180); }
 
-  // --- Public API (unchanged surface) ---
-
   cast(kind = "arcane") {
     if (this._sample(`cast_${kind}`, 0.9)) return;
     this._procCast(kind);
@@ -152,4 +180,52 @@ export class AudioSys {
   gameOver()   { if (!this._sample("game_over", 0.9))   this._procGameOver(); }
   telegraphDash()  { if (!this._sample("telegraph_dash", 0.7))  this._procTelegraphDash(); }
   telegraphSurge() { if (!this._sample("telegraph_surge", 0.7)) this._procTelegraphSurge(); }
+
+  playMusic(trackId, { loop = true, fadeIn = 0 } = {}) {
+    if (!this.ctx) return;
+    this.stopMusic(fadeIn > 0 ? 0.05 : 0);
+    const buf = this._musicBuffers[trackId];
+    if (!buf) return;
+    const source = this.ctx.createBufferSource();
+    source.buffer = buf;
+    source.loop = loop;
+    const gain = this.ctx.createGain();
+    gain.gain.value = fadeIn > 0 ? 0 : 1;
+    source.connect(gain).connect(this.musicGain);
+    source.start(this.ctx.currentTime);
+    if (fadeIn > 0) {
+      gain.gain.linearRampToValueAtTime(1, this.ctx.currentTime + fadeIn);
+    }
+    this._currentMusic = { source, gain, trackId, loop };
+  }
+
+  stopMusic(fadeOut = 0) {
+    if (!this._currentMusic) return;
+    const { source, gain } = this._currentMusic;
+    if (fadeOut > 0 && this.ctx) {
+      const t = this.ctx.currentTime;
+      gain.gain.setValueAtTime(gain.gain.value, t);
+      gain.gain.linearRampToValueAtTime(0, t + fadeOut);
+      source.stop(t + fadeOut + 0.05);
+    } else {
+      try { source.stop(); } catch (e) {}
+    }
+    this._currentMusic = null;
+  }
+
+  bossEnrage() {
+    if (!this.ctx) return;
+    const buf = this._musicBuffers["boss_enrage"];
+    if (buf) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      const g = this.ctx.createGain();
+      g.gain.value = this.muted ? 0 : this.volume;
+      src.connect(g).connect(this.master);
+      src.start(this.ctx.currentTime);
+      return;
+    }
+    this._tone(800, 0.3, "sawtooth", 0.5, 1600);
+    this._tone(400, 0.4, "sawtooth", 0.4, 800);
+  }
 }

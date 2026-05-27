@@ -1,4 +1,5 @@
 import { getSaveStorageMeta, loadSaveJson, saveSaveJson, SAVE_DEFINITIONS } from "./SaveStorage.js";
+import { inferPreset } from "./perfPresets.js";
 
 export const SETTINGS_VERSION = 1;
 export const LOCAL_STORAGE_KEY = SAVE_DEFINITIONS.settings.localStorageKey;
@@ -9,6 +10,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   audio: Object.freeze({
     muted: false,
     volume: 0.35,
+    musicVolume: 0.25,
   }),
   controls: Object.freeze({
     mouseSensitivity: 1,
@@ -27,10 +29,13 @@ export const DEFAULT_SETTINGS = Object.freeze({
     fov: 78,
     colorblindMode: false,
     screenShake: true,
+    captions: false,
+    reducedMotion: false,
   }),
   performance: Object.freeze({
     renderScale: 1,
     vfxDensity: "full",
+    preset: "high",
   }),
 });
 
@@ -56,6 +61,7 @@ export function sanitizeSettings(input = {}) {
     audio: {
       muted: !!input.audio?.muted,
       volume: clampNumber(input.audio?.volume, 0, 1, DEFAULT_SETTINGS.audio.volume),
+      musicVolume: clampNumber(input.audio?.musicVolume, 0, 1, DEFAULT_SETTINGS.audio.musicVolume),
     },
     controls: {
       mouseSensitivity: clampNumber(
@@ -79,6 +85,8 @@ export function sanitizeSettings(input = {}) {
       fov: clampNumber(input.display?.fov, 60, 110, DEFAULT_SETTINGS.display.fov),
       colorblindMode: !!input.display?.colorblindMode,
       screenShake: input.display?.screenShake !== false,
+      captions: !!input.display?.captions,
+      reducedMotion: !!input.display?.reducedMotion,
     },
     performance: {
       renderScale: clampNumber(
@@ -92,6 +100,11 @@ export function sanitizeSettings(input = {}) {
         ["full", "reduced"],
         DEFAULT_SETTINGS.performance.vfxDensity,
       ),
+      preset: option(
+        input.performance?.preset,
+        ["low", "medium", "high", "custom"],
+        DEFAULT_SETTINGS.performance.preset,
+      ),
     },
   };
 }
@@ -102,7 +115,12 @@ function cloneDefaultSettings() {
 
 export async function loadSettings() {
   const stored = await loadSaveJson("settings");
-  return stored ? sanitizeSettings(stored) : cloneDefaultSettings();
+  const settings = stored ? sanitizeSettings(stored) : cloneDefaultSettings();
+  if (!stored || !stored.performance || !stored.performance.preset) {
+    const inferred = inferPreset(settings);
+    settings.performance.preset = inferred;
+  }
+  return settings;
 }
 
 export async function saveSettings(settings) {

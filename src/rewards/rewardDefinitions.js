@@ -185,7 +185,7 @@ export function spellUnlockRewards(world) {
         tip: "Unlocked by reaching Auto-Cast on a previously owned spell.",
         spellName: def.displayName,
         apply: (w) => {
-          w.caster.addSpell(id, true);
+          w.caster.addSpell(id, true, w);
           w.onCombatProc?.(`${def.displayName} attuned`);
         },
       };

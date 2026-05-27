@@ -215,6 +215,7 @@ export class ObjectiveManager {
     if (id === "hold_sigil") this._startHold(level);
     else if (id === "cleanse_rift") this._startCleanse(level);
     else if (id === "interrupt_ritual") this._startRitual(level);
+    this.world.onboarding?.note(this.world, "objectives");
     return this.bannerMeta();
   }
 
