@@ -166,6 +166,9 @@ export class LevelManager {
     }
     const modifier = combineModifiers(mutators);
     this.world.currentWaveModifier = modifier;
+    if (modifier) {
+      this.world.onboarding?.note(this.world, "wave_modifier");
+    }
 
     let comp;
     let objective = null;
@@ -184,6 +187,7 @@ export class LevelManager {
     }
     if (this.world.currentBossPattern?.id === "twin_wardens") this._linkTwinWardens();
     this.world.onWaveStarted?.(this.level, modifier, this.world.currentBossPattern, objective);
+    this.world.captions?.show("Wave incoming");
   }
 
   _linkTwinWardens() {
@@ -221,6 +225,7 @@ export class LevelManager {
     this.world.currency.add(gold);
     this.world.runStats.registerLevelCleared();
     this.world.audio.waveClear();
+    this.world.captions?.show("Wave cleared");
     // "This wave only" service flags expire at the wave-end boundary.
     if (this.world.combat) this.world.combat.perfectHealNext = 0;
     steamEvent("wave.cleared", { wave: this.level });

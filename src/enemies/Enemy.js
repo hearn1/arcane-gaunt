@@ -522,6 +522,10 @@ export class DasherEnemy extends Enemy {
     this._setEmissive(0xffd060);
     this.world.vfx.shock(this.mesh.position, 0xffaa33, 2.2, 0.32);
     this.world.audio?.telegraphDash?.();
+    if (this.world.combat) {
+      this.world.combat.dasherTelegraphCount = (this.world.combat.dasherTelegraphCount || 0) + 1;
+    }
+    this.world.captions?.show("The dasher telegraphs a powerful dash");
   }
   _drawDashTelegraph(dt) {
     this._teleFx -= dt;
@@ -544,7 +548,9 @@ export class DasherEnemy extends Enemy {
         this.mesh.position.z = this._teleAnchor.z;
       }
       this._faceDir(this.dashDir);
-      this.mesh.scale.y = 1 + Math.sin(performance.now() * 0.045) * 0.18;
+      if (!this.world.settings?.display?.reducedMotion) {
+        this.mesh.scale.y = 1 + Math.sin(performance.now() * 0.045) * 0.18;
+      }
       this._drawDashTelegraph(dt);
       if (this.tele <= 0) {
         this.state = "dash";
@@ -591,6 +597,7 @@ export class LinebreakerEnemy extends Enemy {
     this.world.vfx.shock(this.position, 0x7affe6, 2.4, 0.28);
     this.world.vfx.ring(this.position, 1.9, 0x39ffd6, 0.45);
     this.world.audio?.telegraphSurge?.();
+    this.world.captions?.show("The boss telegraphs a powerful surge");
   }
 
   _drawTelegraph(dt) {
@@ -630,7 +637,9 @@ export class LinebreakerEnemy extends Enemy {
       this.tele -= dt;
       this.mesh.position.x = this._teleAnchor.x;
       this.mesh.position.z = this._teleAnchor.z;
-      this.mesh.scale.setScalar(1 + Math.sin(performance.now() * 0.05) * 0.11);
+      if (!this.world.settings?.display?.reducedMotion) {
+        this.mesh.scale.setScalar(1 + Math.sin(performance.now() * 0.05) * 0.11);
+      }
       this._faceDir(this.chargeDir);
       this._drawTelegraph(dt);
       if (this.tele <= 0) {
@@ -721,6 +730,8 @@ export class TwinWardenElite extends EliteEnemy {
     this._raged = true;
     this.speed *= 1.4;
     this._setEmissive(0xff2244);
+    this.world.captions?.show("The boss becomes enraged!");
+    this.world.audio?.bossEnrage?.();
   }
   _die(source) {
     const partner = this.partner;
@@ -807,6 +818,7 @@ export class ReaverElite extends EliteEnemy {
     this.world.vfx.shock(this.position, 0xff8a3a, 3.0, 0.32);
     this.world.vfx.ring(this.position, 2.4, 0xff8a3a, 0.5);
     this.world.audio?.telegraphSurge?.();
+    this.world.captions?.show("The boss telegraphs a powerful surge");
   }
 
   _drawReaverTelegraph(dt) {
@@ -824,6 +836,8 @@ export class ReaverElite extends EliteEnemy {
       this._phase2Triggered = true;
       this._setEmissive(0xff4400);
       this.world.vfx.shock(this.position, 0xff8a3a, 4, 0.4);
+      this.world.captions?.show("The boss becomes enraged!");
+      this.world.audio?.bossEnrage?.();
       const baseDir = info.dir.clone();
       const axis = new THREE.Vector3(0, 1, 0);
       this._shootDir("mage_orb", baseDir.clone().applyAxisAngle(axis, -0.3));
@@ -847,7 +861,9 @@ export class ReaverElite extends EliteEnemy {
       this.tele -= dt;
       this.mesh.position.x = this._teleAnchor.x;
       this.mesh.position.z = this._teleAnchor.z;
-      this.mesh.scale.setScalar(1 + Math.sin(performance.now() * 0.05) * 0.11);
+      if (!this.world.settings?.display?.reducedMotion) {
+        this.mesh.scale.setScalar(1 + Math.sin(performance.now() * 0.05) * 0.11);
+      }
       this._faceDir(this.chargeDir);
       this._drawReaverTelegraph(dt);
       if (this.tele <= 0) {
@@ -891,6 +907,8 @@ export class SentinelElite extends EliteEnemy {
       this._phase2Triggered = true;
       this._setEmissive(0xff6600);
       this.world.vfx.shock(this.position, 0xffcf4d, 4, 0.4);
+      this.world.captions?.show("The boss becomes enraged!");
+      this.world.audio?.bossEnrage?.();
       this._shoot("mage_orb");
       this.world.after(0.15, () => { if (this.alive) this._shoot("mage_orb"); });
       this.world.after(0.3, () => { if (this.alive) this._shoot("mage_orb"); });

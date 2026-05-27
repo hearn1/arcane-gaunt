@@ -5,6 +5,7 @@ import { AudioSys } from "./Audio.js";
 import { VFX } from "./VFX.js";
 import { Input } from "./Input.js";
 import { DEFAULT_SETTINGS, getStorageMeta, sanitizeSettings, saveSettings } from "./Settings.js";
+import { applyPreset } from "./perfPresets.js";
 import {
   cloneDefaultProfile,
   createRunRecord,
@@ -42,6 +43,7 @@ import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.
 import { DIFFICULTY_TIERS, getDifficultyTier } from "./Difficulty.js";
 import { castSpell } from "../spells/Effects.js";
 import { UI } from "../ui/ui.js";
+import { Captions } from "../ui/Captions.js";
 import { Onboarding } from "../ui/Onboarding.js";
 import { reportFatal } from "./ErrorReporting.js";
 
@@ -119,6 +121,8 @@ export class Game {
       this.shieldView?.noteBlock();
     };
     this.ui = new UI();
+    this.captions = new Captions();
+    this.captions.setEnabled(this.settings.display.captions);
     this.timers = [];
     this.relics = new Set();
     this.combat = { nextCastDamageMult: 1, nextCastLabel: "", blinkStrikeTimer: 0, guardTraining: 0, autocastTargetMode: "forward", perfectHealNext: 0, castCounter: 0, standingTimer: 0, consecutiveSkips: 0, hollowSigilApplied: false, vermillionAoE: false, emberedFootingReady: false };
@@ -160,6 +164,8 @@ export class Game {
       set currentWaveModifier(mod) { self.currentWaveModifier = mod; },
       get currentBossPattern() { return self.currentBossPattern; },
       set currentBossPattern(p) { self.currentBossPattern = p; },
+      get onboarding() { return self.onboarding; },
+      get captions() { return self.captions; },
       serviceOptions: () => self.serviceOptions(),
       getEnemies: () => self.enemyManager.aliveList(),
       getObjectiveTargets: () => self.objectiveManager?.targets() || [],
@@ -167,7 +173,7 @@ export class Game {
       after: (sec, fn) => self.timers.push({ t: sec, fn }),
       layoutToast: (msg, ms = 1200) => self.ui.toast(msg, ms),
       isPlayerAlive: () => self.isPlayerAlive(),
-      onPlayerHurt: () => { self.ui.hurtFlash(); self.audio.playerHurt(); },
+      onPlayerHurt: () => { if (!self._reducedMotion) self.ui.hurtFlash(); self.audio.playerHurt(); },
       openReward: (lvl, gold) => self.openReward(lvl, gold),
       onWaveStarted: (lvl, modifier, bossPattern, objective) => {
         self._warnedHazardThisWave = false;
@@ -175,6 +181,13 @@ export class Game {
         if (bossPattern) {
           self.vfx.shock(self.player.position, 0xff5edb, 5.2, 0.45);
           self.audio?.telegraphSurge?.();
+          self.audio?.playMusic("boss_bed", { loop: true, fadeIn: 1.0 });
+          self._isBossWave = true;
+        } else {
+          if (self._isBossWave) {
+            self.audio?.playMusic("arena_calm", { loop: true, fadeIn: 0.8 });
+          }
+          self._isBossWave = false;
         }
         if (bossPattern) self.onboarding?.triggerIf(self.world, "boss_spawn");
         if (objective) self.onboarding?.triggerIf(self.world, "objective_active");
@@ -503,6 +516,7 @@ export class Game {
   }
 
   showMainMenu() {
+    this.audio?.playMusic("menu_loop", { loop: true, fadeIn: 0.5 });
     this.clearInputState();
     if (this.shieldView) this.shieldView.group.visible = false;
     if (this.staffView) this.staffView.group.visible = false;
@@ -529,6 +543,9 @@ export class Game {
     this.player.invertY = this.settings.controls.invertY ?? false;
     this.vfx?.setDensity(this.settings.performance.vfxDensity);
     this.vfx?.setScreenShake(this.settings.display.screenShake);
+    this.captions?.setEnabled(this.settings.display.captions);
+    this._reducedMotion = !!this.settings.display?.reducedMotion;
+    this.vfx?.setReducedMotion(this._reducedMotion);
     this._applyRendererSettings();
     if (this.camera && this.settings.display?.fov) {
       this.camera.fov = this.settings.display.fov;
@@ -559,6 +576,7 @@ export class Game {
 
   openSettings(onBack) {
     this.clearInputState();
+    const self = this;
     this.ui.settingsMenu(
       this.settings,
       (settings) => this.updateSettings(settings),
@@ -567,6 +585,19 @@ export class Game {
         onBack();
       },
       this.storageMeta,
+      (presetId) => {
+        self.settings = sanitizeSettings(applyPreset(self.settings, presetId));
+        saveSettings(self.settings);
+        self.applySettings();
+        self.openSettings(onBack);
+      },
+      () => {
+        self.onboarding.tutorialSeen = {};
+        self.profile.meta.tutorialSeen = {};
+        self.persistProfile(self.profile);
+        self.ui.toast("Tutorial hints reset", 1800);
+        self.openSettings(onBack);
+      },
     );
   }
 
@@ -669,6 +700,7 @@ export class Game {
     this.currentWaveModifier = null;
     this.currentBossPattern = null;
     this._hazardTick = 0;
+    this._isBossWave = false;
     this.levelManager.reset();
     this.upgrades.reset();
     this.onboarding?.startRun();
@@ -677,6 +709,8 @@ export class Game {
     this._onboardingCastTriggered = false;
     this._onboardingBlockTriggered = false;
     this._onboardingBlinkTriggered = false;
+    this._onboardingBlinkTelegraphTriggered = false;
+    this._criticalHealthWarned = false;
     this.ui.buildSpellSlots(this.caster.loadout);
 
     this._pendingStart = true;
@@ -716,6 +750,7 @@ export class Game {
     this.state = STATE.PLAYING;
     this.ui.hideOverlay();
     this.ui.setHud(true);
+    if (firstStart) this.audio?.playMusic("arena_calm", { loop: true, fadeIn: 1.5 });
     if (firstStart) {
       await preloadEnemyModels();
       this.levelManager.startRun();
@@ -1071,6 +1106,7 @@ export class Game {
 
     if (this.state === STATE.PLAYING) {
       this._checkOnboardingTriggers();
+      this._checkCriticalHealth();
       if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
       this.block.update(dt, this.input);
       this.shieldView?.update(dt, this.block);
@@ -1218,6 +1254,16 @@ export class Game {
     this.vfx.shock(this.player.position, 0x7fffe6, 2.2, 0.28);
   }
 
+  _checkCriticalHealth() {
+    if (!this._criticalHealthWarned && this.player?.health?.ratio < 0.25) {
+      this._criticalHealthWarned = true;
+      this.captions?.show("Critical health!");
+    }
+    if (this._criticalHealthWarned && this.player?.health?.ratio >= 0.5) {
+      this._criticalHealthWarned = false;
+    }
+  }
+
   _checkOnboardingTriggers() {
     if (this.state !== STATE.PLAYING) return;
 
@@ -1258,6 +1304,15 @@ export class Game {
       if (hp && hp.current > 0 && hp.ratio < 0.6) {
         this._onboardingBlinkTriggered = true;
         this.onboarding?.triggerIf(this.world, "blink_low_hp");
+      }
+    }
+
+    if (!this._onboardingBlinkTelegraphTriggered) {
+      const dasherCount = this.combat.dasherTelegraphCount || 0;
+      const blinkUsed = this.blink.timer > 0;
+      if (dasherCount >= 3 && !blinkUsed) {
+        this._onboardingBlinkTelegraphTriggered = true;
+        this.onboarding?.note(this.world, "blink_telegraph");
       }
     }
 

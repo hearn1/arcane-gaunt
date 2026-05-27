@@ -11,6 +11,10 @@ export class Onboarding {
     this.seenThisRun.clear();
   }
 
+  note(world, eventName) {
+    this.triggerIf(world, eventName);
+  }
+
   triggerIf(world, eventName) {
     const prompt = ONBOARDING_PROMPTS.find((p) => p.trigger === eventName);
     if (!prompt) return;

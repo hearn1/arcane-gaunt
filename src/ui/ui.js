@@ -354,20 +354,24 @@ const settingsButton = onSettings
     `).join("");
   }
 
-  settingsMenu(settings, onChange, onBack, storageMeta = null) {
+  settingsMenu(settings, onChange, onBack, storageMeta = null, onPresetApply = null, onResetTutorial = null) {
     this.setHud(false);
     const volumePct = Math.round((settings.audio?.volume ?? 0.35) * 100);
+    const musicVolumePct = Math.round((settings.audio?.musicVolume ?? 0.25) * 100);
     const sensitivityPct = Math.round((settings.controls?.mouseSensitivity ?? 1) * 100);
     const stickSensPct = Math.round((settings.controls?.stickLookSensitivity ?? 1) * 100);
     const invertY = !!settings.controls?.invertY;
     const muted = !!settings.audio?.muted;
     const fullscreen = !!settings.display?.fullscreen;
     const viewmodel = settings.display?.viewmodel !== false;
+    const preset = settings.performance?.preset || "high";
     const renderScale = settings.performance?.renderScale ?? 1;
     const vfxDensity = settings.performance?.vfxDensity || "full";
     const fov = settings.display?.fov ?? 78;
     const colorblind = !!settings.display?.colorblindMode;
     const screenShake = settings.display?.screenShake !== false;
+    const captions = !!settings.display?.captions;
+    const reducedMotion = !!settings.display?.reducedMotion;
     const storageText = storageMeta?.path
       ? `Storage: ${storageMeta.path}`
       : `Storage: ${storageMeta?.key || "local settings"}`;
@@ -382,6 +386,11 @@ const settingsButton = onSettings
           <label for="set-volume">${t("ui.volume")}</label>
           <input id="set-volume" type="range" min="0" max="100" step="1" value="${volumePct}"/>
           <span class="settings-value" id="set-volume-value">${volumePct}%</span>
+        </div>
+        <div class="settings-row">
+          <label for="set-music-volume">${t("ui.music_volume")}</label>
+          <input id="set-music-volume" type="range" min="0" max="100" step="1" value="${musicVolumePct}"/>
+          <span class="settings-value" id="set-music-volume-value">${musicVolumePct}%</span>
         </div>
         <div class="settings-row">
           <label for="set-sensitivity">${t("ui.mouse_sensitivity")}</label>
@@ -405,6 +414,16 @@ const settingsButton = onSettings
           <input type="checkbox" id="set-viewmodel" ${viewmodel ? "checked" : ""}/>
           <span>${t("ui.show_weapon")}</span>
         </label>
+        <div class="settings-row select-row">
+          <label for="set-preset">${t("ui.preset")}</label>
+          <select id="set-preset">
+            <option value="low" ${preset === "low" ? "selected" : ""}>${t("ui.preset_low")}</option>
+            <option value="medium" ${preset === "medium" ? "selected" : ""}>${t("ui.preset_medium")}</option>
+            <option value="high" ${preset === "high" ? "selected" : ""}>${t("ui.preset_high")}</option>
+            <option value="custom" ${preset === "custom" ? "selected" : ""}>${t("ui.preset_custom")}</option>
+          </select>
+          <span class="settings-value" id="set-preset-value">${preset === "custom" ? t("ui.preset_custom") : preset.charAt(0).toUpperCase() + preset.slice(1)}</span>
+        </div>
         <div class="settings-row select-row">
           <label for="set-render-scale">${t("ui.render_scale")}</label>
           <select id="set-render-scale">
@@ -435,6 +454,16 @@ const settingsButton = onSettings
           <input type="checkbox" id="set-screenshake" ${screenShake ? "checked" : ""}/>
           <span>${t("ui.screen_shake")}</span>
         </label>
+        <h3 class="settings-subhead">${t("ui.accessibility")}</h3>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-captions" ${captions ? "checked" : ""}/>
+          <span>${t("ui.captions")}</span>
+        </label>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-reduced-motion" ${reducedMotion ? "checked" : ""}/>
+          <span>${t("ui.reduced_motion")}</span>
+        </label>
+        ${onResetTutorial ? `<button class="btn secondary" id="btn-reset-tutorial" data-nav>${t("ui.reset_tutorial_hints")}</button>` : ""}
         <div class="settings-storage">${storageText}</div>
         <div class="keybindings-section">
           <h3>${t("ui.key_bindings")}</h3>
@@ -446,40 +475,52 @@ const settingsButton = onSettings
 
     const mutedEl = document.getElementById("set-muted");
     const volumeEl = document.getElementById("set-volume");
+    const musicVolumeEl = document.getElementById("set-music-volume");
     const sensitivityEl = document.getElementById("set-sensitivity");
     const stickSensEl = document.getElementById("set-stick-sensitivity");
     const invertYEl = document.getElementById("set-invert-y");
     const fullscreenEl = document.getElementById("set-fullscreen");
     const viewmodelEl = document.getElementById("set-viewmodel");
+    const presetEl = document.getElementById("set-preset");
     const renderScaleEl = document.getElementById("set-render-scale");
     const vfxDensityEl = document.getElementById("set-vfx-density");
     const fovEl = document.getElementById("set-fov");
     const colorblindEl = document.getElementById("set-colorblind");
     const screenShakeEl = document.getElementById("set-screenshake");
+    const captionsEl = document.getElementById("set-captions");
+    const reducedMotionEl = document.getElementById("set-reduced-motion");
     const volumeValue = document.getElementById("set-volume-value");
+    const musicVolumeValue = document.getElementById("set-music-volume-value");
     const sensitivityValue = document.getElementById("set-sensitivity-value");
     const stickSensValue = document.getElementById("set-stick-sensitivity-value");
     const fovValue = document.getElementById("set-fov-value");
+    const presetValue = document.getElementById("set-preset-value");
     const renderScaleValue = document.getElementById("set-render-scale-value");
     const vfxDensityValue = document.getElementById("set-vfx-density-value");
 
-    const emit = () => {
+    const emit = (flipPreset) => {
       const nextVolume = Number(volumeEl.value);
+      const nextMusicVolume = Number(musicVolumeEl.value);
       const nextSensitivity = Number(sensitivityEl.value);
       const nextStickSens = Number(stickSensEl.value);
       const nextFov = Number(fovEl.value);
       const nextRenderScale = Number(renderScaleEl.value);
       const nextVfxDensity = vfxDensityEl.value;
       volumeValue.textContent = `${nextVolume}%`;
+      if (musicVolumeValue) musicVolumeValue.textContent = `${nextMusicVolume}%`;
       sensitivityValue.textContent = `${nextSensitivity}%`;
       stickSensValue.textContent = `${nextStickSens}%`;
       fovValue.textContent = `${nextFov}°`;
       renderScaleValue.textContent = `${Math.round(nextRenderScale * 100)}%`;
       vfxDensityValue.textContent = nextVfxDensity === "reduced" ? t("ui.reduced") : t("ui.full");
+      let p = presetEl.value;
+      if (flipPreset) p = "custom";
+      if (presetValue) presetValue.textContent = p === "custom" ? t("ui.preset_custom") : p.charAt(0).toUpperCase() + p.slice(1);
       onChange({
         audio: {
           muted: mutedEl.checked,
           volume: nextVolume / 100,
+          musicVolume: nextMusicVolume / 100,
         },
         controls: {
           mouseSensitivity: nextSensitivity / 100,
@@ -492,26 +533,36 @@ const settingsButton = onSettings
           fov: nextFov,
           colorblindMode: colorblindEl.checked,
           screenShake: screenShakeEl.checked,
+          captions: captionsEl?.checked ?? false,
+          reducedMotion: reducedMotionEl?.checked ?? false,
         },
         performance: {
           renderScale: nextRenderScale,
           vfxDensity: nextVfxDensity,
+          preset: p,
         },
       });
     };
 
-    mutedEl.onchange = emit;
-    volumeEl.oninput = emit;
-    sensitivityEl.oninput = emit;
-    stickSensEl.oninput = emit;
-    invertYEl.onchange = emit;
-    fullscreenEl.onchange = emit;
-    viewmodelEl.onchange = emit;
-    renderScaleEl.onchange = emit;
-    vfxDensityEl.onchange = emit;
-    fovEl.oninput = emit;
-    colorblindEl.onchange = emit;
-    screenShakeEl.onchange = emit;
+    mutedEl.onchange = () => emit();
+    volumeEl.oninput = () => emit();
+    musicVolumeEl.oninput = () => emit();
+    sensitivityEl.oninput = () => emit();
+    stickSensEl.oninput = () => emit();
+    invertYEl.onchange = () => emit();
+    fullscreenEl.onchange = () => emit();
+    viewmodelEl.onchange = () => emit(true);
+    renderScaleEl.onchange = () => emit(true);
+    vfxDensityEl.onchange = () => emit(true);
+    fovEl.oninput = () => emit();
+    colorblindEl.onchange = () => emit();
+    screenShakeEl.onchange = () => emit(true);
+    if (captionsEl) captionsEl.onchange = () => emit();
+    if (reducedMotionEl) reducedMotionEl.onchange = () => emit();
+
+    presetEl.onchange = () => {
+      if (onPresetApply) onPresetApply(presetEl.value);
+    };
 
     // Key rebind: click a key span, then listen for the next keydown.
     document.querySelectorAll(".keybinding-row .kb-key").forEach((el) => {
@@ -527,6 +578,9 @@ const settingsButton = onSettings
         el.focus();
       };
     });
+
+    const resetTutorialBtn = document.getElementById("btn-reset-tutorial");
+    if (resetTutorialBtn && onResetTutorial) resetTutorialBtn.onclick = onResetTutorial;
 
     this._navDetach = attach(this.root, {
       onBack: onBack,
@@ -641,6 +695,9 @@ const settingsButton = onSettings
       el.onclick = () => onService(el.dataset.svc);
     });
     document.getElementById("btn-up-continue").onclick = onContinue;
+
+    if (services) world.onboarding?.note(world, "services");
+    if (spells) world.onboarding?.note(world, "upgrade_tree");
   }
 
   gameOver(onSummary, onRestart, onMenu) {
@@ -790,11 +847,12 @@ const settingsButton = onSettings
       this.blockInd.classList.toggle("active", blk.blocking);
       this.blockInd.classList.toggle("perfect", blk.perfectPulse > 0);
       this.blockInd.textContent = blk.perfectPulse > 0 ? t("ui.perfect") : (blk.perfectActive() ? t("ui.parry_window") : t("ui.blocking"));
+      const reducedMotion = world.settings?.display?.reducedMotion;
       this.crosshair.classList.toggle("blocking", blk.blocking);
       this.crosshair.classList.toggle("perfect-window", blk.perfectActive());
-      this.crosshair.classList.toggle("perfect-hit", blk.perfectPulse > 0);
+      this.crosshair.classList.toggle("perfect-hit", reducedMotion ? false : blk.perfectPulse > 0);
       this.crosshair.classList.toggle("block-hit", blk.blockPulse > 0);
-      this.crosshair.style.setProperty("--perfect-ratio", blk.perfectRatio().toFixed(3));
+      this.crosshair.style.setProperty("--perfect-ratio", reducedMotion ? "0" : blk.perfectRatio().toFixed(3));
     }
 
     if (world.blink.ready) {

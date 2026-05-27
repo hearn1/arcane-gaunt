@@ -53,4 +53,52 @@ export const ONBOARDING_PROMPTS = [
     text: "Auto-Cast unlocked. You can take a new spell next reward.",
     persistKey: "autocast_first_unlock",
   },
+  {
+    id: "perfect_block_first",
+    trigger: "perfect_block",
+    text: "Perfect block! Time your block just before a hit to reflect damage.",
+    persistKey: "perfect_block_first",
+  },
+  {
+    id: "blink_telegraph_first",
+    trigger: "blink_telegraph",
+    text: "Blink (Shift/Q/B) to dodge incoming attacks.",
+    persistKey: "blink_telegraph_first",
+  },
+  {
+    id: "autocast_hold_first",
+    trigger: "autocast_hold",
+    text: "Holding cast on an auto-fire spell will keep it firing.",
+    persistKey: "autocast_hold_first",
+  },
+  {
+    id: "wave_modifier_first",
+    trigger: "wave_modifier",
+    text: "This wave has a modifier — check the banner for effects.",
+    persistKey: "wave_modifier_first",
+  },
+  {
+    id: "objectives_first",
+    trigger: "objectives",
+    text: "Objective active! Complete it for bonus rewards.",
+    persistKey: "objectives_first",
+  },
+  {
+    id: "services_first",
+    trigger: "services",
+    text: "Services offer healing and tactical upgrades between waves.",
+    persistKey: "services_first",
+  },
+  {
+    id: "upgrade_tree_first",
+    trigger: "upgrade_tree",
+    text: "Upgrade tree — spend gold to unlock permanent spell upgrades.",
+    persistKey: "upgrade_tree_first",
+  },
+  {
+    id: "spell_switching_first",
+    trigger: "spell_switching",
+    text: "You can switch spells with number keys or mouse wheel.",
+    persistKey: "spell_switching_first",
+  },
 ];
