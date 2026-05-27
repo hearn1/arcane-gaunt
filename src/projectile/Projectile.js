@@ -121,8 +121,9 @@ function buildDefaultOrb(color) {
   return group;
 }
 
-function buildProjectileVisual(spell) {
-  const color = spell.color ?? 0xffffff;
+function buildProjectileVisual(spell, world) {
+  const colorblind = world?.settings?.colorblindMode;
+  const color = colorblind ? (spell.colorblindColor || spell.color) : (spell.color ?? 0xffffff);
   switch (spell.definitionId) {
     case "arcane_bolt": return buildArcaneBolt(color);
     case "fireball": return buildFireball(color);
@@ -158,10 +159,15 @@ export class Projectile {
     this.dir = dir.clone().normalize();
     this.vel = this.dir.clone().multiplyScalar(spell.stats.projectileSpeed || 40);
 
-    this.mesh = buildProjectileVisual(spell);
+    this.mesh = buildProjectileVisual(spell, world);
     this.mesh.position.copy(origin);
     this.mesh.quaternion.setFromUnitVectors(FORWARD, this.dir);
     world.scene.add(this.mesh);
+
+    if (spell.stats.cadenceStacks) {
+      this.cadenceStacks = 0;
+      this.cadenceTimer = 0;
+    }
 
     this._trailT = 0;
     this._lastTrailPos = origin.clone();
@@ -190,6 +196,9 @@ export class Projectile {
 
   update(dt) {
     if (!this.alive) return;
+    if (this.spell.stats.gravity) {
+      this.vel.y -= this.spell.stats.gravity * dt;
+    }
     if (this.faction === "player" && this.spell.homing) this._home(dt);
     this.mesh.quaternion.setFromUnitVectors(FORWARD, this.dir);
     const step = this.vel.clone().multiplyScalar(dt);
@@ -223,7 +232,8 @@ export class Projectile {
 
   _emitTrail() {
     const id = this.spell.definitionId;
-    const color = this.spell.color;
+    const colorblind = this.world?.settings?.colorblindMode;
+    const color = colorblind ? (this.spell.colorblindColor || this.spell.color) : this.spell.color;
     const pos = this.mesh.position;
     if (id === "arcane_bolt") {
       this._trailT = 0.025;

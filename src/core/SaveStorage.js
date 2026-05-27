@@ -29,6 +29,7 @@ function readLocalStorage(localStorageKey) {
     const raw = localStorage.getItem(localStorageKey);
     return raw ? JSON.parse(raw) : null;
   } catch (err) {
+    console.warn(`[SaveStorage] corrupt data in "${localStorageKey}", falling back to defaults`, err);
     reportStorageFailure("local-read", localStorageKey, "localStorage", err);
     return null;
   }

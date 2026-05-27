@@ -74,6 +74,14 @@ export class Enemy {
   constructor(world, level, cfg) {
     this.world = world;
     this.alive = true;
+
+    const tier = world?.difficultyTier;
+    if (tier) {
+      cfg = { ...cfg };
+      cfg.hp = Math.round(cfg.hp * tier.hpMult);
+      if (cfg.touchDamage) cfg.touchDamage = Math.round(cfg.touchDamage * tier.damageMult);
+    }
+
     this.cfg = cfg;
     this.radius = cfg.radius;
     this.speed = cfg.speed;
@@ -87,6 +95,10 @@ export class Enemy {
     this.frozenTimer = 0;
     this.regenRate = 0;
     this.volatileExplosion = null;
+    this.chillStacks = 0;
+    this.chillDecayTimer = 0;
+    this.chillMaxStacks = 3;
+    this.chillSlowPerStack = 0.2;
     this.dots = []; // { perTick, tickRate, acc, timeLeft, source }
 
     // Unstuck nudge state: when _moveTo's actual displacement falls well short
@@ -154,9 +166,19 @@ export class Enemy {
   }
 
   applySlow(amount, duration) {
+    if (this.isBoss) amount *= 0.4;
     this.slowFactor = Math.min(this.slowFactor, 1 - THREE.MathUtils.clamp(amount, 0, 0.85));
     this.slowTimer = Math.max(this.slowTimer, duration);
-    this._setEmissive(0x123a55);
+    this._setEmissive(this.isBoss ? 0x441122 : 0x123a55);
+  }
+
+  applyChill(amount, duration) {
+    this.chillStacks = Math.min(this.chillStacks + amount, this.chillMaxStacks);
+    this.chillDecayTimer = Math.max(this.chillDecayTimer, duration);
+    const totalSlow = this.chillStacks * this.chillSlowPerStack;
+    this.slowFactor = Math.min(this.slowFactor, 1 - totalSlow);
+    this.slowTimer = Math.max(this.slowTimer, this.chillDecayTimer);
+    this._setEmissive(0x1f7ad8);
   }
 
   applyDot(dmgPerTick, duration, tickRate, source) {
@@ -164,6 +186,10 @@ export class Enemy {
   }
 
   applyStun(duration) {
+    if (this.isBoss) {
+      this.world.vfx?.burst?.(this.mesh.position, 0xffffff, 4, 2, 0.15);
+      return;
+    }
     this.stunTimer = Math.max(this.stunTimer, duration);
     this._stuckAcc = 0;
     this._nudgeTimer = 0;
@@ -171,6 +197,7 @@ export class Enemy {
   }
 
   applyFreeze(duration) {
+    if (this.isBoss) return;
     this.frozenTimer = Math.max(this.frozenTimer, duration);
     this.slowFactor = 0;
     this.slowTimer = Math.max(this.slowTimer, duration); // restores slowFactor on expiry
@@ -194,6 +221,12 @@ export class Enemy {
       if (this.slowTimer <= 0) {
         this.slowFactor = 1;
         this._setEmissive(0x000000);
+      }
+    }
+    if (this.chillStacks > 0) {
+      this.chillDecayTimer -= dt;
+      if (this.chillDecayTimer <= 0) {
+        this.chillStacks = 0;
       }
     }
     if (this.regenRate > 0) this.health.heal(this.regenRate * dt);
@@ -348,6 +381,15 @@ export class Enemy {
     const from = this.mesh.position.clone(); from.y = this.eyeH;
     const target = this.world.player.position.clone();
     const dir = target.sub(from).normalize();
+    this._faceDir(dir);
+    from.add(dir.clone().multiplyScalar(this.radius + 0.5));
+    this.world.castEnemySpell(spell, from, dir);
+  }
+
+  _shootDir(attackKey, dir) {
+    const def = ENEMY_ATTACKS[attackKey];
+    const spell = new SpellInstance(def, true);
+    const from = this.mesh.position.clone(); from.y = this.eyeH;
     this._faceDir(dir);
     from.add(dir.clone().multiplyScalar(this.radius + 0.5));
     this.world.castEnemySpell(spell, from, dir);
@@ -669,6 +711,9 @@ export class TwinWardenElite extends EliteEnemy {
     this._raged = false;
     this.syncDelay = 0;
     this.health.setMax(Math.round(this.health.max * 0.9));
+    this.speed *= 1.2;
+    this.touchDamage = Math.round(this.touchDamage * 1.5);
+    this._phase2Triggered = false;
     this._setEmissive(0xff5edb);
   }
   _enterRage() {
@@ -682,12 +727,33 @@ export class TwinWardenElite extends EliteEnemy {
     super._die(source);
     if (partner?.alive) partner._enterRage();
   }
+  _phase2GroundSlam() {
+    this.world.vfx.shock(this.position, 0xff5edb, 8, 0.6);
+    this.world.vfx.flash(this.position, 0xff5edb, 4, 0.2);
+    this._setEmissive(0xff22aa);
+    const dmg = 20;
+    const pl = this.world.player;
+    if (pl.position.distanceTo(this.position) <= 8 + pl.radius) {
+      applyDamage(pl, dmg, { owner: "enemy", spellId: "boss_ground_slam" });
+      this.world.onPlayerHurt?.();
+    }
+    for (const e of this.world.enemyManager.enemies) {
+      if (e === this || !e.alive) continue;
+      if (e.position.distanceTo(this.position) <= 8 + e.radius) {
+        applyDamage(e, dmg, { owner: "enemy", spellId: "boss_ground_slam" });
+      }
+    }
+  }
   behavior(dt, info) {
+    if (this.health.ratio < 0.5 && !this._phase2Triggered) {
+      this._phase2Triggered = true;
+      this._phase2GroundSlam();
+    }
     if (this.syncDelay > 0) {
       this.syncDelay -= dt;
       if (this.syncDelay <= 0 && this._canSeePlayer(0.25) && info.dist < 60) {
         this._shoot("mage_orb");
-        this.fireCd = this._raged ? 1.3 : 2.6;
+        this.fireCd = this._raged ? 0.9 : 1.8;
       }
     }
     if (!this._canSeePlayer(0.25)) {
@@ -698,7 +764,7 @@ export class TwinWardenElite extends EliteEnemy {
     this.fireCd -= dt;
     if (this.fireCd <= 0 && info.dist < 60) {
       this._shoot("mage_orb");
-      this.fireCd = this._raged ? 1.3 : 2.6;
+      this.fireCd = this._raged ? 0.9 : 1.8;
       if (this.partner?.alive && this.partner.fireCd > 0.2 && this.partner.syncDelay <= 0) {
         this.partner.syncDelay = 0.18;
       }
@@ -714,6 +780,9 @@ export class ReaverElite extends EliteEnemy {
     this.cfg.type = "reaver";
     this.isBoss = true;
     this.health.setMax(Math.round(this.health.max * 1.5));
+    this.speed *= 1.2;
+    this.touchDamage = Math.round(this.touchDamage * 1.5);
+    this._phase2Triggered = false;
     this._setEmissive(0xff8a3a);
     this.state = "cutoff";
     this.tele = 0;
@@ -751,6 +820,16 @@ export class ReaverElite extends EliteEnemy {
   }
 
   behavior(dt, info) {
+    if (this.health.ratio < 0.5 && !this._phase2Triggered) {
+      this._phase2Triggered = true;
+      this._setEmissive(0xff4400);
+      this.world.vfx.shock(this.position, 0xff8a3a, 4, 0.4);
+      const baseDir = info.dir.clone();
+      const axis = new THREE.Vector3(0, 1, 0);
+      this._shootDir("mage_orb", baseDir.clone().applyAxisAngle(axis, -0.3));
+      this._shoot("mage_orb");
+      this._shootDir("mage_orb", baseDir.clone().applyAxisAngle(axis, 0.3));
+    }
     this.cooldown -= dt;
     if (this.state === "cutoff") {
       if (!this._canSeePlayer(0.25)) {
@@ -758,7 +837,7 @@ export class ReaverElite extends EliteEnemy {
       } else {
         this._moveTo(info.dir, 1, dt);
         this.fireCd -= dt;
-        if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 3.0; }
+        if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 2.1; }
       }
       if (this.cooldown <= 0 && info.dist < 28) this._beginReaverSurge(info);
       return;
@@ -800,11 +879,22 @@ export class SentinelElite extends EliteEnemy {
     this.cfg.type = "sentinel";
     this.isBoss = true;
     this.health.setMax(Math.round(this.health.max * 1.45));
+    this.speed *= 1.2;
+    this.touchDamage = Math.round(this.touchDamage * 1.5);
+    this._phase2Triggered = false;
     this._setEmissive(0xffcf4d);
     this.respawnCd = 4.0;
     this.minions = [];
   }
   behavior(dt, info) {
+    if (this.health.ratio < 0.5 && !this._phase2Triggered) {
+      this._phase2Triggered = true;
+      this._setEmissive(0xff6600);
+      this.world.vfx.shock(this.position, 0xffcf4d, 4, 0.4);
+      this._shoot("mage_orb");
+      this.world.after(0.15, () => { if (this.alive) this._shoot("mage_orb"); });
+      this.world.after(0.3, () => { if (this.alive) this._shoot("mage_orb"); });
+    }
     this.minions = this.minions.filter((m) => m && m.alive);
     this.respawnCd -= dt;
     if (this.respawnCd <= 0 && this.minions.length < 3) {
@@ -821,7 +911,7 @@ export class SentinelElite extends EliteEnemy {
     if (info.dist > 26) this._moveTo(info.dir, 0.55, dt);
     else if (info.dist < 18) this._moveTo(info.dir.clone().negate(), 0.55, dt);
     this.fireCd -= dt;
-    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 2.4; }
+    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 1.7; }
   }
 }
 

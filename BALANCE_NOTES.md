@@ -233,6 +233,108 @@ These are estimates for validation. Actual values will vary by build and skill.
 
 ---
 
+## Issue #23 — Difficulty Tiers + Progressive Spell Unlocks
+
+### Difficulty Tiers (Difficulty.js)
+
+10 tiers selectable from the main menu. Each tier modifies enemy stats, spawn density, gold rewards, and wave modifier count.
+
+| Tier | Name | HP Mult | Damage Mult | Spawn Mult | Gold Mult | Mutators |
+|------|------|---------|-------------|------------|-----------|----------|
+| 1 | Apprentice | 1.0× | 1.0× | 1.0× | 1.0× | 0 |
+| 2 | Adept | 1.15× | 1.1× | 1.0× | 1.05× | 0 |
+| 3 | Journeyman | 1.3× | 1.2× | 1.05× | 1.1× | 1 |
+| 4 | Expert | 1.5× | 1.35× | 1.1× | 1.2× | 1 |
+| 5 | Veteran | 1.7× | 1.5× | 1.2× | 1.35× | 1 |
+| 6 | Master | 2.0× | 1.7× | 1.3× | 1.5× | 2 |
+| 7 | Archmage | 2.2× | 1.9× | 1.4× | 1.7× | 2 |
+| 8 | Sage | 2.5× | 2.1× | 1.5× | 1.9× | 2 |
+| 9 | Elder | 2.7× | 2.3× | 1.75× | 2.2× | 3 |
+| 10 | Grandmaster | 3.0× | 2.5× | 2.0× | 2.5× | 3 |
+
+- **hpMult**: Applied to enemy max HP after base scaling
+- **damageMult**: Applied to enemy touch/melee damage after base scaling (projectile damage not affected; only touchDamage)
+- **spawnMult**: Multiplied against each archetype group count in wave composition (min 1 per group)
+- **goldMult**: Gold earned per kill scaled via the modifier's goldMult chain (mutators multiply together)
+- **mutatorCount**: Guaranteed wave modifiers per wave (picks unique modifiers, falls back to fewer if insufficient eligible)
+
+### Spell Unlock Gates
+
+Spells are permanently unlocked account-wide after the player completes a run at the required difficulty tier (selected tier, not waves cleared):
+
+| Spell | Unlock Tier |
+|-------|-------------|
+| Arcane Bolt | Starter (always) |
+| Chain Lightning | Tier 3 (Journeyman) |
+| Frost Bolt | Tier 5 (Veteran) |
+| Fireball | Tier 7 (Archmage) |
+| Poison Bolt | Tier 8 (Sage) |
+| Meteor | Tier 10 (Grandmaster) |
+
+Unlock progression is tracked in the profile via `unlockedSpells[]` and `highestDifficultyCleared`. Locked spells appear dimmed with a lock icon and tooltip in the main menu. Attempting to start a run with a locked spell falls back to Arcane Bolt.
+
+### Profile Version Bump
+
+Profile schema bumped to version 2. Migration from v1 adds `unlockedSpells: ["arcane_bolt"]` and `highestDifficultyCleared: 0`.
+
+---
+
+## Issue #21 — Spell Variety: Differentiated Projectile Mechanics
+
+### 1. Arcane Bolt — Cadence Stacks
+
+Each arcane bolt stacks cadence per hit (pierce builds faster). Each stack adds +6 bonus damage (cap 3). Decays after 0.6s of no hit. At 3 stacks, impact VFX includes an extra spark burst.
+
+| Field | Value |
+|-------|-------|
+| cadenceMaxStacks | 3 |
+| cadenceDamagePerStack | 6 |
+| cadenceDecayTime | 0.6s |
+| base damage | 24 → 20 (-4, compensated by cadence) |
+
+### 2. Fireball — Arcing Lob + Burn Patch
+
+Fireball now has gravity (18 units/s² pull downward), giving it a lobbed arc. Burn patch is now baseline (was upgrade node `fireball_cinder_patch`). The upgrade node now grants `cinderPotency`: +25% burn tick damage.
+
+| Field | Value |
+|-------|-------|
+| gravity | 18 |
+| burnPatch | true (baseline) |
+| base damage | 32 → 30 |
+
+### 3. Frost Bolt — Chill Stacks → Freeze + Shatter
+
+Replaced flat slow with a stacking chill mechanic. Each hit applies 1 chill stack (max 3). Each stack slows by 0.2 (60% total at max). Decays after 2.5s. When at max stacks, next hit triggers **shatter**: 28 bonus damage in 4m radius, resets stacks.
+
+| Field | Value |
+|-------|-------|
+| chillStacks | true (baseline) |
+| chillMaxStacks | 3 |
+| chillDecayTime | 2.5s |
+| chillSlowPerStack | 0.2 |
+| shatterDamage | 28 |
+| shatterRadius | 4 |
+| base damage | 19 → 18 |
+
+### 4. Poison Bolt — Contagion
+
+Contagion is now baseline: on hit, DOT spreads once to the nearest enemy within 6m. Green mist VFX on spread target. Upgrade node `poison_bolt_contagion` now grants +30% DOT damage instead of enabling the flag.
+
+| Field | Value |
+|-------|-------|
+| contagion | true (baseline) |
+| base damage | 10 (unchanged) |
+
+### Upgrade Tree Adjustments
+
+| Node | Change |
+|------|--------|
+| `fireball_cinder_patch` | Now sets `cinderPotency` (+25% burn tick damage) instead of enabling burn patch |
+| `frost_bolt_chill_stack` | Now adds +0.15 chillSlowPerStack and +1 chillMaxStacks instead of enabling chill stacks |
+| `poison_bolt_contagion` | Now adds +30% DOT damage (contagion flag is already baseline) |
+
+---
+
 ## New Content (Feature_6)
 
 ### Upgrade Tree Nodes
@@ -297,5 +399,40 @@ These are estimates for validation. Actual values will vary by build and skill.
 - **Game.js.resumeFromUpgrade**: Hollow Sigil (consecutive skip tracking)
 
 All nodes use existing `requires`/`excludes` fork mechanics. No changes to UpgradeManager contract. New instance flags added to SpellInstance.js for each behavioral node.
+
+---
+
+## Issue #24 — Boss Difficulty: CC Immunity & Phase 2
+
+### CC Immunity
+
+Boss enemies (`isBoss = true`) are now immune to hard crowd control:
+
+| CC Type | Effect |
+|---------|--------|
+| Stun (`applyStun`) | No-op. Spark burst VFX plays to indicate immunity. |
+| Freeze (`applyFreeze`) | No-op. |
+| Slow (`applySlow`) | 60% reduced effectiveness (`amount *= 0.4`). Different emissive color (`0x441122`) hints at partial resist. |
+
+### Boss Stat Boosts
+
+All bosses received stat upgrades to increase difficulty:
+
+| Boss | Stat Change |
+|------|-------------|
+| Twin Warden | fireCd 2.6s → 1.8s (raged 1.3s → 0.9s) |
+| Reaver | fireCd 3.0s → 2.1s |
+| Sentinel | fireCd 2.4s → 1.7s |
+| All bosses | speed ×1.2, touchDamage ×1.5 |
+
+### Phase 2 (Triggered at <50% HP)
+
+When a boss drops below 50% HP, a one-time phase transition fires with a telegraph shock ring and emissive change:
+
+| Boss | Attack | Details |
+|------|--------|---------|
+| Twin Warden | Ground Slam | 8-radius shock VFX + 20 damage to player and all enemies in radius |
+| Reaver | Fan of Orbs | Shoots 3 mage_orbs in a spread (-0.3, 0, +0.3 radians) |
+| Sentinel | Triple Shot | Shoots 3 mage_orbs rapidly (0s, 0.15s, 0.3s delays) |
 
 ---

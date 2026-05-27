@@ -12,10 +12,15 @@ export class SpellCaster {
     this.loadout = [];          // SpellInstance[] (owned)
     this.equipped = 0;
     this.cooldowns = {};        // definitionId -> remaining seconds
+    this.unlockedSpells = null; // set by game from profile
     this.reset();
   }
 
   reset(spellId = STARTER_SPELL_ID) {
+    if (this.unlockedSpells && Array.isArray(this.unlockedSpells) &&
+        !this.unlockedSpells.includes(spellId) && spellId !== STARTER_SPELL_ID) {
+      spellId = STARTER_SPELL_ID;
+    }
     const def = SPELL_DEFINITIONS[spellId] || SPELL_DEFINITIONS[STARTER_SPELL_ID];
     this.loadout = [new SpellInstance(def)];
     this.equipped = 0;
@@ -28,6 +33,8 @@ export class SpellCaster {
 
   addSpell(id, equip = true) {
     if (this.owns(id)) return this.instanceOf(id);
+    if (this.unlockedSpells && Array.isArray(this.unlockedSpells) &&
+        !this.unlockedSpells.includes(id)) return null;
     const def = SPELL_DEFINITIONS[id];
     if (!def) return null;
     const inst = new SpellInstance(def);
@@ -81,8 +88,11 @@ export class SpellCaster {
     if ((this.cooldowns[spell.definitionId] || 0) > 0) return;
 
     const dir = spell.autoFire ? this._autoCastDirection(world, spell) : this.player.forward();
-    const origin = this.player.position.clone().add(dir.clone().multiplyScalar(0.9));
+    const origin = world.staffView
+      ? world.staffView.tipWorldPos()
+      : this.player.position.clone().add(dir.clone().multiplyScalar(0.9));
     const prepared = preparePlayerCast(world, spell);
+    if (world.staffView) world.staffView.playCast(spell.color);
     castSpell(world, prepared.spell, origin, dir, "player");
     this.cooldowns[spell.definitionId] = spell.stats.cooldown * prepared.cooldownMult;
   }

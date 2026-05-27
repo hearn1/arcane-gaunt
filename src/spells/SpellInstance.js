@@ -25,6 +25,11 @@ export class SpellInstance {
       dotTickRate: def.dotTickRate || 0.5,
       slowAmount: def.slowAmount || 0,
       slowDuration: def.slowDuration || 0,
+      gravity: def.gravity || 0,
+      cadenceStacks: def.cadenceStacks || false,
+      cadenceMaxStacks: def.cadenceMaxStacks || 0,
+      cadenceDamagePerStack: def.cadenceDamagePerStack || 0,
+      cadenceDecayTime: def.cadenceDecayTime || 0,
     };
 
     // Upgrade-tree instance flags (mutated by UPGRADE_TREES node.apply,
@@ -35,6 +40,13 @@ export class SpellInstance {
     this.burnPatch = false;
     this.freeze = false;
     this.contagion = false;
+    this.chillStacks = def.chillStacks || false;
+    this.chillMaxStacks = def.chillMaxStacks || 0;
+    this.chillDecayTime = def.chillDecayTime || 0;
+    this.chillSlowPerStack = def.chillSlowPerStack || 0;
+    this.shatterDamage = def.shatterDamage || 0;
+    this.shatterRadius = def.shatterRadius || 0;
+    this.cinderPotency = false;
     this.stunOnHit = false;
     this.followups = 0;
     this.knockbackOnHit = false;
@@ -48,6 +60,9 @@ export class SpellInstance {
     this.pandemicSpread = false;
     this.stormChain = false;
     this.cataclysm = false;
+
+    if (def.burnPatch) this.burnPatch = true;
+    if (def.contagion) this.contagion = true;
 
     // Feature_6 upgrade-tree flags — Frost Bolt
     this.frostChillStack = false;

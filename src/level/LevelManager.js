@@ -1,4 +1,4 @@
-import { pickWaveModifier } from "./waveModifiers.js";
+import { pickWaveModifier, WAVE_MODIFIERS } from "./waveModifiers.js";
 import { steamEvent } from "../core/Steam.js";
 
 // Per-layout archetype shifts. Each pair is applied to the base composition
@@ -15,6 +15,37 @@ const LAYOUT_BIAS = {
 // Level gates must match composition() below so we don't add an archetype that
 // the level wouldn't normally include.
 const LEVEL_GATE = { melee: 1, ranged: 2, dasher: 3, linebreaker: 5, mage: 4 };
+
+function forcePickModifier(level) {
+  const eligible = WAVE_MODIFIERS.filter((m) => level >= m.minLevel);
+  if (eligible.length === 0) return null;
+  const total = eligible.reduce((sum, m) => sum + m.weight, 0);
+  let roll = Math.random() * total;
+  for (const mod of eligible) {
+    roll -= mod.weight;
+    if (roll <= 0) return mod;
+  }
+  return eligible[eligible.length - 1] || null;
+}
+
+function combineModifiers(modifiers) {
+  if (modifiers.length === 0) return null;
+  if (modifiers.length === 1) return modifiers[0];
+  return {
+    id: modifiers.map((m) => m.id).join("+"),
+    name: modifiers.map((m) => m.name).join(" + "),
+    description: modifiers.map((m) => m.description).join("; "),
+    goldMult: modifiers.reduce((p, m) => p * (m.goldMult || 1), 1),
+    modifyComposition(comp, level) {
+      return modifiers.reduce((c, m) => (m.modifyComposition ? m.modifyComposition(c, level) : c), comp);
+    },
+    applyEnemy(enemy) {
+      for (const m of modifiers) {
+        m.applyEnemy?.(enemy);
+      }
+    },
+  };
+}
 
 function applyLayoutBias(comp, layoutName, level) {
   // Early waves don't expose all archetypes yet (linebreaker/mage unlock at 4),
@@ -87,7 +118,14 @@ export class LevelManager {
     }
     if (level >= 5) comp.push({ type: "linebreaker", count: 1 + Math.floor((level - 5) / 5) });
     if (level >= 4) comp.push({ type: "mage", count: 1 + Math.floor((level - 4) * 0.3) });
-    return applyLayoutBias(comp, layoutName, level);
+    const biased = applyLayoutBias(comp, layoutName, level);
+    const tier = this.world?.difficultyTier;
+    if (tier && tier.spawnMult !== 1) {
+      for (const g of biased) {
+        g.count = Math.max(1, Math.round(g.count * tier.spawnMult));
+      }
+    }
+    return biased;
   }
 
   // Boss mini-patterns rotate every fifth level. idx 1 = Twin Wardens (lvl 5, 20...),
@@ -114,8 +152,21 @@ export class LevelManager {
     this.world.layoutEvents?.clear();
     this.world.objectiveManager?.clear();
     this.world.hitResolver.clear(); // drop stale projectiles from prior wave
-    const modifier = pickWaveModifier(this.level);
+
+    const tier = this.world.difficultyTier;
+    const mutators = [];
+    if (tier.mutatorCount > 0) {
+      for (let i = 0; i < tier.mutatorCount; i++) {
+        const m = forcePickModifier(this.level);
+        if (m && !mutators.some((x) => x.id === m.id)) mutators.push(m);
+      }
+    } else {
+      const m = pickWaveModifier(this.level);
+      if (m) mutators.push(m);
+    }
+    const modifier = combineModifiers(mutators);
     this.world.currentWaveModifier = modifier;
+
     let comp;
     let objective = null;
     if (this.level % 5 === 0) {
