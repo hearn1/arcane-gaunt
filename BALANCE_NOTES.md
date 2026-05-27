@@ -237,20 +237,20 @@ These are estimates for validation. Actual values will vary by build and skill.
 
 ### Difficulty Tiers (Difficulty.js)
 
-10 tiers selectable from the main menu. Each tier modifies enemy stats, spawn density, gold rewards, and wave modifier count.
+10 tiers selectable from the main menu. Each tier modifies enemy stats, spawn density, gold rewards, and wave modifier count. Tiers unlock progressively by reaching a specific player level on the prerequisite tier.
 
-| Tier | Name | HP Mult | Damage Mult | Spawn Mult | Gold Mult | Mutators |
-|------|------|---------|-------------|------------|-----------|----------|
-| 1 | Apprentice | 1.0× | 1.0× | 1.0× | 1.0× | 0 |
-| 2 | Adept | 1.15× | 1.1× | 1.0× | 1.05× | 0 |
-| 3 | Journeyman | 1.3× | 1.2× | 1.05× | 1.1× | 1 |
-| 4 | Expert | 1.5× | 1.35× | 1.1× | 1.2× | 1 |
-| 5 | Veteran | 1.7× | 1.5× | 1.2× | 1.35× | 1 |
-| 6 | Master | 2.0× | 1.7× | 1.3× | 1.5× | 2 |
-| 7 | Archmage | 2.2× | 1.9× | 1.4× | 1.7× | 2 |
-| 8 | Sage | 2.5× | 2.1× | 1.5× | 1.9× | 2 |
-| 9 | Elder | 2.7× | 2.3× | 1.75× | 2.2× | 3 |
-| 10 | Grandmaster | 3.0× | 2.5× | 2.0× | 2.5× | 3 |
+| # | Tier | Unlock | HP × | Dmg × | Spawn × | Gold × | Mutators |
+|---|------|--------|------|-------|---------|--------|----------|
+| 1 | Apprentice | Default | 1.00 | 1.00 | 1.00 | 1.00 | 0 |
+| 2 | Initiate | Reach lvl 10 on Apprentice | 1.15 | 1.10 | 1.05 | 1.05 | 0 |
+| 3 | Adept | Reach lvl 15 on Initiate | 1.30 | 1.20 | 1.10 | 1.10 | 1 |
+| 4 | Conjurer | Reach lvl 20 on Adept | 1.45 | 1.30 | 1.15 | 1.15 | 1 |
+| 5 | Magus | Reach lvl 20 on Conjurer | 1.60 | 1.40 | 1.20 | 1.20 | 1 |
+| 6 | Sorcerer | Reach lvl 25 on Magus | 1.75 | 1.50 | 1.25 | 1.25 | 2 |
+| 7 | Archmage | Reach lvl 25 on Sorcerer | 1.95 | 1.65 | 1.30 | 1.30 | 2 |
+| 8 | Voidcaller | Reach lvl 30 on Archmage | 2.15 | 1.80 | 1.35 | 1.35 | 2 |
+| 9 | Eternal | Reach lvl 30 on Voidcaller | 2.40 | 2.00 | 1.40 | 1.40 | 3 |
+| 10 | Apotheosis | Reach lvl 35 on Eternal | 2.70 | 2.25 | 1.50 | 1.50 | 3 |
 
 - **hpMult**: Applied to enemy max HP after base scaling
 - **damageMult**: Applied to enemy touch/melee damage after base scaling (projectile damage not affected; only touchDamage)
@@ -260,22 +260,22 @@ These are estimates for validation. Actual values will vary by build and skill.
 
 ### Spell Unlock Gates
 
-Spells are permanently unlocked account-wide after the player completes a run at the required difficulty tier (selected tier, not waves cleared):
+Spells are permanently unlocked account-wide after the player reaches the required player level on any difficulty tier:
 
-| Spell | Unlock Tier |
-|-------|-------------|
+| Spell | Unlock |
+|-------|--------|
 | Arcane Bolt | Starter (always) |
-| Chain Lightning | Tier 3 (Journeyman) |
-| Frost Bolt | Tier 5 (Veteran) |
-| Fireball | Tier 7 (Archmage) |
-| Poison Bolt | Tier 8 (Sage) |
-| Meteor | Tier 10 (Grandmaster) |
+| Fireball | Reach level 5 |
+| Frost Bolt | Reach level 10 |
+| Poison Bolt | Reach level 15 |
+| Chain Lightning | Reach level 20 |
+| Meteor | Reach level 30 |
 
-Unlock progression is tracked in the profile via `unlockedSpells[]` and `highestDifficultyCleared`. Locked spells appear dimmed with a lock icon and tooltip in the main menu. Attempting to start a run with a locked spell falls back to Arcane Bolt.
+Unlock progression is tracked in the profile via `unlockedSpells[]` and `unlocks.highestLevelByTier`. Locked spells appear dimmed with a lock icon and tooltip in the main menu. Attempting to start a run with a locked spell falls back to Arcane Bolt.
 
 ### Profile Version Bump
 
-Profile schema bumped to version 2. Migration from v1 adds `unlockedSpells: ["arcane_bolt"]` and `highestDifficultyCleared: 0`.
+Profile schema bumped to version 2. Migration from v1 adds `unlockedSpells: ["arcane_bolt"]` and `unlocks: { highestLevelByTier: {}, unlockedTiers: [1] }`.
 
 ---
 

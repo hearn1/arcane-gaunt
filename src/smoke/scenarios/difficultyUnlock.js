@@ -3,73 +3,89 @@ import { recordRunProgress } from "../../core/Profile.js";
 import { cloneDefaultProfile } from "../../core/Profile.js";
 
 export default async function runDifficultyUnlockSmoke(game, result) {
-  await step(result, "default profile only has arcane_bolt unlocked", async () => {
+  await step(result, "default profile only has arcane_bolt and tier 1 unlocked", async () => {
     const profile = cloneDefaultProfile();
     assert(Array.isArray(profile.unlockedSpells), "unlockedSpells is not an array");
     assert(profile.unlockedSpells.length === 1, `Expected 1 spell, got ${profile.unlockedSpells.length}`);
     assert(profile.unlockedSpells[0] === "arcane_bolt", "Expected only arcane_bolt");
-    assert(profile.highestDifficultyCleared === 0, "Expected highestDifficultyCleared to be 0");
+    assert(profile.unlocks.unlockedTiers.length === 1, "Expected only 1 unlocked tier");
+    assert(profile.unlocks.unlockedTiers[0] === 1, "Expected tier 1 unlocked");
   });
 
-  await step(result, "tier 1 run does not unlock anything new", async () => {
+  await step(result, "tier 1 run to level 5 unlocks fireball but no new tiers", async () => {
     const profile = cloneDefaultProfile();
-    const result_ = recordRunProgress(profile, 5, 1);
-    assert(result_.newlyUnlocked.length === 0, "Tier 1 should not unlock spells");
-    assert(result_.profile.highestDifficultyCleared === 1, "Expected highestDifficultyCleared to be 1");
-    assert(result_.profile.unlockedSpells.length === 1, "Should still only have 1 spell");
+    const r = recordRunProgress(profile, 5, 1);
+    assert(r.newlyUnlocked.includes("fireball"), "fireball should unlock at level 5");
+    assert(r.newlyUnlocked.length === 1, `Expected 1 spell unlock, got ${r.newlyUnlocked.length}`);
+    assert(r.newlyUnlockedTiers.length === 0, "No tier unlock at level 5 on tier 1");
+    assert(r.profile.unlockedSpells.includes("fireball"), "fireball in unlockedSpells");
+    assert(r.profile.unlocks.unlockedTiers.length === 1, "Still only 1 unlocked tier");
   });
 
-  await step(result, "tier 3 unlocks chain_lightning", async () => {
+  await step(result, "tier 1 run to level 10 unlocks initiate and frost_bolt", async () => {
     const profile = cloneDefaultProfile();
-    const result_ = recordRunProgress(profile, 3, 3);
-    assert(result_.newlyUnlocked.length === 1, `Expected 1 unlock, got ${result_.newlyUnlocked.length}`);
-    assert(result_.newlyUnlocked[0] === "chain_lightning", `Expected chain_lightning, got ${result_.newlyUnlocked[0]}`);
-    assert(result_.profile.unlockedSpells.includes("chain_lightning"), "chain_lightning not in unlockedSpells");
-    assert(result_.profile.highestDifficultyCleared === 3, "Expected highestDifficultyCleared to be 3");
+    const r = recordRunProgress(profile, 10, 1);
+    assert(r.newlyUnlocked.includes("fireball"), "fireball at level 5");
+    assert(r.newlyUnlocked.includes("frost_bolt"), "frost_bolt at level 10");
+    assert(r.newlyUnlocked.length === 2, `Expected 2 spell unlocks, got ${r.newlyUnlocked.length}`);
+    assert(r.newlyUnlockedTiers.length === 1, "Expected 1 tier unlock");
+    assert(r.newlyUnlockedTiers[0] === 2, "Expected tier 2 (Initiate) to unlock");
+    assert(r.profile.unlocks.unlockedTiers.includes(2), "Initiate in unlockedTiers");
   });
 
-  await step(result, "tier 5 unlocks chain_lightning and frost_bolt", async () => {
+  await step(result, "tier 2 run to level 15 unlocks adept and poison_bolt", async () => {
     const profile = cloneDefaultProfile();
-    const result_ = recordRunProgress(profile, 1, 5);
-    assert(result_.newlyUnlocked.length === 2, `Expected 2 unlocks, got ${result_.newlyUnlocked.length}`);
-    assert(result_.newlyUnlocked.includes("chain_lightning"), "chain_lightning not unlocked");
-    assert(result_.newlyUnlocked.includes("frost_bolt"), "frost_bolt not unlocked");
-    assert(result_.profile.unlockedSpells.includes("chain_lightning"), "chain_lightning not in profile");
-    assert(result_.profile.unlockedSpells.includes("frost_bolt"), "frost_bolt not in profile");
+    profile.unlocks.unlockedTiers = [1, 2];
+    const r = recordRunProgress(profile, 15, 2);
+    assert(r.newlyUnlocked.includes("poison_bolt"), "poison_bolt at level 15");
+    assert(r.newlyUnlocked.includes("fireball"), "fireball from earlier level");
+    assert(r.newlyUnlocked.includes("frost_bolt"), "frost_bolt from earlier level");
+    assert(r.newlyUnlocked.length === 3, `Expected 3 spell unlocks, got ${r.newlyUnlocked.length}`);
+    assert(r.newlyUnlockedTiers.length === 1, "Expected 1 tier unlock");
+    assert(r.newlyUnlockedTiers[0] === 3, "Expected tier 3 (Adept) to unlock");
   });
 
-  await step(result, "tier 7 unlocks fireball in addition to previous spells", async () => {
+  await step(result, "tier 1 run to level 30 unlocks all spells and tier 2 only", async () => {
     const profile = cloneDefaultProfile();
-    const result_ = recordRunProgress(profile, 7, 7);
-    assert(result_.newlyUnlocked.includes("fireball"), "fireball not unlocked at tier 7");
-    assert(result_.profile.unlockedSpells.includes("chain_lightning"), "chain_lightning missing");
-    assert(result_.profile.unlockedSpells.includes("frost_bolt"), "frost_bolt missing");
-    assert(result_.profile.highestDifficultyCleared === 7, "Expected highestDifficultyCleared 7");
+    const r = recordRunProgress(profile, 30, 1);
+    assert(r.newlyUnlocked.includes("fireball"), "fireball");
+    assert(r.newlyUnlocked.includes("frost_bolt"), "frost_bolt");
+    assert(r.newlyUnlocked.includes("poison_bolt"), "poison_bolt");
+    assert(r.newlyUnlocked.includes("chain_lightning"), "chain_lightning");
+    assert(r.newlyUnlocked.includes("meteor"), "meteor");
+    assert(r.newlyUnlocked.length === 5, `Expected 5 spell unlocks, got ${r.newlyUnlocked.length}`);
+    assert(r.newlyUnlockedTiers.length === 1, "Expected only 1 tier unlock (cannot skip tiers)");
+    assert(r.newlyUnlockedTiers[0] === 2, "Expected tier 2 (Initiate) only");
+    assert(r.profile.unlocks.unlockedTiers.includes(2), "Initiate unlocked");
+    assert(!r.profile.unlocks.unlockedTiers.includes(3), "Adept should NOT unlock (never played Initiate)");
   });
 
-  await step(result, "tier 10 unlocks everything", async () => {
+  await step(result, "sequential tier unlocks: tier 1 -> tier 2 -> tier 3", async () => {
     const profile = cloneDefaultProfile();
-    const result_ = recordRunProgress(profile, 10, 10);
-    assert(result_.newlyUnlocked.length === 5, `Expected 5 unlocks, got ${result_.newlyUnlocked.length}`);
-    assert(result_.profile.unlockedSpells.includes("chain_lightning"), "chain_lightning missing");
-    assert(result_.profile.unlockedSpells.includes("frost_bolt"), "frost_bolt missing");
-    assert(result_.profile.unlockedSpells.includes("fireball"), "fireball missing");
-    assert(result_.profile.unlockedSpells.includes("poison_bolt"), "poison_bolt missing");
-    assert(result_.profile.unlockedSpells.includes("meteor"), "meteor missing");
-    assert(result_.profile.highestDifficultyCleared === 10, "Expected highestDifficultyCleared 10");
+    let r = recordRunProgress(profile, 15, 1);
+    assert(r.newlyUnlockedTiers.length === 1, "First run unlocks Initiate");
+    r = recordRunProgress(r.profile, 20, 2);
+    assert(r.newlyUnlockedTiers.length === 1, "Second run unlocks Adept");
+    assert(r.newlyUnlockedTiers[0] === 3, "Adept unlocked after playing Initiate");
+    assert(r.profile.unlocks.unlockedTiers.includes(1), "Apprentice still unlocked");
+    assert(r.profile.unlocks.unlockedTiers.includes(2), "Initiate still unlocked");
+    assert(r.profile.unlocks.unlockedTiers.includes(3), "Adept unlocked");
+    assert(r.profile.unlockedSpells.includes("fireball"), "fireball from level 5+");
+    assert(r.profile.unlockedSpells.includes("frost_bolt"), "frost_bolt from level 10+");
+    assert(r.profile.unlockedSpells.includes("poison_bolt"), "poison_bolt from level 15+");
   });
 
-  await step(result, "running at a lower tier after unlocking higher spells keeps unlocks", async () => {
+  await step(result, "spells remain unlocked across profile saves", async () => {
     const profile = cloneDefaultProfile();
-    recordRunProgress(profile, 5, 5); // unlocks chain_lightning, frost_bolt
-    const result_ = recordRunProgress(profile, 2, 2); // run at tier 2
-    assert(result_.profile.unlockedSpells.includes("chain_lightning"), "chain_lightning should persist");
-    assert(result_.profile.unlockedSpells.includes("frost_bolt"), "frost_bolt should persist");
-    assert(result_.profile.highestDifficultyCleared === 5, "highestDifficultyCleared should stay 5");
-    assert(result_.newlyUnlocked.length === 0, "No new unlocks from lower tier");
+    const r1 = recordRunProgress(profile, 10, 1);
+    assert(r1.newlyUnlocked.includes("fireball"), "fireball unlocked");
+    const r2 = recordRunProgress(r1.profile, 5, 2);
+    assert(r2.profile.unlockedSpells.includes("fireball"), "fireball persists");
+    assert(r2.profile.unlockedSpells.includes("frost_bolt"), "frost_bolt persists");
+    assert(r2.newlyUnlockedTiers.length === 0, "No new tier from lower-level tier 2 run");
   });
 
-  await step(result, "game startRun with tier respects unlocked spells", async () => {
+  await step(result, "game startRun with locked spell falls back to arcane_bolt", async () => {
     game.difficultyLevel = 1;
     game.startRun("meteor");
     await nextFrame();
