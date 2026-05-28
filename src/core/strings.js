@@ -154,6 +154,23 @@ export const EN_STRINGS = Object.freeze({
   "ui.damage_lower": "damage",
   "ui.gold_lower": "gold",
 
+<<<<<<< HEAD
+  // --- Privacy / Telemetry ---
+  "ui.privacy_title": "Help Improve Arcane Gaunt",
+  "ui.privacy_copy": "Help improve Arcane Gaunt by sending anonymous crash reports and run data? No personal information is collected. You can change this anytime in Settings.",
+  "ui.privacy_yes": "Yes, help improve",
+  "ui.privacy_no": "No thanks",
+  "ui.privacy_learn_more": "Read privacy policy",
+  "ui.privacy_section": "Privacy",
+  "ui.telemetry_toggle": "Share anonymous data",
+  "ui.telemetry_uuid": "Device ID: $uuid",
+  "ui.telemetry_reset_uuid": "Reset ID",
+  "ui.telemetry_disclaimer": "Anonymous crash reports and run data sent via Sentry. No PII collected.",
+
+  "toast.telemetry_uuid_reset": "Telemetry ID reset",
+
+=======
+>>>>>>> origin/master
   // --- Toasts ---
   "toast.tutorial_hints_reset": "Tutorial hints reset",
   "toast.records_reset": "Run records reset. Settings kept.",

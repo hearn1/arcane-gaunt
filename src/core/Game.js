@@ -47,6 +47,7 @@ import { UI } from "../ui/ui.js";
 import { Captions } from "../ui/Captions.js";
 import { Onboarding } from "../ui/Onboarding.js";
 import { reportFatal } from "./ErrorReporting.js";
+import { init as telemetryInit, setEnabled as telemetrySetEnabled, track as telemetryTrack } from "./Telemetry.js";
 
 const STATE = {
   MENU: "menu", FOCUS: "focus", PLAYING: "playing",
@@ -61,6 +62,7 @@ function deepMergeSettings(current, next) {
     controls: { ...current.controls, ...next.controls },
     display: { ...current.display, ...next.display },
     performance: { ...current.performance, ...next.performance },
+    privacy: { ...current.privacy, ...next.privacy },
   });
 }
 
@@ -231,7 +233,15 @@ export class Game {
       }
     });
 
-    this.showMainMenu();
+    if (!this.settings.privacy?.telemetryPrompted) {
+      this.ui.privacyPrompt(
+        () => this._onPrivacyAccept(),
+        () => this._onPrivacyDecline(),
+      );
+    } else {
+      telemetryInit(this.settings);
+      this.showMainMenu();
+    }
 
     this._last = performance.now();
     this.renderer.setAnimationLoop(() => {
@@ -532,6 +542,22 @@ export class Game {
     );
   }
 
+  _onPrivacyAccept() {
+    this.settings.privacy.telemetryEnabled = true;
+    this.settings.privacy.telemetryUuid = crypto.randomUUID();
+    this.settings.privacy.telemetryPrompted = true;
+    saveSettings(this.settings);
+    telemetryInit(this.settings);
+    this.showMainMenu();
+  }
+
+  _onPrivacyDecline() {
+    this.settings.privacy.telemetryEnabled = false;
+    this.settings.privacy.telemetryPrompted = true;
+    saveSettings(this.settings);
+    this.showMainMenu();
+  }
+
   persistProfile(profile) {
     this.profile = sanitizeProfile(profile);
     saveProfile(this.profile);
@@ -559,10 +585,14 @@ export class Game {
 
   updateSettings(nextSettings) {
     const previousFullscreen = !!this.settings.display?.fullscreen;
+    const previousTelemetry = !!this.settings.privacy?.telemetryEnabled;
     this.settings = deepMergeSettings(this.settings, nextSettings);
     this.applySettings();
     if (previousFullscreen !== !!this.settings.display?.fullscreen) {
       this.applyFullscreenPreference();
+    }
+    if (previousTelemetry !== !!this.settings.privacy?.telemetryEnabled) {
+      telemetrySetEnabled(this.settings);
     }
     clearTimeout(this._settingsSaveTimer);
     this._settingsSaveTimer = setTimeout(() => {
@@ -598,6 +628,15 @@ export class Game {
         self.persistProfile(self.profile);
         self.ui.toast(t("toast.tutorial_hints_reset"), 1800);
         self.openSettings(onBack);
+      },
+      () => {
+        self.settings.privacy.telemetryUuid = crypto.randomUUID();
+        self.flushSettings();
+        self.ui.toast(t("toast.telemetry_uuid_reset"), 1800);
+        self.openSettings(onBack);
+      },
+      (url) => {
+        window.open(url, "_blank");
       },
     );
   }
@@ -662,6 +701,12 @@ export class Game {
   }
 
   startRun(spellId = this.selectedSpellId) {
+    telemetryTrack("run_start", {
+      spellId,
+      difficultyLevel: this.difficultyLevel,
+      difficultyTier: getDifficultyTier(this.difficultyLevel)?.name,
+      starterSpell: SPELL_DEFINITIONS[spellId]?.displayName,
+    });
     this.clearInputState();
     this.ui.clearTransientCombatUi();
     this.selectedSpellId = SPELL_DEFINITIONS[spellId] ? spellId : STARTER_SPELL_ID;
@@ -1014,6 +1059,16 @@ export class Game {
 
   finalizeProfileRun() {
     if (this._runProfileFinalized) return;
+    telemetryTrack("run_complete", {
+      levelsCleared: this.runStats.levelsCleared,
+      goldEarned: this.runStats.goldEarned,
+      enemiesKilled: this.runStats.enemiesKilled,
+      totalDamage: Math.round(this.runStats.totalDamage),
+      highestWave: Math.max(1, Math.round(this.levelManager?.level || this.runStats.levelsCleared + 1)),
+      starterSpell: SPELL_DEFINITIONS[this.selectedSpellId]?.displayName,
+      difficultyLevel: this.difficultyLevel,
+      difficultyTier: getDifficultyTier(this.difficultyLevel)?.name,
+    });
     this._runProfileFinalized = true;
     this.onboarding?.finalizeRun(this.profile);
     const highestWave = Math.max(1, Math.round(this.levelManager?.level || this.runStats.levelsCleared + 1));

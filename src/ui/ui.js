@@ -355,7 +355,31 @@ const settingsButton = onSettings
     `).join("");
   }
 
-  settingsMenu(settings, onChange, onBack, storageMeta = null, onPresetApply = null, onResetTutorial = null) {
+  privacyPrompt(onAccept, onDecline) {
+    this.setHud(false);
+    this._show(`
+      <h1 class="title" style="font-size:36px;">${t("ui.privacy_title")}</h1>
+      <div class="privacy-copy">${t("ui.privacy_copy")}</div>
+      <div class="btn-row">
+        <button class="btn" id="btn-privacy-yes" data-nav>${t("ui.privacy_yes")}</button>
+        <button class="btn secondary" id="btn-privacy-no" data-nav>${t("ui.privacy_no")}</button>
+      </div>
+      <div class="hint">
+        <a href="#" id="lnk-privacy-policy" style="color:var(--gold);">${t("ui.privacy_learn_more")}</a>
+      </div>
+    `);
+    this._navDetach = attach(this.root, {
+      onActivate: (el) => el?.click(),
+    });
+    document.getElementById("btn-privacy-yes").onclick = onAccept;
+    document.getElementById("btn-privacy-no").onclick = onDecline;
+    document.getElementById("lnk-privacy-policy").onclick = (e) => {
+      e.preventDefault();
+      window.open("https://hearn1.github.io/arcane-gaunt/PRIVACY_POLICY.md", "_blank");
+    };
+  }
+
+  settingsMenu(settings, onChange, onBack, storageMeta = null, onPresetApply = null, onResetTutorial = null, onResetTelemetryUuid = null, onOpenPrivacyPolicy = null) {
     this.setHud(false);
     const volumePct = Math.round((settings.audio?.volume ?? 0.35) * 100);
     const musicVolumePct = Math.round((settings.audio?.musicVolume ?? 0.25) * 100);
@@ -466,6 +490,17 @@ const settingsButton = onSettings
         </label>
         ${onResetTutorial ? `<button class="btn secondary" id="btn-reset-tutorial" data-nav>${t("ui.reset_tutorial_hints")}</button>` : ""}
         <div class="settings-storage">${storageText}</div>
+        <h3 class="settings-subhead">${t("ui.privacy_section")}</h3>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-telemetry" ${settings.privacy?.telemetryEnabled ? "checked" : ""}/>
+          <span>${t("ui.telemetry_toggle")}</span>
+        </label>
+        <div style="font-size:12px;color:var(--text-dim);padding:0 4px 8px 4px;">${t("ui.telemetry_disclaimer")}</div>
+        <div class="settings-row">
+          <span style="font-size:13px;">${format("ui.telemetry_uuid", { uuid: settings.privacy?.telemetryUuid || "—" })}</span>
+          ${onResetTelemetryUuid ? `<button class="btn secondary" id="btn-reset-uuid" style="font-size:12px;padding:3px 10px;" data-nav>${t("ui.telemetry_reset_uuid")}</button>` : ""}
+        </div>
+        ${onOpenPrivacyPolicy ? `<div class="hint" style="margin:4px 0;"><a href="#" id="lnk-settings-privacy" style="color:var(--gold);font-size:13px;">${t("ui.privacy_learn_more")}</a></div>` : ""}
         <div class="keybindings-section">
           <h3>${t("ui.key_bindings")}</h3>
           ${this._buildKeyBindingsHtml(settings)}
@@ -500,6 +535,7 @@ const settingsButton = onSettings
     const renderScaleValue = document.getElementById("set-render-scale-value");
     const vfxDensityValue = document.getElementById("set-vfx-density-value");
 
+    const telemetryEl = document.getElementById("set-telemetry");
     const _keyBindingsPending = { ...(settings.controls?.keyBindings || {}) };
 
     const emit = (flipPreset) => {
@@ -546,6 +582,9 @@ const settingsButton = onSettings
           vfxDensity: nextVfxDensity,
           preset: p,
         },
+        privacy: {
+          telemetryEnabled: telemetryEl?.checked ?? false,
+        },
       });
     };
 
@@ -564,6 +603,17 @@ const settingsButton = onSettings
     screenShakeEl.onchange = () => emit(true);
     if (captionsEl) captionsEl.onchange = () => emit();
     if (reducedMotionEl) reducedMotionEl.onchange = () => emit();
+    if (telemetryEl) telemetryEl.onchange = () => emit();
+
+    const resetUuidBtn = document.getElementById("btn-reset-uuid");
+    if (resetUuidBtn && onResetTelemetryUuid) resetUuidBtn.onclick = onResetTelemetryUuid;
+    const privacyLink = document.getElementById("lnk-settings-privacy");
+    if (privacyLink && onOpenPrivacyPolicy) {
+      privacyLink.onclick = (e) => {
+        e.preventDefault();
+        onOpenPrivacyPolicy("https://hearn1.github.io/arcane-gaunt/PRIVACY_POLICY.md");
+      };
+    }
 
     presetEl.onchange = () => {
       if (onPresetApply) onPresetApply(presetEl.value);
