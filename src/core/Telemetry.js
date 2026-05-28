@@ -1,4 +1,9 @@
-import * as Sentry from "@sentry/browser";
+let Sentry = null;
+try {
+  Sentry = (await import("@sentry/browser"));
+} catch {
+  // Not running in Electron — telemetry unavailable in plain browser
+}
 
 const SENTRY_DSN = "https://b9c937034ec22f925b6ce86c5d3d9324@o4511467162304512.ingest.us.sentry.io/4511467176984576";
 
@@ -7,6 +12,7 @@ let _uuid = null;
 
 export function init(settings) {
   if (_initialized) return;
+  if (!Sentry) return;
   if (!settings.privacy?.telemetryEnabled) return;
   _uuid = settings.privacy?.telemetryUuid;
   if (!_uuid) return;

@@ -34,7 +34,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 # ThreadingHTTPServer: the browser opens many parallel ES-module requests; a
 # single-threaded server stalls on keep-alive connections and the page times out.
 Handler.protocol_version = "HTTP/1.1"
-http.server.ThreadingHTTPServer.allow_reuse_address = True
 with http.server.ThreadingHTTPServer(("", PORT), Handler) as httpd:
     print(f"ArcaneGaunt running:  http://localhost:{PORT}")
     print("Ctrl+C to stop.")
