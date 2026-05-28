@@ -15,6 +15,7 @@ import runLevelCompositionValidate from "./scenarios/levelCompositionValidate.js
 import runBossCcImmune from "./scenarios/bossCcImmune.js";
 import runDifficultyUnlock from "./scenarios/difficultyUnlock.js";
 import runSpellMechanicsValidate from "./scenarios/spellMechanicsValidate.js";
+import runI18nValidate from "./scenarios/i18nValidate.js";
 
 const SCENARIOS = {
   "boot-start-menu": runBootStartMenu,
@@ -33,6 +34,7 @@ const SCENARIOS = {
   "boss-cc-immune": runBossCcImmune,
   "difficulty-unlock": runDifficultyUnlock,
   "spell-mechanics-validate": runSpellMechanicsValidate,
+  "i18n-validate": runI18nValidate,
 };
 
 async function runSingleScenario(game, scenario) {

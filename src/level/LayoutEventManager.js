@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { t } from "../core/i18n.js";
 import { pointInRect } from "../core/ArenaCollision.js";
 
 const GATE_WARN = 1.3;
@@ -91,7 +92,7 @@ export class LayoutEventManager {
       gates: selected,
       pulse: 0,
     };
-    this._toast("Gate shift: openings forming", 1300);
+    this._toast(t("toast.gate_shift"), 1300);
     this.world.audio?.telegraphSurge?.();
     for (const gate of selected) this._gateTelegraph(gate, 0x7fffe6);
   }
@@ -113,7 +114,7 @@ export class LayoutEventManager {
       hazards,
       pulse: 0,
     };
-    this._toast("Rift surge: leave the glowing strips", 1500);
+    this._toast(t("toast.rift_surge_leave"), 1500);
     this.world.audio?.telegraphSurge?.();
     for (const hazard of hazards) this._hazardTelegraph(hazard, 0x7fffe6);
   }
@@ -138,7 +139,7 @@ export class LayoutEventManager {
       ev.phase = "open";
       ev.t = GATE_OPEN;
       ev.pulse = 0;
-      this._toast("Gate open: new lane available", 1000);
+      this._toast(t("toast.gate_open"), 1000);
       return;
     }
 
@@ -147,7 +148,7 @@ export class LayoutEventManager {
       ev.t = GATE_CLOSE_WARN;
       ev.pulse = 0;
       for (const gate of ev.gates) this._markGate(gate, 0xffcf4d);
-      this._toast("Gate closing: clear the archway", 1400);
+      this._toast(t("toast.gate_closing"), 1400);
       return;
     }
 
@@ -183,7 +184,7 @@ export class LayoutEventManager {
       ev.phase = "active";
       ev.t = RIFT_ACTIVE;
       ev.pulse = 0;
-      this._toast("Rift surge active", 1000);
+      this._toast(t("toast.rift_surge_active"), 1000);
       return;
     }
 

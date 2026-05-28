@@ -1,3 +1,4 @@
+import { t } from "../core/i18n.js";
 import { ONBOARDING_PROMPTS } from "./onboardingPrompts.js";
 
 export class Onboarding {
@@ -21,7 +22,7 @@ export class Onboarding {
     if (this.tutorialSeen[prompt.persistKey]) return;
     if (this.seenThisRun.has(prompt.id)) return;
     this.seenThisRun.add(prompt.id);
-    world.ui.showOnboardingToast(prompt.text);
+    world.ui.showOnboardingToast(t(prompt.text));
   }
 
   finalizeRun(profile) {
