@@ -1,7 +1,8 @@
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
 import { DIFFICULTY_TIERS, SPELL_UNLOCK_LEVELS, getTierUnlockDescription } from "../core/Difficulty.js";
 import { attach } from "./uiNav.js";
-import { t, setLang } from "../core/i18n.js";
+import { t, format, setLang } from "../core/i18n.js";
+import { DEFAULT_SETTINGS } from "../core/Settings.js";
 
 const PROMPTS = {
   move: { kbm: "WASD", gamepad: "Left Stick" },
@@ -176,7 +177,7 @@ export class UI {
     const spellOptions = Object.values(SPELL_DEFINITIONS).map((def) => {
       const unlocked = unlockedSpells.includes(def.id);
       const required = SPELL_UNLOCK_LEVELS[def.id];
-      const title = !unlocked && required ? `Unlock: Reach level ${required} on any difficulty` : "";
+      const title = !unlocked && required ? format("ui.unlock_required", { level: required }) : "";
       const lockHtml = !unlocked ? '<span class="lock-icon">&#128274;</span>' : "";
       return `
         <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""} ${unlocked ? "" : "locked"}" data-spell="${def.id}" data-nav ${unlocked ? "" : "disabled"} title="${title}">
@@ -341,10 +342,10 @@ const settingsButton = onSettings
   _buildKeyBindingsHtml(settings) {
     const bindings = settings.controls?.keyBindings || {};
     const actions = [
-      { key: "cast", label: "Cast", default: "Mouse0" },
-      { key: "block", label: "Block", default: "Mouse2" },
-      { key: "blink", label: "Blink", default: "Space" },
-      { key: "pause", label: "Pause", default: "Escape" },
+      { key: "cast", label: t("binding.cast"), default: "Mouse0" },
+      { key: "block", label: t("binding.block"), default: "Mouse2" },
+      { key: "blink", label: t("binding.blink"), default: "Space" },
+      { key: "pause", label: t("binding.pause"), default: "Escape" },
     ];
     return actions.map((a) => `
       <div class="keybinding-row" data-action="${a.key}">
@@ -373,8 +374,8 @@ const settingsButton = onSettings
     const captions = !!settings.display?.captions;
     const reducedMotion = !!settings.display?.reducedMotion;
     const storageText = storageMeta?.path
-      ? `Storage: ${storageMeta.path}`
-      : `Storage: ${storageMeta?.key || "local settings"}`;
+      ? format("ui.storage_path", { path: storageMeta.path })
+      : format("ui.storage_path", { path: storageMeta?.key || "local settings" });
     this._show(`
       <h1 class="title" style="font-size:40px;">${t("ui.settings")}</h1>
       <div id="settings-panel">
@@ -468,6 +469,7 @@ const settingsButton = onSettings
         <div class="keybindings-section">
           <h3>${t("ui.key_bindings")}</h3>
           ${this._buildKeyBindingsHtml(settings)}
+          <button class="btn secondary" id="btn-reset-bindings" style="margin-top:8px;" data-nav>Reset Defaults</button>
         </div>
       </div>
       <button class="btn secondary" id="btn-settings-back" data-nav>${t("ui.back")}</button>
@@ -498,6 +500,8 @@ const settingsButton = onSettings
     const renderScaleValue = document.getElementById("set-render-scale-value");
     const vfxDensityValue = document.getElementById("set-vfx-density-value");
 
+    const _keyBindingsPending = { ...(settings.controls?.keyBindings || {}) };
+
     const emit = (flipPreset) => {
       const nextVolume = Number(volumeEl.value);
       const nextMusicVolume = Number(musicVolumeEl.value);
@@ -526,6 +530,7 @@ const settingsButton = onSettings
           mouseSensitivity: nextSensitivity / 100,
           stickLookSensitivity: nextStickSens / 100,
           invertY: invertYEl.checked,
+          keyBindings: { ..._keyBindingsPending },
         },
         display: {
           fullscreen: fullscreenEl.checked,
@@ -564,20 +569,68 @@ const settingsButton = onSettings
       if (onPresetApply) onPresetApply(presetEl.value);
     };
 
-    // Key rebind: click a key span, then listen for the next keydown.
+    // Key rebind: click a key span, then capture next keydown or mousedown.
     document.querySelectorAll(".keybinding-row .kb-key").forEach((el) => {
       el.onclick = () => {
-        el.textContent = "...";
+        const action = el.closest(".keybinding-row").dataset.action;
+        el.textContent = t("ui.keybinding_listening");
+        el.classList.add("listening");
+
+        const finish = (code) => {
+          el.classList.remove("listening");
+          if (!code) return;
+          const conflictAction = Object.keys(_keyBindingsPending).find(
+            (a) => a !== action && _keyBindingsPending[a] === code,
+          );
+          if (conflictAction) {
+            const conflictLabel = el.closest(".keybinding-row").parentElement
+              .querySelector(`[data-action="${conflictAction}"] .kb-label`)?.textContent || conflictAction;
+            if (!confirm(`"${code}" is bound to "${conflictLabel}". Swap them?`)) return;
+            _keyBindingsPending[conflictAction] = _keyBindingsPending[action];
+            const conflictEl = document.getElementById("kb-" + conflictAction);
+            if (conflictEl) conflictEl.textContent = _keyBindingsPending[action] || "";
+          }
+          _keyBindingsPending[action] = code;
+          el.textContent = code;
+          emit();
+        };
+
         const onKey = (e) => {
           e.preventDefault();
-          const code = e.code || e.key;
-          el.textContent = code;
+          removeListeners();
+          finish(e.code || e.key);
+        };
+        const onMouse = (e) => {
+          if (e.button === undefined) return;
+          e.preventDefault();
+          e.stopPropagation();
+          removeListeners();
+          finish("Mouse" + e.button);
+        };
+        const removeListeners = () => {
           el.removeEventListener("keydown", onKey);
+          document.removeEventListener("mousedown", onMouse, true);
         };
         el.addEventListener("keydown", onKey);
+        document.addEventListener("mousedown", onMouse, true);
         el.focus();
       };
     });
+
+    // Reset bindings to defaults.
+    const resetBtn = document.getElementById("btn-reset-bindings");
+    if (resetBtn) {
+      resetBtn.onclick = () => {
+        const defaults = DEFAULT_SETTINGS.controls.keyBindings;
+        Object.keys(defaults).forEach((k) => { _keyBindingsPending[k] = defaults[k]; });
+        document.querySelectorAll(".keybinding-row").forEach((row) => {
+          const action = row.dataset.action;
+          const keyEl = row.querySelector(".kb-key");
+          if (keyEl && action in defaults) keyEl.textContent = defaults[action];
+        });
+        emit();
+      };
+    }
 
     const resetTutorialBtn = document.getElementById("btn-reset-tutorial");
     if (resetTutorialBtn && onResetTutorial) resetTutorialBtn.onclick = onResetTutorial;
@@ -791,7 +844,7 @@ const settingsButton = onSettings
       const el = document.createElement("div");
       el.className = "spell-slot";
       if (s.autoFire) el.classList.add("passive");
-      const key = s.autoFire ? "AUTO" : (manualCount > 1 ? i + 1 : t("ui.run_spell"));
+      const key = s.autoFire ? t("ui.auto") : (manualCount > 1 ? i + 1 : t("ui.run_spell"));
       el.innerHTML = `<span class="key">${key}</span><span class="nm">${s.displayName}</span><div class="cd-fill"></div>`;
       this.spellsEl.appendChild(el);
       return el;
@@ -807,7 +860,7 @@ const settingsButton = onSettings
     this.lvlEl.textContent = world.levelManager.level;
     this.goldEl.textContent = world.currency.gold;
     this.enemyEl.textContent = world.enemyManager.aliveCount;
-    const modName = world.currentWaveModifier?.name || "None";
+    const modName = world.currentWaveModifier?.name || t("ui.modifier_none");
     const layout = world.arenaLayoutName ? world.arenaLayoutName.toUpperCase() : "";
     this.modEl.textContent = layout ? `${modName} · ${layout}` : modName;
     if (this.modDescEl) this.modDescEl.textContent = world.currentWaveModifier?.description || "";
@@ -831,7 +884,7 @@ const settingsButton = onSettings
       el.classList.toggle("equipped", i === world.caster.equipped && !s.autoFire);
       el.classList.toggle("passive", !!s.autoFire);
       const key = el.querySelector(".key");
-      if (key) key.textContent = s.autoFire ? "AUTO" : (manualCount > 1 ? i + 1 : "Run Spell");
+      if (key) key.textContent = s.autoFire ? t("ui.auto") : (manualCount > 1 ? i + 1 : t("ui.run_spell"));
       const ratio = world.caster.cdRatio(s); // 1 = ready
       el.querySelector(".cd-fill").style.height = `${(1 - ratio) * 100}%`;
     });

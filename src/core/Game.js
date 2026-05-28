@@ -42,6 +42,7 @@ import { UpgradeManager } from "../spells/UpgradeManager.js";
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
 import { DIFFICULTY_TIERS, getDifficultyTier } from "./Difficulty.js";
 import { castSpell } from "../spells/Effects.js";
+import { t, format } from "./i18n.js";
 import { UI } from "../ui/ui.js";
 import { Captions } from "../ui/Captions.js";
 import { Onboarding } from "../ui/Onboarding.js";
@@ -595,7 +596,7 @@ export class Game {
         self.onboarding.tutorialSeen = {};
         self.profile.meta.tutorialSeen = {};
         self.persistProfile(self.profile);
-        self.ui.toast("Tutorial hints reset", 1800);
+        self.ui.toast(t("toast.tutorial_hints_reset"), 1800);
         self.openSettings(onBack);
       },
     );
@@ -610,7 +611,7 @@ export class Game {
       async () => {
         this.clearInputState();
         this.profile = await resetProfile();
-        this.ui.toast("Run records reset. Settings kept.", 1800);
+        this.ui.toast(t("toast.records_reset"), 1800);
         this.showMainMenu();
       },
       () => this.showMainMenu(),
@@ -715,7 +716,7 @@ export class Game {
 
     this._pendingStart = true;
     this.state = STATE.FOCUS;
-    this.showFocusPrompt("Enter the Arena");
+    this.showFocusPrompt(t("ui.enter_arena"));
   }
 
   _placePlayerAtSafeStart(force = false) {
@@ -778,7 +779,7 @@ export class Game {
     this.input.exitLock();
     this.clearInputState();
     this.audio.reward();
-    this.ui.toast(`+${gold} gold`);
+    this.ui.toast(format("toast.gold_earned", { gold }));
     this._rewardLevel = level;
     this._rewardRerolls = 0;
     this._upgradeCountBeforeReward = this._totalUpgradesBought();
@@ -809,14 +810,14 @@ export class Game {
   rerollReward() {
     const cost = this.rewardRerollCost();
     if (!this.currency.spend(cost)) {
-      this.ui.toast("Not enough gold");
+      this.ui.toast(t("toast.not_enough_gold"));
       this.renderReward();
       return;
     }
     this._rewardRerolls += 1;
     this._rewardChoices = this.rewardGen.generate(3);
     this.audio.reward();
-    this.ui.toast(`Rerolled rewards (-${cost}g)`);
+    this.ui.toast(format("toast.rerolled_rewards", { cost }));
     this.renderReward();
   }
 
@@ -865,8 +866,8 @@ export class Game {
     const options = [
       {
         id: "heal",
-        title: "Field Dressing",
-        description: `Restore ${healAmount} health before the next wave.`,
+        title: t("service.heal_title"),
+        description: format("service.heal_desc", { health: healAmount }),
         cost: 26 + level * 7,
         disabled: missingHp <= 0,
       },
@@ -877,35 +878,32 @@ export class Game {
     if (hasAutoFire && forwardMode) {
       options.push({
         id: "sharpen",
-        title: "Sharpen Auto-Cast",
-        description: "Your Auto-Casts now target the lowest-HP enemy in range.",
+        title: t("service.sharpen_title"),
+        description: t("service.sharpen_desc"),
         cost: 42 + level * 6,
         disabled: false,
       });
     } else {
-      // Fall back to Stance Drill in slot 2 so the panel keeps three identity options
-      // when Sharpen isn't applicable.
       options.push({
         id: "stance",
-        title: "Stance Drill",
-        description: "This wave only: perfect blocks heal 8 HP.",
+        title: t("service.stance_title"),
+        description: t("service.stance_desc"),
         cost: 44 + level * 6,
         disabled: this.combat.perfectHealNext > 0,
       });
     }
 
-    // Battlefield Read: cull the most dangerous enemy from the (already spawned) next wave.
     const enemies = this.enemyManager ? this.enemyManager.aliveList() : [];
     const archetypeOf = (e) => e.constructor.name.replace("Enemy", "").toLowerCase();
     const cullPriority = ["mage", "linebreaker", "ranged", "dasher", "melee"];
-    const cullTarget = cullPriority.map((t) => enemies.find((e) => archetypeOf(e) === t)).find(Boolean);
+    const cullTarget = cullPriority.map((at) => enemies.find((e) => archetypeOf(e) === at)).find(Boolean);
     const safeToCull = !!cullTarget && enemies.length > 2;
     options.push({
       id: "cull",
-      title: "Battlefield Read",
+      title: t("service.cull_title"),
       description: cullTarget
-        ? `Remove one ${archetypeOf(cullTarget)} from the next wave before it begins.`
-        : "Remove one of the most dangerous enemies from the next wave.",
+        ? format("service.cull_desc_specific", { archetype: archetypeOf(cullTarget) })
+        : t("service.cull_desc_generic"),
       cost: 48 + level * 7,
       disabled: !safeToCull,
     });
@@ -923,28 +921,28 @@ export class Game {
       return;
     }
     if (!this.currency.spend(option.cost)) {
-      this.ui.toast("Not enough gold");
+      this.ui.toast(t("toast.not_enough_gold"));
       this.openUpgradePanel();
       return;
     }
     if (serviceId === "heal") {
       const level = this.levelManager.level;
       this.player.health.heal(35 + level * 3);
-      this.ui.toast("Health restored");
+      this.ui.toast(t("toast.health_restored"));
     } else if (serviceId === "sharpen") {
       this.combat.autocastTargetMode = "lowestHp";
-      this.ui.toast("Auto-Cast sharpened");
+      this.ui.toast(t("toast.auto_cast_sharpened"));
     } else if (serviceId === "stance") {
       this.combat.perfectHealNext = 8;
-      this.ui.toast("Stance drilled — perfect blocks heal 8 HP this wave");
+      this.ui.toast(t("toast.stance_drilled"));
     } else if (serviceId === "cull") {
       const enemies = this.enemyManager.aliveList();
       const archetypeOf = (e) => e.constructor.name.replace("Enemy", "").toLowerCase();
       const cullPriority = ["mage", "linebreaker", "ranged", "dasher", "melee"];
-      const target = cullPriority.map((t) => enemies.find((e) => archetypeOf(e) === t)).find(Boolean);
+      const target = cullPriority.map((at) => enemies.find((e) => archetypeOf(e) === at)).find(Boolean);
       if (target) {
         target.forceRemove();
-        this.ui.toast(`Battlefield read — one ${archetypeOf(target)} removed`);
+        this.ui.toast(format("toast.battlefield_read", { archetype: archetypeOf(target) }));
       }
     }
     this.audio.reward();
@@ -972,7 +970,7 @@ export class Game {
             if (spell.stats.dotDamage > 0) spell.stats.dotDamage = Math.round(spell.stats.dotDamage * 1.15);
             this.combat.hollowSigilApplied = true;
             this.combat.consecutiveSkips = 0;
-            this.world.onCombatProc?.("Hollow Sigil — focus rewarded");
+            this.world.onCombatProc?.(t("toast.hollow_sigil"));
           }
         }
       } else {
@@ -985,7 +983,7 @@ export class Game {
     this.state = STATE.FOCUS;
     this._pendingStart = false;
     this.clearInputState();
-    this.showFocusPrompt("Continue");
+    this.showFocusPrompt(t("ui.continue"));
     this.input.requestLock();
   }
 
@@ -1031,13 +1029,13 @@ export class Game {
       const names = progressResult.newlyUnlocked.map(
         (id) => SPELL_DEFINITIONS[id]?.displayName || id
       );
-      toasts.push(`New spell unlocked: ${names.join(", ")}!`);
+      toasts.push(format("toast.spell_unlocked", { names: names.join(", ") }));
     }
     if (progressResult.newlyUnlockedTiers?.length > 0) {
       const names = progressResult.newlyUnlockedTiers.map(
-        (tl) => DIFFICULTY_TIERS.find((t) => t.level === tl)?.name || `Tier ${tl}`
+        (tl) => DIFFICULTY_TIERS.find((tier) => tier.level === tl)?.name || format("toast.tier_n", { n: tl })
       );
-      toasts.push(`New difficulty unlocked: ${names.join(", ")}!`);
+      toasts.push(format("toast.difficulty_unlocked", { names: names.join(", ") }));
     }
     if (toasts.length > 0) {
       this.ui.toast(toasts.join("  "), 3000);
@@ -1220,7 +1218,7 @@ export class Game {
       this.vfx.ring(this.player.position, 1.2, 0x7fffe6, 0.55);
       if (!this._warnedHazardThisWave) {
         this._warnedHazardThisWave = true;
-        this.ui.toast("Rift damage — move!", 900);
+        this.ui.toast(t("toast.rift_damage"), 900);
         this.onboarding?.triggerIf(this.world, "hazard_step");
       }
     }
@@ -1257,7 +1255,7 @@ export class Game {
   _checkCriticalHealth() {
     if (!this._criticalHealthWarned && this.player?.health?.ratio < 0.25) {
       this._criticalHealthWarned = true;
-      this.captions?.show("Critical health!");
+      this.captions?.show(t("toast.critical_health"));
     }
     if (this._criticalHealthWarned && this.player?.health?.ratio >= 0.5) {
       this._criticalHealthWarned = false;
