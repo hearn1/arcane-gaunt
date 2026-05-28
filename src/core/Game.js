@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { RunStats } from "./RunStats.js";
 import { Currency } from "./Currency.js";
 import { AudioSys } from "./Audio.js";
@@ -79,6 +82,9 @@ export class Game {
 
     // Renderer / scene / camera.
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.shadowMap.enabled = this.settings.display?.shadows !== false;
     this.renderer.setPixelRatio(this._targetPixelRatio());
     this.renderer.setSize(innerWidth, innerHeight);
     document.getElementById("app").appendChild(this.renderer.domElement);
@@ -97,6 +103,15 @@ export class Game {
     this.staffView.group.visible = false;
 
     this._buildArena();
+
+    this._composer = new EffectComposer(this.renderer);
+    this._composer.addPass(new RenderPass(this.scene, this.camera));
+    this._bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(innerWidth, innerHeight),
+      0.6, 0.4, 0.85,
+    );
+    this._bloomPass.enabled = this.settings.display?.bloom !== false;
+    this._composer.addPass(this._bloomPass);
 
     // Systems.
     this.runStats = new RunStats();
@@ -348,9 +363,19 @@ export class Game {
   _buildArena() {
     const half = this.arenaBounds.half;
     this.scene.add(new THREE.HemisphereLight(0x9088c0, 0x141022, 0.9));
-    const dir = new THREE.DirectionalLight(0xffffff, 0.7);
+    const dir = new THREE.DirectionalLight(0xffeed0, 0.6);
     dir.position.set(20, 40, 12);
+    dir.castShadow = true;
+    dir.shadow.mapSize.set(1024, 1024);
+    dir.shadow.camera.near = 0.5;
+    dir.shadow.camera.far = 100;
+    dir.shadow.camera.left = -50;
+    dir.shadow.camera.right = 50;
+    dir.shadow.camera.top = 50;
+    dir.shadow.camera.bottom = -50;
+    dir.shadow.bias = -0.001;
     this.scene.add(dir);
+    this._dirLight = dir;
 
     const texLoader = new THREE.TextureLoader();
     const applyTex = (mat, url, repeat = 4) => {
@@ -371,6 +396,7 @@ export class Game {
     const floorMat = new THREE.MeshLambertMaterial({ color: 0x6a6478 });
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(half * 2, half * 2), floorMat);
     floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
     this.scene.add(floor);
     applyTex(floorMat, "assets/textures/floor_stone.jpg", 16);
 
@@ -573,6 +599,15 @@ export class Game {
     this.captions?.setEnabled(this.settings.display.captions);
     this._reducedMotion = !!this.settings.display?.reducedMotion;
     this.vfx?.setReducedMotion(this._reducedMotion);
+    if (this._bloomPass) {
+      this._bloomPass.enabled = this.settings.display?.bloom !== false;
+    }
+    if (this.renderer) {
+      this.renderer.shadowMap.enabled = this.settings.display?.shadows !== false;
+    }
+    if (this._dirLight) {
+      this._dirLight.castShadow = this.settings.display?.shadows !== false;
+    }
     this._applyRendererSettings();
     if (this.camera && this.settings.display?.fov) {
       this.camera.fov = this.settings.display.fov;
@@ -1141,6 +1176,15 @@ export class Game {
 
   // --- Loop ---------------------------------------------------------------
 
+  _render() {
+    if (this._composer && this._bloomPass?.enabled) {
+      this._composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
+  }
+  }
+
   _frame() {
     const now = performance.now();
     let dt = (now - this._last) / 1000;
@@ -1160,10 +1204,10 @@ export class Game {
     if (this.state === STATE.PLAYING) {
       this._checkOnboardingTriggers();
       this._checkCriticalHealth();
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       this.block.update(dt, this.input);
       this.shieldView?.update(dt, this.block);
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       if (this.settings.display?.viewmodel !== false) {
         this.staffView?.update(dt, this.input, this.block);
         this.staffView.group.visible = true;
@@ -1171,13 +1215,13 @@ export class Game {
         this.staffView.group.visible = false;
       }
       this.player.update(dt, this.input);
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       this._updateArenaHazards(dt);
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       this.layoutEvents.update(dt);
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       this.caster.update(dt, this.input, this.world);
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       this.blink.update(dt);
       if (this.combat.blinkStrikeTimer > 0) {
         this.combat.blinkStrikeTimer = Math.max(0, this.combat.blinkStrikeTimer - dt);
@@ -1192,30 +1236,31 @@ export class Game {
         }
       }
       this.enemyManager.update(dt);
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       this.objectiveManager.update(dt);
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       this.hitResolver.update(dt);
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       for (let i = this.timers.length - 1; i >= 0; i--) {
         const tm = this.timers[i];
         tm.t -= dt;
         if (tm.t <= 0) { tm.fn(); this.timers.splice(i, 1); }
       }
-      if (this.state !== STATE.PLAYING) return this.renderer.render(this.scene, this.camera);
+      if (this.state !== STATE.PLAYING) return this._render();
       this.vfx.update(dt);
       this.ui.updateHud(this.world);
     } else {
       this.vfx.update(Math.min(dt, 0.033));
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this._render();
   }
 
   _resize() {
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight);
+    if (this._composer) this._composer.setSize(innerWidth, innerHeight);
   }
 
   _targetPixelRatio() {
@@ -1225,8 +1270,10 @@ export class Game {
 
   _applyRendererSettings() {
     if (!this.renderer) return;
-    this.renderer.setPixelRatio(this._targetPixelRatio());
+    const pr = this._targetPixelRatio();
+    this.renderer.setPixelRatio(pr);
     this.renderer.setSize(innerWidth, innerHeight);
+    if (this._composer) this._composer.setPixelRatio(pr);
   }
 
   applyFullscreenPreference() {

@@ -4,18 +4,24 @@ export const PERF_PRESETS = Object.freeze({
     vfxDensity: "reduced",
     screenShake: false,
     viewmodel: true,
+    bloom: false,
+    shadows: false,
   }),
   medium: Object.freeze({
     renderScale: 0.85,
     vfxDensity: "reduced",
     screenShake: true,
     viewmodel: true,
+    bloom: true,
+    shadows: true,
   }),
   high: Object.freeze({
     renderScale: 1.0,
     vfxDensity: "full",
     screenShake: true,
     viewmodel: true,
+    bloom: true,
+    shadows: true,
   }),
 });
 
@@ -34,6 +40,8 @@ export function applyPreset(settings, presetId) {
       ...settings.display,
       screenShake: preset.screenShake,
       viewmodel: preset.viewmodel,
+      bloom: preset.bloom,
+      shadows: preset.shadows,
     },
   };
 }
@@ -46,7 +54,9 @@ export function inferPreset(settings) {
       p.renderScale === preset.renderScale &&
       p.vfxDensity === preset.vfxDensity &&
       d.screenShake === preset.screenShake &&
-      d.viewmodel === preset.viewmodel
+      d.viewmodel === preset.viewmodel &&
+      d.bloom === preset.bloom &&
+      d.shadows === preset.shadows
     ) {
       return id;
     }

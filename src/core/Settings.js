@@ -31,6 +31,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
     screenShake: true,
     captions: false,
     reducedMotion: false,
+    bloom: true,
+    shadows: true,
   }),
   performance: Object.freeze({
     renderScale: 1,
@@ -92,6 +94,8 @@ export function sanitizeSettings(input = {}) {
       screenShake: input.display?.screenShake !== false,
       captions: !!input.display?.captions,
       reducedMotion: !!input.display?.reducedMotion,
+      bloom: input.display?.bloom !== false,
+      shadows: input.display?.shadows !== false,
     },
     performance: {
       renderScale: clampNumber(

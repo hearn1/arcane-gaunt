@@ -395,6 +395,8 @@ const settingsButton = onSettings
     const fov = settings.display?.fov ?? 78;
     const colorblind = !!settings.display?.colorblindMode;
     const screenShake = settings.display?.screenShake !== false;
+    const bloom = settings.display?.bloom !== false;
+    const shadows = settings.display?.shadows !== false;
     const captions = !!settings.display?.captions;
     const reducedMotion = !!settings.display?.reducedMotion;
     const storageText = storageMeta?.path
@@ -479,6 +481,14 @@ const settingsButton = onSettings
           <input type="checkbox" id="set-screenshake" ${screenShake ? "checked" : ""}/>
           <span>${t("ui.screen_shake")}</span>
         </label>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-bloom" ${bloom ? "checked" : ""}/>
+          <span>${t("ui.bloom")}</span>
+        </label>
+        <label class="settings-toggle">
+          <input type="checkbox" id="set-shadows" ${shadows ? "checked" : ""}/>
+          <span>${t("ui.shadows")}</span>
+        </label>
         <h3 class="settings-subhead">${t("ui.accessibility")}</h3>
         <label class="settings-toggle">
           <input type="checkbox" id="set-captions" ${captions ? "checked" : ""}/>
@@ -524,6 +534,8 @@ const settingsButton = onSettings
     const fovEl = document.getElementById("set-fov");
     const colorblindEl = document.getElementById("set-colorblind");
     const screenShakeEl = document.getElementById("set-screenshake");
+    const bloomEl = document.getElementById("set-bloom");
+    const shadowsEl = document.getElementById("set-shadows");
     const captionsEl = document.getElementById("set-captions");
     const reducedMotionEl = document.getElementById("set-reduced-motion");
     const volumeValue = document.getElementById("set-volume-value");
@@ -574,6 +586,8 @@ const settingsButton = onSettings
           fov: nextFov,
           colorblindMode: colorblindEl.checked,
           screenShake: screenShakeEl.checked,
+          bloom: bloomEl?.checked !== false,
+          shadows: shadowsEl?.checked !== false,
           captions: captionsEl?.checked ?? false,
           reducedMotion: reducedMotionEl?.checked ?? false,
         },
@@ -601,6 +615,8 @@ const settingsButton = onSettings
     fovEl.oninput = () => emit();
     colorblindEl.onchange = () => emit();
     screenShakeEl.onchange = () => emit(true);
+    if (bloomEl) bloomEl.onchange = () => emit(true);
+    if (shadowsEl) shadowsEl.onchange = () => emit(true);
     if (captionsEl) captionsEl.onchange = () => emit();
     if (reducedMotionEl) reducedMotionEl.onchange = () => emit();
     if (telemetryEl) telemetryEl.onchange = () => emit();

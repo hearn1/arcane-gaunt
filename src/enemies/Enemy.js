@@ -119,6 +119,7 @@ export class Enemy {
     this.mesh = new THREE.Group();
     this.eyeH = cfg.radius + cfg.height / 2;
     this._buildVisual(cfg);
+    this.mesh.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     const sx = cfg.spawn;
     this.mesh.position.set(sx.x, this.eyeH, sx.z);
     world.scene.add(this.mesh);
