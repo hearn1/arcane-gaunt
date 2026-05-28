@@ -1,3 +1,5 @@
+import { trackException } from "./Telemetry.js";
+
 const LOG_SCHEMA_VERSION = 1;
 const MAX_TEXT_LENGTH = 12000;
 
@@ -123,6 +125,7 @@ export function showFatalError(reason, title = "ArcaneGaunt hit an error") {
 
 export function reportFatal(reason, source = "fatal", context = {}) {
   const entry = reportError(reason, source, context);
+  trackException(reason, { source, ...context });
   if (!fatalShown) {
     fatalShown = true;
     showFatalError(reason);

@@ -37,6 +37,11 @@ export const DEFAULT_SETTINGS = Object.freeze({
     vfxDensity: "full",
     preset: "high",
   }),
+  privacy: Object.freeze({
+    telemetryEnabled: false,
+    telemetryUuid: null,
+    telemetryPrompted: false,
+  }),
 });
 
 function clampNumber(value, min, max, fallback) {
@@ -105,6 +110,11 @@ export function sanitizeSettings(input = {}) {
         ["low", "medium", "high", "custom"],
         DEFAULT_SETTINGS.performance.preset,
       ),
+    },
+    privacy: {
+      telemetryEnabled: !!input.privacy?.telemetryEnabled,
+      telemetryUuid: input.privacy?.telemetryUuid || null,
+      telemetryPrompted: !!input.privacy?.telemetryPrompted,
     },
   };
 }

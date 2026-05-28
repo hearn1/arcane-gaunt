@@ -1,13 +1,27 @@
 # Privacy Policy
 
-**ArcaneGaunt** does not collect, transmit, or store any personal data off your device.
+**ArcaneGaunt** does not collect, transmit, or store any personal data off your device unless you explicitly opt in.
 
 ## Network & Telemetry
+
+### Default (Telemetry Disabled)
 
 - No remote telemetry, analytics, or crash reporting is transmitted over the network.
 - No usage data, session recordings, or personal information is sent to any server.
 - The game makes no outbound network connections during normal operation.
 - The only network activity that may occur is asset loading from the local origin (`arcane://` in the Electron build, `http://localhost` or `file://` in development) — no external domains are contacted.
+
+### Opt-In Telemetry
+
+You may choose to enable anonymous telemetry from the first-launch prompt or the Settings → Privacy panel. When enabled, the following data is transmitted to Sentry ([sentry.io/privacy](https://sentry.io/privacy/)):
+
+- **Crash reports** — stack traces, error messages, and the last 50 lines of console output when a fatal error occurs.
+- **Run events** — anonymised run start and completion events containing level reached, gold earned, kills, starter spell, and difficulty tier.
+- **Device identifier** — a randomly generated UUID stored in your settings file. This is not linked to your identity, IP address, or any other personal information.
+
+No personal information (name, email, IP address, geolocation, or system files) is collected. The UUID is used solely to deduplicate crash reports and estimate unique installs.
+
+Telemetry can be disabled at any time from Settings → Privacy. Disabling will stop all data transmission immediately. Previously sent data cannot be recalled from Sentry's servers.
 
 ## Local Data Storage
 
