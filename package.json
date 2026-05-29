@@ -19,7 +19,8 @@
     "test:smoke": "node test/run.mjs",
     "test:validate": "node test/run.mjs data-validate",
     "test:reward": "node test/run.mjs reward-generate-validate",
-    "test:level": "node test/run.mjs level-composition-validate"
+    "test:level": "node test/run.mjs level-composition-validate",
+    "test:audio": "node scripts/validate-audio.mjs"
   },
   "build": {
     "appId": "com.arcanegaunt.game",
