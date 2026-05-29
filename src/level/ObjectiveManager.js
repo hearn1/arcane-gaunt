@@ -404,7 +404,10 @@ export class ObjectiveManager {
 
   _onAnchorDestroyed(anchor, source) {
     if (!this.active) return;
-    if (this.active.id === "interrupt_ritual") this._complete("Ritual broken");
+    if (this.active.id === "interrupt_ritual") {
+      this._complete("Ritual broken");
+      return;
+    }
     if (this.active.id === "cleanse_rift") {
       this._setStatus(`${this._destroyedCount()} / ${this.anchors.length} anchors cleansed`);
     }
