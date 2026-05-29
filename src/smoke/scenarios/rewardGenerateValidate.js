@@ -2,7 +2,7 @@ import { step, assert } from "../testHelpers.js";
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../../spells/spellDefinitions.js";
 import { SpellInstance } from "../../spells/SpellInstance.js";
 import { RewardGenerator } from "../../rewards/RewardGenerator.js";
-import { relicRewards } from "../../rewards/rewardDefinitions.js";
+import { relicRewards, spellUnlockRewards } from "../../rewards/rewardDefinitions.js";
 
 function mockWorld(config = {}) {
   const ownedRelics = new Set();
@@ -10,6 +10,7 @@ function mockWorld(config = {}) {
   const extraSpells = config.extraSpells ?? [];
   const hasBlink = config.hasBlink ?? true;
   const level = config.level ?? 1;
+  const unlockedSpells = config.unlockedSpells ?? null;
 
   const mainSpellId = config.spellId || STARTER_SPELL_ID;
   const mainDef = SPELL_DEFINITIONS[mainSpellId];
@@ -43,8 +44,14 @@ function mockWorld(config = {}) {
     caster: {
       current: loadout[0],
       loadout,
+      unlockedSpells,
       owns: (id) => loadout.some((s) => s.definitionId === id),
-      addSpell: (id) => { loadout.push({ definitionId: id, autoFire: false }); },
+      addSpell: (id) => {
+        if (unlockedSpells && !unlockedSpells.includes(id)) return null;
+        const inst = { definitionId: id, autoFire: false };
+        loadout.push(inst);
+        return inst;
+      },
     },
     combat: {
       autocastTargetMode: null,
@@ -131,6 +138,30 @@ export default async function runRewardGenerateValidate(game, result) {
         }
       }
     }
+  });
+
+  await step(result, "spellUnlockRewards — profile-locked spells are excluded from the attunement pool", () => {
+    // Only arcane_bolt (already owned) and fireball are profile-unlocked
+    const world = mockWorld({ autoFire: true, unlockedSpells: ["arcane_bolt", "fireball"] });
+    const rewards = spellUnlockRewards(world);
+    assert(rewards.length === 1, `Expected 1 attunement option (fireball only), got ${rewards.length}`);
+    assert(rewards[0].id === "spell_unlock_fireball", `Expected fireball unlock, got ${rewards[0].id}`);
+  });
+
+  await step(result, "spellUnlockRewards — apply toast fires only when addSpell returns an instance", () => {
+    let toastCount = 0;
+    const world = mockWorld({ autoFire: true, unlockedSpells: ["arcane_bolt", "fireball"] });
+    world.onCombatProc = () => { toastCount++; };
+    const rewards = spellUnlockRewards(world);
+    assert(rewards.length === 1, "Expected fireball unlock card");
+    // Successful apply: addSpell returns instance → toast fires
+    rewards[0].apply(world);
+    assert(toastCount === 1, `Toast should fire on success, fired ${toastCount} times`);
+    // Simulate addSpell returning null (e.g. race condition / defensive path)
+    world.caster.addSpell = () => null;
+    toastCount = 0;
+    rewards[0].apply(world);
+    assert(toastCount === 0, `Toast must not fire when addSpell returns null, fired ${toastCount} times`);
   });
 
   await step(result, "relicRewards — exhausts all relics after sequential ownership", () => {

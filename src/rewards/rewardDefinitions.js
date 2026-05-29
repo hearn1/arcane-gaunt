@@ -172,8 +172,10 @@ export function spellUnlockRewards(world) {
   const autoCount = world.caster.loadout.filter((s) => s.autoFire).length;
   const unlockedExtras = Math.max(0, world.caster.loadout.length - 1);
   if (autoCount <= unlockedExtras) return [];
+  const profileUnlocked = world.caster.unlockedSpells;
   return UNLOCKABLE_SPELL_IDS
     .filter((id) => !world.caster.owns(id))
+    .filter((id) => !profileUnlocked || profileUnlocked.includes(id))
     .map((id) => {
       const def = SPELL_DEFINITIONS[id];
       return {
@@ -185,8 +187,8 @@ export function spellUnlockRewards(world) {
         tip: "Unlocked by reaching Auto-Cast on a previously owned spell.",
         spellName: def.displayName,
         apply: (w) => {
-          w.caster.addSpell(id, true, w);
-          w.onCombatProc?.(`${def.displayName} attuned`);
+          const inst = w.caster.addSpell(id, true, w);
+          if (inst) w.onCombatProc?.(`${def.displayName} attuned`);
         },
       };
     });
