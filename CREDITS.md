@@ -44,18 +44,20 @@ Source packs:
 | `assets/audio/wave_clear.ogg` | `bong_001.ogg` | Interface Sounds | Kenney | CC0 1.0 |
 | `assets/audio/game_over.ogg` | `error_006.ogg` | Interface Sounds | Kenney | CC0 1.0 |
 
-### Music tracks (CC0)
+### Music tracks (Patrick de Arteaga, Creative Commons attribution)
 
-Epic fantasy music sourced from CC0 libraries. Placeholder tracks are 0-byte files
-that will be replaced with real CC0 OGG files before release.
+Source: https://patrickdearteaga.com/en/epic-orchestral-fantasy-medieval-music/
 
-| File in repo | Intended source | License |
-|---|---|---|
-| `assets/audio/music/menu_loop.ogg` | CC0 epic fantasy (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
-| `assets/audio/music/arena_calm.ogg` | CC0 epic fantasy (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
-| `assets/audio/music/arena_combat.ogg` | CC0 epic fantasy (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
-| `assets/audio/music/boss_bed.ogg` | CC0 epic fantasy (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
-| `assets/audio/music/boss_enrage.ogg` | CC0 sting (e.g. Kenney.nl / OpenGameArt) | CC0 1.0 |
+All tracks are loop-ready OGG Vorbis files. License requires attribution — provide
+a link to https://patrickdearteaga.com or credit "Patrick de Arteaga" in your project.
+
+| File in repo | Original title | Author | License |
+|---|---|---|---|
+| `assets/audio/music/menu_loop.ogg` | New Hope | Patrick de Arteaga | CC BY (attribution) |
+| `assets/audio/music/arena_calm.ogg` | Spring Village | Patrick de Arteaga | CC BY (attribution) |
+| `assets/audio/music/arena_combat.ogg` | Battleship | Patrick de Arteaga | CC BY (attribution) |
+| `assets/audio/music/boss_bed.ogg` | Goliath's Foe | Patrick de Arteaga | CC BY (attribution) |
+| `assets/audio/music/boss_enrage.ogg` | Boss Fight | Patrick de Arteaga | CC BY (attribution) |
 
 ### Textures (ambientCG, CC0)
 
