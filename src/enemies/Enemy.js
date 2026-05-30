@@ -311,7 +311,10 @@ export class Enemy {
     this.mesh.position.x = THREE.MathUtils.clamp(this.mesh.position.x, -lim, lim);
     this.mesh.position.z = THREE.MathUtils.clamp(this.mesh.position.z, -lim, lim);
     this.world.resolveArenaCollision?.(this.mesh.position, this.radius);
-    this.mesh.position.y = this.eyeH;
+    const groundLevel = this.world.getElevationAt
+      ? this.world.getElevationAt(this.mesh.position.x, this.mesh.position.z)
+      : 0;
+    this.mesh.position.y = this.eyeH + groundLevel;
 
     if (trackStuck && s > 1e-4) {
       const dx = this.mesh.position.x - prevX;

@@ -45,6 +45,11 @@ export class Blink {
     this.world.vfx.flash(this.player.position, 0x9fd8ff, 0.7, 0.22);
     feet.x = dest.x;
     feet.z = dest.z;
+    // Snap Y to the walkable surface at the blink destination so the player
+    // never lands floating above a ramp or sunk below a platform top.
+    if (this.world.getElevationAt) {
+      feet.y = this.world.getElevationAt(dest.x, dest.z);
+    }
     this.world.vfx.flash(this.player.position, 0x9fd8ff, 0.7, 0.22);
     this.world.audio.blink();
     if (this.world.combat) this.world.combat.blinkStrikeTimer = 1.35;
