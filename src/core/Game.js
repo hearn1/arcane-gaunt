@@ -463,7 +463,7 @@ export class Game {
     this._hazardMeshes = [];
     this._inHazardLast = false;
 
-    const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated", "ramparts", "tower_court"];
+    const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated", "ramparts", "tower_court", "sinkhole"];
     const kind = forced || layouts[Math.floor(Math.random() * layouts.length)];
     this.arenaLayoutName = kind;
 
@@ -506,6 +506,30 @@ export class Game {
       this._hazardMeshes.push({ mesh, mat, baseOpacity: 0.45, hazard });
       this.arenaBounds.hazards.push(hazard);
       return hazard;
+    };
+    // Sunken pit — a depression in the floor with negative elevation. Entities walk
+    // down into the pit, taking damage over time. Projectiles pass over pits since
+    // they fly at caster eye height well above the pit floor.
+    const addPit = ({ x, z, w, d, depth = 2.0 }) => {
+      const pitGeo = new THREE.PlaneGeometry(w, d);
+      const pitMat = new THREE.MeshBasicMaterial({
+        color: 0x120820, transparent: true, opacity: 0.75,
+        side: THREE.DoubleSide, depthWrite: false,
+      });
+      const pitMesh = new THREE.Mesh(pitGeo, pitMat);
+      pitMesh.userData.disposeMaterial = true;
+      pitMesh.rotation.x = -Math.PI / 2;
+      pitMesh.position.set(x, -depth + 0.05, z);
+      group.add(pitMesh);
+      const edgeMat = new THREE.LineBasicMaterial({
+        color: 0x5a2070, transparent: true, opacity: 0.55,
+      });
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(pitGeo), edgeMat);
+      edges.rotation.x = -Math.PI / 2;
+      edges.position.set(x, 0.05, z);
+      group.add(edges);
+      this.arenaBounds.walkableSurfaces.push({ type: "pit", x, z, w, d, elevation: -depth });
+      this.arenaBounds.hazards.push({ x, z, w, d, dynamicWarn: false, dynamicActive: false, dynamicDamageMult: 1, isPit: true });
     };
     // Raised flat platform. The box body is a solid obstacle at floor level; entities
     // whose Y >= elevation bypass horizontal collision (they are standing on top).
@@ -612,6 +636,16 @@ export class Game {
       addBlocker({ x: 20, z: 0, w: 6, d: 3.2 });
       addPillar(-10, -6, 1.6);
       addPillar(10, -6, 1.6);
+    } else if (kind === "sinkhole") {
+      addPit({ x: 0, z: 0, w: 16, d: 12, depth: 2.5 });
+      addPlatform({ x: -20, z: -16, w: 10, d: 8, elevation: 2.5 });
+      addRamp({ x: -20, z: -10, w: 10, d: 4, axis: "z", elevStart: 2.5, elevEnd: 0.0 });
+      addPlatform({ x: 20, z: 16, w: 10, d: 8, elevation: 2.5 });
+      addRamp({ x: 20, z: 10, w: 10, d: 4, axis: "z", elevStart: 0.0, elevEnd: 2.5 });
+      addBlocker({ x: 0, z: -20, w: 3.2, d: 6 });
+      addBlocker({ x: 0, z: 20, w: 3.2, d: 6 });
+      addPillar(-18, 0, 1.6);
+      addPillar(18, 0, 1.6);
     } else {
       addPillar(-16, -16);
       addPillar(16, -16);
@@ -1384,48 +1418,67 @@ export class Game {
       }
     }
     this._hazardTick = Math.max(0, (this._hazardTick || 0) - dt);
+    this._pitTick = Math.max(0, (this._pitTick || 0) - dt);
     if (!this.arenaBounds.hazards.length) { this._inHazardLast = false; return; }
     const feet = this.player.feet;
-    const hazardsAtFeet = this.arenaBounds.hazards.filter((h) => rectContainsPoint(feet, h));
-    if (!hazardsAtFeet.length) { this._inHazardLast = false; return; }
-    if (!this._inHazardLast) {
-      this._inHazardLast = true;
-      this.vfx.shock(this.player.position, 0x47ffd2, 1.6, 0.35);
-      this.vfx.ring(this.player.position, 1.2, 0x7fffe6, 0.55);
-      if (!this._warnedHazardThisWave) {
-        this._warnedHazardThisWave = true;
-        this.ui.toast(t("toast.rift_damage"), 900);
-        this.onboarding?.triggerIf(this.world, "hazard_step");
+
+    // --- Rift hazard damage (player only) ---
+    const rifts = this.arenaBounds.hazards.filter((h) => !h.isPit);
+    const riftsAtFeet = rifts.length ? rifts.filter((h) => rectContainsPoint(feet, h)) : [];
+    if (riftsAtFeet.length) {
+      if (!this._inHazardLast) {
+        this._inHazardLast = true;
+        this.vfx.shock(this.player.position, 0x47ffd2, 1.6, 0.35);
+        this.vfx.ring(this.player.position, 1.2, 0x7fffe6, 0.55);
+        if (!this._warnedHazardThisWave) {
+          this._warnedHazardThisWave = true;
+          this.ui.toast(t("toast.rift_damage"), 900);
+          this.onboarding?.triggerIf(this.world, "hazard_step");
+        }
+      }
+      // Riftborn Mantle: heal 1 HP/s while standing in a rift hazard
+      if (this.relics.has("riftborn_mantle")) {
+        this.combat.hazardHealAccum = (this.combat.hazardHealAccum || 0) + dt;
+        if (this.combat.hazardHealAccum >= 1) {
+          this.combat.hazardHealAccum -= 1;
+          this.player.health.heal(1);
+        }
+      }
+      if (this._hazardTick <= 0) {
+        this._hazardTick = 0.45;
+        const damageMult = Math.max(1, ...riftsAtFeet.map((h) => h.dynamicDamageMult || 1));
+        const spellName = damageMult > 1 ? "Rift Surge" : "Phase Rift";
+        applyDamage(this.player, (4 + this.levelManager.level * 0.35) * damageMult, {
+          owner: "enemy", spellId: "arena_rift", spellName,
+        });
+        this.world.onPlayerHurt?.();
+        this.vfx.flash(this.player.position, 0x7fffe6, 1.4, 0.22);
+        this.vfx.shock(this.player.position, 0x7fffe6, 2.2, 0.28);
+      }
+    } else {
+      this._inHazardLast = false;
+    }
+
+    // --- Pit damage (player + enemies) ---
+    const pits = this.arenaBounds.hazards.filter((h) => h.isPit);
+    if (pits.length && this._pitTick <= 0) {
+      this._pitTick = 0.7;
+      const pitDmg = 3 + this.levelManager.level * 0.25;
+      // Player in pit
+      if (pits.some((h) => rectContainsPoint(feet, h))) {
+        applyDamage(this.player, pitDmg, { owner: "enemy", spellId: "arena_pit", spellName: "Pit" });
+        this.world.onPlayerHurt?.();
+      }
+      // Enemies in pit
+      if (this.enemyManager) {
+        for (const e of this.enemyManager.aliveList()) {
+          if (pits.some((h) => rectContainsPoint(e.mesh.position, h))) {
+            applyDamage(e, pitDmg, { owner: "enemy", spellId: "arena_pit", spellName: "Pit" });
+            this.world.vfx.burst(e.mesh.position, 0x7a30a0, 4, 2, 0.4, 0.12);
+          }
+        }
       }
     }
-    // Riftborn Mantle: heal 1 HP/s while standing in a rift hazard
-    if (this.relics.has("riftborn_mantle")) {
-      this.combat.hazardHealAccum = (this.combat.hazardHealAccum || 0) + dt;
-      if (this.combat.hazardHealAccum >= 1) {
-        this.combat.hazardHealAccum -= 1;
-        this.player.health.heal(1);
-      }
-    }
-    // Riftborn Mantle: heal 1 HP/s while standing in a rift hazard
-    if (this.relics.has("riftborn_mantle")) {
-      this.combat.hazardHealAccum = (this.combat.hazardHealAccum || 0) + dt;
-      if (this.combat.hazardHealAccum >= 1) {
-        this.combat.hazardHealAccum -= 1;
-        this.player.health.heal(1);
-      }
-    }
-    if (this._hazardTick > 0) return;
-    this._hazardTick = 0.45;
-    const damageMult = Math.max(1, ...hazardsAtFeet.map((h) => h.dynamicDamageMult || 1));
-    const spellName = damageMult > 1 ? "Rift Surge" : "Phase Rift";
-    applyDamage(this.player, (4 + this.levelManager.level * 0.35) * damageMult, {
-      owner: "enemy",
-      spellId: "arena_rift",
-      spellName,
-    });
-    this.world.onPlayerHurt?.();
-    this.vfx.flash(this.player.position, 0x7fffe6, 1.4, 0.22);
-    this.vfx.shock(this.player.position, 0x7fffe6, 2.2, 0.28);
   }
 
   _checkCriticalHealth() {

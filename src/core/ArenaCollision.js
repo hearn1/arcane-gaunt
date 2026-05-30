@@ -12,7 +12,8 @@ export function pointInRect(pos, rect, radius = 0) {
 // Ramps interpolate linearly along their axis; platforms return a flat elevation.
 // Falls back to 0 (floor) if no surface covers the position.
 export function getElevationAt(x, z, walkableSurfaces = []) {
-  let maxElev = 0;
+  let found = false;
+  let maxElev = -Infinity;
   for (const s of walkableSurfaces) {
     if (Math.abs(x - s.x) > s.w / 2 || Math.abs(z - s.z) > s.d / 2) continue;
     let elev;
@@ -24,9 +25,9 @@ export function getElevationAt(x, z, walkableSurfaces = []) {
     } else {
       elev = s.elevation;
     }
-    if (elev > maxElev) maxElev = elev;
+    if (!found || elev > maxElev) { maxElev = elev; found = true; }
   }
-  return maxElev;
+  return found ? maxElev : 0;
 }
 
 // An obstacle with platformTop means entities whose Y >= platformTop bypass its
