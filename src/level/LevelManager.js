@@ -14,6 +14,8 @@ const LAYOUT_BIAS = {
   ramparts: { ranged: +1, mage: +1, melee: -1, dasher: -1 },
   // Central corridor between two towers favours ranged and mage over melee pressure.
   tower_court: { ranged: +1, mage: +1, melee: -2 },
+  // Central pit with flanking platforms — ranged/mage can fire across; melee risk the pit floor.
+  sinkhole: { ranged: +1, mage: +1, melee: -1, dasher: -1 },
 };
 
 // Level gates must match composition() below so we don't add an archetype that
