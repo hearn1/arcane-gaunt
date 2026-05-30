@@ -10,6 +10,10 @@ const LAYOUT_BIAS = {
   gates: { melee: +2, dasher: +1, ranged: -2, linebreaker: -1 },
   rift:  { dasher: +1, linebreaker: +1, melee: -2, ranged: -1 },
   cross: {},
+  // Elevated flanking platforms reward ranged and mage enemies who hold the high ground.
+  ramparts: { ranged: +1, mage: +1, melee: -1, dasher: -1 },
+  // Central corridor between two towers favours ranged and mage over melee pressure.
+  tower_court: { ranged: +1, mage: +1, melee: -2 },
 };
 
 // Level gates must match composition() below so we don't add an archetype that

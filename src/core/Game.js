@@ -463,7 +463,7 @@ export class Game {
     this._hazardMeshes = [];
     this._inHazardLast = false;
 
-    const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated"];
+    const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated", "ramparts", "tower_court"];
     const kind = forced || layouts[Math.floor(Math.random() * layouts.length)];
     this.arenaLayoutName = kind;
 
@@ -584,6 +584,34 @@ export class Game {
       addBlocker({ x: 22, z: 5, w: 6, d: 3.2 });
       addPillar(-14, -5, 1.6);
       addPillar(14, -5, 1.6);
+    } else if (kind === "ramparts") {
+      // Two raised flanking platforms (west and east) at elevation 3.0, each connected
+      // to the central ground by a ramp along the X axis. Central blockers create
+      // cover and force routing through the ramp approaches.
+      addPlatform({ x: -26, z: 0, w: 12, d: 22, elevation: 3.0 });
+      // West ramp: elevStart=3 at x=-20 (west/negative-x end), elevEnd=0 at x=-14 (east end).
+      addRamp({ x: -17, z: 0, w: 6, d: 12, axis: "x", elevStart: 3.0, elevEnd: 0.0 });
+      addPlatform({ x: 26, z: 0, w: 12, d: 22, elevation: 3.0 });
+      // East ramp: elevStart=0 at x=14 (west end), elevEnd=3 at x=20 (east/positive-x end).
+      addRamp({ x: 17, z: 0, w: 6, d: 12, axis: "x", elevStart: 0.0, elevEnd: 3.0 });
+      // Central ground cover — line-of-sight blockers between the two ramp mouths.
+      addBlocker({ x: 0, z: -12, w: 10, d: 3.2 });
+      addBlocker({ x: 0, z: 12, w: 10, d: 3.2 });
+    } else if (kind === "tower_court") {
+      // North tower (elevation 3.5) with a staircase ramp on its south face,
+      // and a lower south platform (elevation 2.5) with a north ramp.
+      // Central corridor between them is flanked by cover blockers.
+      addPlatform({ x: 0, z: -22, w: 14, d: 8, elevation: 3.5 });
+      // North stairs: elevStart=3.5 at z=-18 (north/negative-z end), elevEnd=0 at z=-12 (south end).
+      addRamp({ x: 0, z: -15, w: 8, d: 6, axis: "z", elevStart: 3.5, elevEnd: 0.0 });
+      addPlatform({ x: 0, z: 22, w: 12, d: 8, elevation: 2.5 });
+      // South ramp: elevStart=0 at z=14 (north/negative-z end), elevEnd=2.5 at z=18 (south end).
+      addRamp({ x: 0, z: 16, w: 8, d: 4, axis: "z", elevStart: 0.0, elevEnd: 2.5 });
+      // Flank cover in the central corridor.
+      addBlocker({ x: -20, z: 0, w: 6, d: 3.2 });
+      addBlocker({ x: 20, z: 0, w: 6, d: 3.2 });
+      addPillar(-10, -6, 1.6);
+      addPillar(10, -6, 1.6);
     } else {
       addPillar(-16, -16);
       addPillar(16, -16);
