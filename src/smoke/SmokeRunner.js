@@ -19,6 +19,7 @@ import runI18nValidate from "./scenarios/i18nValidate.js";
 import runEnemyVariantsValidate from "./scenarios/enemyVariantsValidate.js";
 import runElevationValidate from "./scenarios/elevationValidate.js";
 import runLayoutGeometryValidate from "./scenarios/layoutGeometryValidate.js";
+import runCombatVerticalityValidate from "./scenarios/combatVerticalityValidate.js";
 
 const SCENARIOS = {
   "boot-start-menu": runBootStartMenu,
@@ -41,6 +42,7 @@ const SCENARIOS = {
   "enemy-variants-validate": runEnemyVariantsValidate,
   "elevation-validate": runElevationValidate,
   "layout-geometry-validate": runLayoutGeometryValidate,
+  "combat-verticality-validate": runCombatVerticalityValidate,
 };
 
 async function runSingleScenario(game, scenario) {

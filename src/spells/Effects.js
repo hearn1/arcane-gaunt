@@ -22,6 +22,8 @@ function spawnProjectile(world, spell, origin, dir, faction) {
 }
 
 // Ground point under the aim ray, clamped to arena + spell range.
+// Respects walkable surfaces: AoE spells land on the elevated surface
+// the player aimed at, not always on the floor.
 function aimGroundPoint(world, origin, dir, range) {
   let t = 200;
   if (Math.abs(dir.y) > 1e-4) {
@@ -36,6 +38,12 @@ function aimGroundPoint(world, origin, dir, range) {
   const flat = origin.clone(); flat.y = 0;
   if (pt.distanceTo(flat) > range) {
     pt.sub(flat).setLength(range).add(flat); pt.y = 0;
+  }
+  // Snap to walkable surface elevation if the target point lands on a
+  // platform or ramp.
+  if (world.getElevationAt) {
+    const elev = world.getElevationAt(pt.x, pt.z);
+    if (elev > 0) pt.y = elev;
   }
   return pt;
 }

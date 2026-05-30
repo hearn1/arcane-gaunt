@@ -71,11 +71,33 @@ export function segmentHitsObstacles(from, to, radius, obstacles = []) {
   let best = null;
   for (const o of obstacles) {
     if (o.solid === false) continue;
-    // Skip platform walls when both endpoints are on top (e.g. both entities on platform).
     if (o.platformTop !== undefined) {
       const fy = from.y !== undefined ? from.y : 0;
       const ty = to.y !== undefined ? to.y : 0;
+      // Both above platform top → skip (entities on top walk/shoot over).
       if (fy >= o.platformTop - 0.15 && ty >= o.platformTop - 0.15) continue;
+      // Both at or below floor → skip (projectile goes under the platform overhang).
+      if (fy <= 0.15 && ty <= 0.15) continue;
+      // Check 2D segment-vs-rect first.
+      const hit = segmentHitsRect(from, to, o, radius);
+      if (hit) {
+        const hitY = from.y + hit.t * (to.y - from.y);
+        // Origin inside the platform footprint and above platform top →
+        // caster is on the platform; this is an exit through the top edge,
+        // not a wall hit. Skip this platform obstacle.
+        const originInside = pointInRect(from, o, radius);
+        if (originInside && fy >= o.platformTop - 0.15) {
+          // Check if the exit point is also above the platform top —
+          // the projectile exits from the top face, not through the side wall.
+          if (hitY >= o.platformTop - 0.15) continue;
+        }
+        // Only block if the intersection point is within the platform's
+        // vertical volume (i.e. the projectile passes through the side wall).
+        if (hitY >= 0 && hitY < o.platformTop - 0.15) {
+          if (!best || hit.t < best.t) best = { ...hit, obstacle: o };
+        }
+      }
+      continue;
     }
     const hit = segmentHitsRect(from, to, o, radius);
     if (hit && (!best || hit.t < best.t)) best = { ...hit, obstacle: o };
