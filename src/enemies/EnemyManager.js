@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { ENEMY_CLASSES } from "./Enemy.js";
+import { pickEnemyVariant } from "./enemyVariants.js";
 import { steamEvent } from "../core/Steam.js";
 
 // Owns wave-level enemy tracking. Individual AI lives in the enemy classes.
@@ -44,6 +45,10 @@ export class EnemyManager {
         const e = new Cls(this.world, level, this._spawnPoint());
         modifier?.applyEnemy?.(e, level, this.world);
         if (modifier?.goldMult) e.gold = Math.max(1, Math.round(e.gold * modifier.goldMult));
+        if (!e.isBoss) {
+          const variant = pickEnemyVariant(level);
+          if (variant) { variant.applyEnemy(e); e.enemyVariant = variant.id; }
+        }
         this._waveGold += e.gold;
         this.enemies.push(e);
       }
