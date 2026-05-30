@@ -3,9 +3,16 @@ export function attach(root, options = {}) {
   if (!items.length) return () => {};
   let index = 0;
 
-  const focusItem = (i) => {
+  const focusItem = (i, dir = 1) => {
     if (i < 0) i = items.length - 1;
     if (i >= items.length) i = 0;
+    const start = i;
+    while (items[i]?.disabled) {
+      i += dir;
+      if (i < 0) i = items.length - 1;
+      if (i >= items.length) i = 0;
+      if (i === start) break;
+    }
     index = i;
     items[i]?.focus();
   };
@@ -15,12 +22,12 @@ export function attach(root, options = {}) {
       case "ArrowUp":
       case "ArrowLeft":
         e.preventDefault();
-        focusItem(index - 1);
+        focusItem(index - 1, -1);
         break;
       case "ArrowDown":
       case "ArrowRight":
         e.preventDefault();
-        focusItem(index + 1);
+        focusItem(index + 1, 1);
         break;
       case "Enter":
       case " ":

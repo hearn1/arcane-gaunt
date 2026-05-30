@@ -198,6 +198,7 @@ const settingsButton = onSettings
       <h1 class="title">${t("ui.arcane_gaunt_title")}</h1>
       <div class="subtitle">${t("ui.choose_difficulty")}</div>
       <div id="difficulty-select">${difficultyOptions}</div>
+      <div id="current-diff-label" class="current-diff-label">${t("ui.current_difficulty")}: ${DIFFICULTY_TIERS.find((d) => d.level === difficultyLevel)?.name ?? DIFFICULTY_TIERS[0].name} (${t("ui.tier")} ${difficultyLevel})</div>
       <div class="subtitle">${t("ui.choose_run_spell")}</div>
       <div id="spell-select">${spellOptions}</div>
       <div class="profile-strip">
@@ -225,6 +226,7 @@ const settingsButton = onSettings
     let selected = SPELL_DEFINITIONS[selectedSpellId] ? selectedSpellId : STARTER_SPELL_ID;
     let selectedDiff = difficultyLevel;
 
+    const diffLabelEl = document.getElementById("current-diff-label");
     this.root.querySelectorAll(".diff-pill").forEach((el) => {
       el.onclick = () => {
         if (el.disabled) return;
@@ -234,6 +236,10 @@ const settingsButton = onSettings
         this.root.querySelectorAll(".diff-pill").forEach((pill) => {
           pill.classList.toggle("selected", pill === el);
         });
+        if (diffLabelEl) {
+          const tier = DIFFICULTY_TIERS.find((d) => d.level === level);
+          diffLabelEl.textContent = `${t("ui.current_difficulty")}: ${tier?.name} (${t("ui.tier")} ${level})`;
+        }
       };
     });
 
