@@ -41,7 +41,7 @@ export class HitResolver {
           if (p.cadenceTimer <= 0) p.cadenceStacks = 0;
         }
         const wallHit = world.segmentHitsArenaObstacle?.(before, p.position, p.radius * 0.55);
-        if (wallHit) this._vsArena(p, wallHit.point);
+        if (wallHit) this._vsArena(p, wallHit.point, wallHit);
         if (p.alive) {
           if (p.faction === "player") this._vsEnemies(p);
           else this._vsPlayer(p);
@@ -54,7 +54,7 @@ export class HitResolver {
     }
   }
 
-  _vsArena(p, point) {
+  _vsArena(p, point, hit) {
     p.mesh.position.copy(point);
     const s = p.spell;
     if (s.castType === "projectile_aoe") {
@@ -62,6 +62,13 @@ export class HitResolver {
       this.world.audio.explosion();
     } else {
       this._impact(point, s, p);
+      // Extra visual feedback when a projectile is blocked by a platform
+      // or tower wall — bright spark helps players understand elevation
+      // blocked their shot.
+      if (hit?.obstacle?.platformTop !== undefined) {
+        this.world.vfx.burst(point, 0xffdd44, 8, 4, 0.35, 0.12);
+        this.world.vfx.flash(point, 0xffdd44, 0.5, 0.15);
+      }
     }
     p.expire(true);
   }
