@@ -22,6 +22,7 @@ import {
 import { applyDamage, setRunStats } from "./Damage.js";
 import {
   findSafeDestination,
+  getElevationAt,
   isCircleClear,
   pointInRect,
   rectContainsPoint,
@@ -72,7 +73,7 @@ function deepMergeSettings(current, next) {
 export class Game {
   constructor(initialSettings = DEFAULT_SETTINGS, initialProfile = cloneDefaultProfile()) {
     this.state = STATE.MENU;
-    this.arenaBounds = { half: 40, h: 14, obstacles: [], hazards: [] };
+    this.arenaBounds = { half: 40, h: 14, obstacles: [], hazards: [], walkableSurfaces: [] };
     this.selectedSpellId = STARTER_SPELL_ID;
     this.difficultyLevel = 1;
     this.settings = sanitizeSettings(initialSettings);
@@ -166,6 +167,7 @@ export class Game {
       segmentHitsArenaObstacle: (from, to, radius = 0.1) => segmentHitsObstacles(from, to, radius, self.arenaBounds.obstacles),
       hasLineOfSight: (from, to, radius = 0.1) => !segmentHitsObstacles(from, to, radius, self.arenaBounds.obstacles),
       findSafeBlinkDestination: (from, to, radius) => findSafeDestination(from, to, radius, self.arenaBounds.obstacles),
+      getElevationAt: (x, z) => getElevationAt(x, z, self.arenaBounds.walkableSurfaces),
       get blink() { return self.blink; },
       get shieldView() { return self.shieldView; },
       get staffView() { return self.staffView; },
@@ -456,11 +458,12 @@ export class Game {
     this.scene.add(group);
     this.arenaBounds.obstacles = [];
     this.arenaBounds.hazards = [];
+    this.arenaBounds.walkableSurfaces = [];
     this.arenaBounds.layoutFeatures = { gates: [], hazards: this.arenaBounds.hazards };
     this._hazardMeshes = [];
     this._inHazardLast = false;
 
-    const layouts = ["lanes", "cross", "cover", "gates", "rift"];
+    const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated"];
     const kind = forced || layouts[Math.floor(Math.random() * layouts.length)];
     this.arenaLayoutName = kind;
 
@@ -504,6 +507,39 @@ export class Game {
       this.arenaBounds.hazards.push(hazard);
       return hazard;
     };
+    // Raised flat platform. The box body is a solid obstacle at floor level; entities
+    // whose Y >= elevation bypass horizontal collision (they are standing on top).
+    const addPlatform = ({ x, z, w, d, elevation }) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, elevation, d), this._coverMat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.position.set(x, elevation / 2, z);
+      group.add(mesh);
+      const obstacle = { x, z, w, d, h: elevation, platformTop: elevation };
+      this.arenaBounds.obstacles.push(obstacle);
+      this.arenaBounds.walkableSurfaces.push({ type: "platform", x, z, w, d, elevation });
+    };
+    // Ramp connecting two elevations linearly along one axis.
+    // elevStart is the elevation at the negative-axis end; elevEnd at the positive-axis end.
+    const addRamp = ({ x, z, w, d, axis, elevStart, elevEnd }) => {
+      const h = Math.abs(elevStart - elevEnd);
+      const slopeLen = Math.sqrt(d * d + h * h);
+      const tiltAngle = Math.atan2(h, d);
+      const yCenter = (elevStart + elevEnd) / 2;
+      const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.22, slopeLen), this._coverMat);
+      rampMesh.castShadow = true;
+      rampMesh.receiveShadow = true;
+      rampMesh.position.set(x, yCenter, z);
+      // Positive X rotation raises the negative-Z local end → matches elevStart > elevEnd case.
+      rampMesh.rotation.x = (axis === "z")
+        ? (elevStart > elevEnd ? tiltAngle : -tiltAngle)
+        : 0;
+      rampMesh.rotation.z = (axis === "x")
+        ? (elevStart > elevEnd ? -tiltAngle : tiltAngle)
+        : 0;
+      group.add(rampMesh);
+      this.arenaBounds.walkableSurfaces.push({ type: "ramp", x, z, w, d, axis, elevStart, elevEnd });
+    };
 
     if (kind === "lanes") {
       addBlocker({ x: -13, z: -4, w: 4, d: 24, mat: this._gateMat });
@@ -536,6 +572,18 @@ export class Game {
       addBlocker({ x: 15, z: -15, w: 3.3, d: 12 });
       addHazard({ x: 0, z: 0, w: 34, d: 3.2 });
       addHazard({ x: 0, z: 0, w: 3.2, d: 34 });
+    } else if (kind === "elevated") {
+      // Raised platform (z=-22 to -14) connected to the floor by a south ramp (z=-14 to -10).
+      // The platform body blocks horizontal movement at floor level; entities on top (Y≥3)
+      // pass through its collision via the platformTop field.
+      addPlatform({ x: 0, z: -18, w: 16, d: 8, elevation: 3.0 });
+      // South ramp: elevStart=3 at z=-14 (negative-Z end), elevEnd=0 at z=-10 (positive-Z end).
+      addRamp({ x: 0, z: -12, w: 10, d: 4, axis: "z", elevStart: 3.0, elevEnd: 0.0 });
+      // Floor-level cover giving players shelter before approaching the ramp.
+      addBlocker({ x: -22, z: 5, w: 6, d: 3.2 });
+      addBlocker({ x: 22, z: 5, w: 6, d: 3.2 });
+      addPillar(-14, -5, 1.6);
+      addPillar(14, -5, 1.6);
     } else {
       addPillar(-16, -16);
       addPillar(16, -16);
@@ -815,7 +863,8 @@ export class Game {
       { x: 22, z: -22 },
     ];
     const safe = candidates.find(clear) || { x: 0, z: 0 };
-    this.player.feet.set(safe.x, 0, safe.z);
+    const safeElev = getElevationAt(safe.x, safe.z, this.arenaBounds.walkableSurfaces);
+    this.player.feet.set(safe.x, safeElev, safe.z);
     this.player.vel.set(0, 0, 0);
     this.player.velY = 0;
     this.player._syncCamera();

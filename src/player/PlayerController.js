@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { Health } from "../core/Health.js";
-import { resolveCircleAgainstObstacles } from "../core/ArenaCollision.js";
+import { getElevationAt, resolveCircleAgainstObstacles } from "../core/ArenaCollision.js";
 
 const EYE = 1.7;
 const SPEED = 9.5;
@@ -106,13 +106,15 @@ export class PlayerController {
     this.feet.z += this.vel.z * dt;
     this._resolveArena();
 
-    // Jump + gravity.
+    // Jump + gravity. Ground level is 0 (floor) or the walkable surface elevation at
+    // the current XZ position (ramp / raised platform).
     if (input.down("Space") && this.grounded) {
       this.velY = JUMP_V; this.grounded = false;
     }
     this.velY -= GRAVITY * dt;
     this.feet.y += this.velY * dt;
-    if (this.feet.y <= 0) { this.feet.y = 0; this.velY = 0; this.grounded = true; }
+    const surfaceY = getElevationAt(this.feet.x, this.feet.z, this.bounds.walkableSurfaces || []);
+    if (this.feet.y <= surfaceY) { this.feet.y = surfaceY; this.velY = 0; this.grounded = true; }
 
     // Arena collision (stay inside walls).
     const lim = this.bounds.half - this.radius;

@@ -17,6 +17,7 @@ import runDifficultyUnlock from "./scenarios/difficultyUnlock.js";
 import runSpellMechanicsValidate from "./scenarios/spellMechanicsValidate.js";
 import runI18nValidate from "./scenarios/i18nValidate.js";
 import runEnemyVariantsValidate from "./scenarios/enemyVariantsValidate.js";
+import runElevationValidate from "./scenarios/elevationValidate.js";
 
 const SCENARIOS = {
   "boot-start-menu": runBootStartMenu,
@@ -37,6 +38,7 @@ const SCENARIOS = {
   "spell-mechanics-validate": runSpellMechanicsValidate,
   "i18n-validate": runI18nValidate,
   "enemy-variants-validate": runEnemyVariantsValidate,
+  "elevation-validate": runElevationValidate,
 };
 
 async function runSingleScenario(game, scenario) {

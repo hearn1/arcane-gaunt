@@ -8,8 +8,37 @@ export function pointInRect(pos, rect, radius = 0) {
   return pos.x >= minX && pos.x <= maxX && pos.z >= minZ && pos.z <= maxZ;
 }
 
+// Returns the walkable surface elevation (Y) at the given XZ position.
+// Ramps interpolate linearly along their axis; platforms return a flat elevation.
+// Falls back to 0 (floor) if no surface covers the position.
+export function getElevationAt(x, z, walkableSurfaces = []) {
+  let maxElev = 0;
+  for (const s of walkableSurfaces) {
+    if (Math.abs(x - s.x) > s.w / 2 || Math.abs(z - s.z) > s.d / 2) continue;
+    let elev;
+    if (s.type === "ramp") {
+      const t = s.axis === "z"
+        ? (z - (s.z - s.d / 2)) / s.d
+        : (x - (s.x - s.w / 2)) / s.w;
+      elev = s.elevStart + THREE.MathUtils.clamp(t, 0, 1) * (s.elevEnd - s.elevStart);
+    } else {
+      elev = s.elevation;
+    }
+    if (elev > maxElev) maxElev = elev;
+  }
+  return maxElev;
+}
+
+// An obstacle with platformTop means entities whose Y >= platformTop bypass its
+// horizontal collision (they are walking on top of it).
+function _obstacleBlocksAt(o, posY) {
+  if (o.solid === false) return false;
+  if (o.platformTop !== undefined && posY !== undefined && posY >= o.platformTop - 0.15) return false;
+  return true;
+}
+
 export function isCircleClear(pos, radius, obstacles = []) {
-  return !obstacles.some((o) => o.solid !== false && pointInRect(pos, o, radius));
+  return !obstacles.some((o) => _obstacleBlocksAt(o, pos.y) && pointInRect(pos, o, radius));
 }
 
 export function resolveCircleAgainstObstacles(pos, radius, obstacles = []) {
@@ -17,7 +46,7 @@ export function resolveCircleAgainstObstacles(pos, radius, obstacles = []) {
   for (let pass = 0; pass < 3; pass++) {
     let passMoved = false;
     for (const o of obstacles) {
-      if (o.solid === false || !pointInRect(pos, o, radius)) continue;
+      if (!_obstacleBlocksAt(o, pos.y) || !pointInRect(pos, o, radius)) continue;
       const minX = o.x - o.w / 2 - radius;
       const maxX = o.x + o.w / 2 + radius;
       const minZ = o.z - o.d / 2 - radius;
@@ -42,6 +71,12 @@ export function segmentHitsObstacles(from, to, radius, obstacles = []) {
   let best = null;
   for (const o of obstacles) {
     if (o.solid === false) continue;
+    // Skip platform walls when both endpoints are on top (e.g. both entities on platform).
+    if (o.platformTop !== undefined) {
+      const fy = from.y !== undefined ? from.y : 0;
+      const ty = to.y !== undefined ? to.y : 0;
+      if (fy >= o.platformTop - 0.15 && ty >= o.platformTop - 0.15) continue;
+    }
     const hit = segmentHitsRect(from, to, o, radius);
     if (hit && (!best || hit.t < best.t)) best = { ...hit, obstacle: o };
   }
