@@ -77,6 +77,21 @@
   .spell-choice.selected { border-color: var(--accent2); box-shadow: 0 0 18px rgba(92,200,255,0.28); }
   .spell-choice-name { font-size: 16px; font-weight: 800; }
   .spell-choice-desc { color: #a9a4c8; font-size: 12px; line-height: 1.4; }
+  #difficulty-select { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    width: min(980px, 96vw); pointer-events: auto; }
+  .diff-pill { display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 3px; padding: 10px 18px; min-width: 108px; cursor: pointer; font: inherit;
+    background: rgba(14,12,28,0.78); border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 8px; color: #d8d4ef;
+    transition: transform .08s ease, border-color .15s ease, box-shadow .15s ease; }
+  .diff-pill:focus-visible { outline: 3px solid var(--accent2); outline-offset: 3px; }
+  .diff-pill:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(154,108,255,0.75); }
+  .diff-pill.selected { border-color: var(--accent2); box-shadow: 0 0 18px rgba(92,200,255,0.28);
+    background: rgba(92,200,255,0.07); }
+  .diff-pill.locked { opacity: 0.42; cursor: not-allowed; }
+  .diff-pill-name { font-size: 14px; font-weight: 700; }
+  .diff-pill-level { font-size: 11px; color: #8d88ad; }
+  .current-diff-label { font-size: 13px; color: var(--accent2); font-weight: 700; letter-spacing: 0.5px; }
   #settings-panel { width: min(560px, 94vw); background: var(--panel);
     border: 1px solid #4a4470; border-radius: 8px; padding: 20px;
     display: flex; flex-direction: column; gap: 16px; pointer-events: auto; text-align: left; }

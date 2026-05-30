@@ -93,4 +93,48 @@ export default async function runDifficultyUnlockSmoke(game, result) {
     assert(game.caster.loadout[0].definitionId === "arcane_bolt",
       `Expected arcane_bolt fallback, got ${game.caster.loadout[0].definitionId}`);
   });
+
+  await step(result, "clicking an unlocked non-default tier updates game.difficultyLevel", async () => {
+    const profile = cloneDefaultProfile();
+    profile.unlocks.unlockedTiers = [1, 2, 3];
+    game.profile = profile;
+    game.difficultyLevel = 1;
+    game.showMainMenu();
+    await nextFrame();
+    const tier3Btn = document.querySelector(".diff-pill[data-diff='3']");
+    assert(!!tier3Btn, "Tier 3 pill not found in DOM");
+    assert(!tier3Btn.disabled, "Tier 3 pill should be enabled for unlocked tier");
+    tier3Btn.click();
+    assert(game.difficultyLevel === 3, `Expected difficultyLevel 3, got ${game.difficultyLevel}`);
+    const label = document.getElementById("current-diff-label");
+    assert(!!label, "current-diff-label element not found");
+    assert(label.textContent.includes("Adept"), `Expected label to include 'Adept', got: ${label.textContent}`);
+    const selectedPills = document.querySelectorAll(".diff-pill.selected");
+    assert(selectedPills.length === 1, `Expected 1 selected pill, got ${selectedPills.length}`);
+    assert(selectedPills[0].dataset.diff === "3", "Wrong pill is marked selected");
+  });
+
+  await step(result, "startRun after tier selection uses selected difficultyLevel", async () => {
+    game.difficultyLevel = 2;
+    game.startRun("arcane_bolt");
+    await nextFrame();
+    assert(game.state === "focus" || game.state === "playing",
+      `Expected focus or playing state, got ${game.state}`);
+    assert(game.difficultyLevel === 2, `difficultyLevel changed unexpectedly, got ${game.difficultyLevel}`);
+    game.toMenu();
+    await nextFrame();
+  });
+
+  await step(result, "locked tier pill is disabled and cannot be clicked", async () => {
+    const profile = cloneDefaultProfile();
+    game.profile = profile;
+    game.difficultyLevel = 1;
+    game.showMainMenu();
+    await nextFrame();
+    const tier2Btn = document.querySelector(".diff-pill[data-diff='2']");
+    assert(!!tier2Btn, "Tier 2 pill not found");
+    assert(tier2Btn.disabled, "Tier 2 pill should be disabled for locked tier");
+    tier2Btn.click();
+    assert(game.difficultyLevel === 1, `Locked tier click should not change difficultyLevel, got ${game.difficultyLevel}`);
+  });
 }

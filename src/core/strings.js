@@ -6,6 +6,7 @@ export const EN_STRINGS = Object.freeze({
   "ui.arcane_gaunt": "Arcane Gaunt",
   "ui.arcane_gaunt_title": "ARCANE GAUNT",
   "ui.choose_difficulty": "Choose Difficulty",
+  "ui.current_difficulty": "Current",
   "ui.choose_run_spell": "Choose Spell",
   "ui.start_run": "Start Run",
   "ui.settings": "Settings",
