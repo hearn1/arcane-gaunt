@@ -44,20 +44,30 @@ Source packs:
 | `assets/audio/wave_clear.ogg` | `bong_001.ogg` | Interface Sounds | Kenney | CC0 1.0 |
 | `assets/audio/game_over.ogg` | `error_006.ogg` | Interface Sounds | Kenney | CC0 1.0 |
 
-### Music tracks (Patrick de Arteaga, Creative Commons attribution)
+### Music tracks
+
+#### Patrick de Arteaga — menu and ambient tracks (CC BY)
 
 Source: https://patrickdearteaga.com/en/epic-orchestral-fantasy-medieval-music/
 
-All tracks are loop-ready OGG Vorbis files. License requires attribution — provide
-a link to https://patrickdearteaga.com or credit "Patrick de Arteaga" in your project.
+License requires attribution — credit "Patrick de Arteaga" and link to https://patrickdearteaga.com.
 
 | File in repo | Original title | Author | License |
 |---|---|---|---|
 | `assets/audio/music/menu_loop.ogg` | New Hope | Patrick de Arteaga | CC BY (attribution) |
 | `assets/audio/music/arena_calm.ogg` | Spring Village | Patrick de Arteaga | CC BY (attribution) |
-| `assets/audio/music/arena_combat.ogg` | Battleship | Patrick de Arteaga | CC BY (attribution) |
-| `assets/audio/music/boss_bed.ogg` | Goliath's Foe | Patrick de Arteaga | CC BY (attribution) |
 | `assets/audio/music/boss_enrage.ogg` | Boss Fight | Patrick de Arteaga | CC BY (attribution) |
+
+#### Eric Matyas (Soundimage.org) — combat and boss tracks (CC BY 4.0)
+
+Source: https://soundimage.org/epic-battle/
+
+License: CC BY 4.0 — credit "Eric Matyas" and link to https://soundimage.org.
+
+| File in repo | Original title | Author | License |
+|---|---|---|---|
+| `assets/audio/music/arena_combat.ogg` | Into Battle_v001 | Eric Matyas | CC BY 4.0 |
+| `assets/audio/music/boss_bed.ogg` | Battle of the Ancients | Eric Matyas | CC BY 4.0 |
 
 ### Textures (ambientCG, CC0)
 

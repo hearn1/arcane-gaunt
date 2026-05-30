@@ -202,9 +202,7 @@ export class Game {
           self.audio?.playMusic("boss_bed", { loop: true, fadeIn: 1.0 });
           self._isBossWave = true;
         } else {
-          if (self._isBossWave) {
-            self.audio?.playMusic("arena_calm", { loop: true, fadeIn: 0.8 });
-          }
+          self.audio?.playMusic("arena_combat", { loop: true, fadeIn: self._isBossWave ? 0.8 : 0.5 });
           self._isBossWave = false;
         }
         if (bossPattern) self.onboarding?.triggerIf(self.world, "boss_spawn");
