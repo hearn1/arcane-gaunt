@@ -100,6 +100,9 @@ export class Enemy {
     this.chillMaxStacks = 3;
     this.chillSlowPerStack = 0.2;
     this.dots = []; // { perTick, tickRate, acc, timeLeft, source }
+    this.fireCdMult = 1;
+    this.shotDamageMult = 1;
+    this._baseEmissive = 0x000000;
 
     // Unstuck nudge state: when _moveTo's actual displacement falls well short
     // of expected (i.e. enemy is grinding a blocker), accumulate stuck time and
@@ -212,7 +215,7 @@ export class Enemy {
     this._setEmissive(0x884444);
     clearTimeout(this._ft);
     this._ft = setTimeout(() => {
-      if (this.alive && this.slowTimer <= 0) this._setEmissive(0x000000);
+      if (this.alive && this.slowTimer <= 0) this._setEmissive(this._baseEmissive);
     }, 90);
   }
 
@@ -221,7 +224,7 @@ export class Enemy {
       this.slowTimer -= dt;
       if (this.slowTimer <= 0) {
         this.slowFactor = 1;
-        this._setEmissive(0x000000);
+        this._setEmissive(this._baseEmissive);
       }
     }
     if (this.chillStacks > 0) {
@@ -379,6 +382,7 @@ export class Enemy {
   _shoot(attackKey) {
     const def = ENEMY_ATTACKS[attackKey];
     const spell = new SpellInstance(def, true);
+    if (this.shotDamageMult !== 1) spell.stats.damage = Math.max(1, Math.round(spell.stats.damage * this.shotDamageMult));
     const from = this.mesh.position.clone(); from.y = this.eyeH;
     const target = this.world.player.position.clone();
     const dir = target.sub(from).normalize();
@@ -491,7 +495,7 @@ export class RangedEnemy extends Enemy {
     if (info.dist > this.desired + 3) this._moveTo(info.dir, 1, dt);
     else if (info.dist < this.desired - 3) this._moveTo(info.dir.clone().negate(), 0.8, dt);
     this.fireCd -= dt;
-    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("ranged_bolt"); this.fireCd = 2.2; }
+    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("ranged_bolt"); this.fireCd = 2.2 * this.fireCdMult; }
   }
 }
 
@@ -683,7 +687,7 @@ export class MageEnemy extends Enemy {
     if (info.dist > this.desired + 4) this._moveTo(info.dir, 1, dt);
     else if (info.dist < this.desired - 4) this._moveTo(info.dir.clone().negate(), 0.7, dt);
     this.fireCd -= dt;
-    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 3.6; }
+    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 3.6 * this.fireCdMult; }
   }
 }
 
@@ -704,7 +708,7 @@ export class EliteEnemy extends Enemy {
     }
     this._moveTo(info.dir, 1, dt);
     this.fireCd -= dt;
-    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 2.6; }
+    if (this.fireCd <= 0 && info.dist < 60) { this._shoot("mage_orb"); this.fireCd = 2.6 * this.fireCdMult; }
   }
 }
 
