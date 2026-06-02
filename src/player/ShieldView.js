@@ -22,18 +22,20 @@ export class ShieldView {
     };
 
     // --- Rim: torus ring that reads unmistakably as a circular shield edge ---
-    const rimGeo = new THREE.TorusGeometry(0.32, 0.022, 8, 56);
+    // FOV is 78° vertical, aspect ~1.33. At z=-1.40 the view extends ±1.13 v / ±1.51 h.
+    // Center at (-1.40, -1.00) sits near the screen's bottom-left corner so most of the
+    // disc is off-screen and only the upper-right arc reads as a held shield.
+    const rimGeo = new THREE.TorusGeometry(0.40, 0.024, 8, 56);
     this._rimMat = new THREE.MeshBasicMaterial({ ...baseOpts });
     this.rim = new THREE.Mesh(rimGeo, this._rimMat);
-    // Left-arm hold: slightly left of centre, low in view, angled toward player
-    this.rim.position.set(-0.2, -0.22, -0.52);
-    this.rim.rotation.x = 0.22;   // tilt top away from viewer
-    this.rim.rotation.y = -0.08;  // turn slightly right so left edge is visible
+    this.rim.position.set(-1.40, -1.00, -1.40);
+    this.rim.rotation.x = 0.25;
+    this.rim.rotation.y = -0.18;
     this.rim.renderOrder = 998;
     this.group.add(this.rim);
 
     // --- Face: very transparent disc inside the rim ---
-    const faceGeo = new THREE.CircleGeometry(0.31, 48);
+    const faceGeo = new THREE.CircleGeometry(0.386, 48);
     this._faceMat = new THREE.MeshBasicMaterial({ ...baseOpts, side: THREE.DoubleSide });
     this.face = new THREE.Mesh(faceGeo, this._faceMat);
     this.face.position.copy(this.rim.position);
@@ -42,10 +44,10 @@ export class ShieldView {
     this.group.add(this.face);
 
     // --- Outer glow halo (larger ring, fades outward) ---
-    const glowGeo = new THREE.TorusGeometry(0.38, 0.055, 8, 56);
+    const glowGeo = new THREE.TorusGeometry(0.52, 0.048, 8, 56);
     this._glowMat = new THREE.MeshBasicMaterial({ ...baseOpts });
     this.glow = new THREE.Mesh(glowGeo, this._glowMat);
-    this.glow.position.copy(this.rim.position);
+    this.glow.position.set(-1.40, -1.00, -1.40);
     this.glow.rotation.copy(this.rim.rotation);
     this.glow.renderOrder = 996;
     this.group.add(this.glow);
