@@ -21,9 +21,17 @@ export class Blink {
   trigger() {
     if (!this.ready || this.player.health.isDead) return;
 
-    // Blink along horizontal look direction (or current motion if mostly idle).
-    const f = this.player.forward();
-    let dir = new THREE.Vector3(f.x, 0, f.z);
+    // Blink along the current movement intent (W/A/S/D / stick). When idle —
+    // no movement input — fall back to the horizontal look direction so
+    // stationary blinks still dash toward the crosshair.
+    let dir = new THREE.Vector3();
+    const wish = this.player.moveWish;
+    if (wish && wish.lengthSq() > 1e-4) {
+      dir.set(wish.x, 0, wish.z);
+    } else {
+      const f = this.player.forward();
+      dir.set(f.x, 0, f.z);
+    }
     if (dir.lengthSq() < 1e-4) dir.set(0, 0, -1);
     dir.normalize();
 

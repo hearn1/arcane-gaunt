@@ -23,6 +23,9 @@ export class PlayerController {
     this.grounded = true;
     this.radius = 0.8;
     this.vel = new THREE.Vector3();
+    // Last normalized horizontal movement intent (W/A/S/D or left stick). Zero
+    // length when idle. Used by Blink to dash toward where the player is moving.
+    this.moveWish = new THREE.Vector3();
     this.lookSens = BASE_LOOK_SENS;
     this.stickLookSensitivity = 1;
     this.invertY = false;
@@ -40,6 +43,7 @@ export class PlayerController {
     this.feet.set(0, 0, 8);
     this.yaw = 0; this.pitch = 0;
     this.velY = 0; this.vel.set(0, 0, 0);
+    this.moveWish.set(0, 0, 0);
     this.health.max = 100;
     this.health.current = 100;
     this.health.isDead = false;
@@ -93,6 +97,10 @@ export class PlayerController {
         wish.add(fwd.clone().multiplyScalar(-sy));
       }
     }
+    // Record the normalized horizontal movement intent before speed scaling so
+    // Blink can dash along it. Stays zero-length when there is no input (idle).
+    if (wish.lengthSq() > 0) this.moveWish.copy(wish).normalize();
+    else this.moveWish.set(0, 0, 0);
     let moveMul = this.block && this.block.blocking ? 0.55 : 1;
     // Brief speed pulse right after a perfect block (rides the existing 0.42s VFX timer).
     if (this.block && this.block.perfectPulse > 0) moveMul *= 1.2;
