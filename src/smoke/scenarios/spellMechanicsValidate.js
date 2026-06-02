@@ -125,4 +125,41 @@ export default async function runSpellMechanicsValidate(game, result) {
 
     assert(enemy.health.current < initialHp, "Enemy should have taken burn patch damage");
   });
+
+  await step(result, "blink dashes along movement direction, falling back to look when idle", async () => {
+    const player = game.player;
+    const blink = game.blink;
+
+    // Face -Z (yaw 0) and stand at the arena center so the dash has room.
+    player.yaw = 0;
+    player.feet.set(0, 0, 0);
+    player._syncCamera();
+
+    // Idle (no movement input): blink follows the look direction (-Z).
+    player.moveWish.set(0, 0, 0);
+    blink.reset();
+    blink.trigger();
+    assert(player.feet.z < -1, `Idle blink should dash toward crosshair (-Z), got z=${player.feet.z}`);
+    assert(Math.abs(player.feet.x) < 0.5, `Idle blink should not drift sideways, got x=${player.feet.x}`);
+
+    // Moving left (strafe) with the same -Z facing: blink follows movement (-X),
+    // proving the dash tracks motion rather than the crosshair.
+    player.yaw = 0;
+    player.feet.set(0, 0, 0);
+    player._syncCamera();
+    player.moveWish.set(-1, 0, 0);
+    blink.reset();
+    blink.trigger();
+    assert(player.feet.x < -1, `Left-strafe blink should dash left (-X), got x=${player.feet.x}`);
+    assert(Math.abs(player.feet.z) < 0.5, `Left-strafe blink should not move along look axis, got z=${player.feet.z}`);
+
+    // Moving backward (+Z) while still facing -Z: blink goes backward, not forward.
+    player.yaw = 0;
+    player.feet.set(0, 0, 0);
+    player._syncCamera();
+    player.moveWish.set(0, 0, 1);
+    blink.reset();
+    blink.trigger();
+    assert(player.feet.z > 1, `Backward blink should dash backward (+Z), got z=${player.feet.z}`);
+  });
 }
