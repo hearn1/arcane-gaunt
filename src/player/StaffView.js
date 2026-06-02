@@ -21,42 +21,43 @@ function _particleTexture() {
 export class StaffView {
   constructor() {
     this.group = new THREE.Group();
-    // Lower-right: bottom of shaft sits at bottom-right corner, tip angles upper-left
-    this.group.position.set(0.28, -0.45, -0.42);
+    // Bottom of shaft anchors below/right of screen; gem sits at centre-right
+    // z=-0.72 puts geometry far enough back that it reads as a held staff, not a wall
+    this.group.position.set(0.62, -0.75, -0.9);
     this.group.rotation.z = BASE_TILT_Z;
 
-    const shaftGeo = new THREE.CylinderGeometry(0.04, 0.058, 0.82, 10);
+    const shaftGeo = new THREE.CylinderGeometry(0.04, 0.058, 0.65, 10);
     const shaftMat = new THREE.MeshBasicMaterial({
       color: STAFF_WOOD,
       depthTest: false,
       depthWrite: false,
     });
     this.shaft = new THREE.Mesh(shaftGeo, shaftMat);
-    this.shaft.position.y = 0.41;
+    this.shaft.position.y = 0.325;
     this.shaft.renderOrder = 999;
     this.group.add(this.shaft);
 
-    const gemGeo = new THREE.SphereGeometry(0.1, 14, 14);
+    const gemGeo = new THREE.SphereGeometry(0.075, 14, 14);
     this._gemMat = new THREE.MeshBasicMaterial({
       color: DEFAULT_GEM_COLOR,
       depthTest: false,
       depthWrite: false,
     });
     this.gem = new THREE.Mesh(gemGeo, this._gemMat);
-    this.gem.position.y = 0.87;
+    this.gem.position.y = 0.70;
     this.gem.renderOrder = 999;
     this.group.add(this.gem);
 
     this._tipHelper = new THREE.Object3D();
-    this._tipHelper.position.y = 0.98;
+    this._tipHelper.position.y = 0.78;
     this.group.add(this._tipHelper);
 
     this._time = 0;
     this._recoilTimer = 0;
     this._flashTimer = 0;
     this._flashColor = DEFAULT_GEM_COLOR;
-    this._targetY = -0.45;
-    this._targetZ = -0.42;
+    this._targetY = -0.75;
+    this._targetZ = -0.9;
     this._bobPhase = 0;
 
     this._particleTex = _particleTexture();
@@ -85,8 +86,8 @@ export class StaffView {
     const bobRot = moving ? Math.sin(this._bobPhase * 0.5) * 0.02 : 0;
 
     const blocking = !!(block && block.blocking);
-    const targetY = blocking ? -0.55 : -0.45;
-    const targetZ = blocking ? -0.34 : -0.42;
+    const targetY = blocking ? -0.85 : -0.75;
+    const targetZ = blocking ? -0.78 : -0.9;
 
     this._targetY += (targetY - this._targetY) * Math.min(1, dt * 12);
     this._targetZ += (targetZ - this._targetZ) * Math.min(1, dt * 12);
