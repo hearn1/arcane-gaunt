@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 const DEFAULT_GEM_COLOR = 0x9a6cff;
 const STAFF_WOOD = 0x5c3a1e;
+const BASE_TILT_Z = -0.38; // diagonal hold angle
 
 function _particleTexture() {
   const canvas = document.createElement("canvas");
@@ -20,30 +21,31 @@ function _particleTexture() {
 export class StaffView {
   constructor() {
     this.group = new THREE.Group();
-    this.group.position.set(0.35, -0.35, -0.6);
+    this.group.position.set(0.44, -0.52, -0.5);
+    this.group.rotation.z = BASE_TILT_Z;
 
-    const shaftGeo = new THREE.CylinderGeometry(0.025, 0.035, 0.5, 8);
+    const shaftGeo = new THREE.CylinderGeometry(0.035, 0.052, 0.75, 10);
     const shaftMat = new THREE.MeshBasicMaterial({ color: STAFF_WOOD });
     this.shaft = new THREE.Mesh(shaftGeo, shaftMat);
-    this.shaft.position.y = 0.25;
+    this.shaft.position.y = 0.375;
     this.group.add(this.shaft);
 
-    const gemGeo = new THREE.SphereGeometry(0.07, 12, 12);
+    const gemGeo = new THREE.SphereGeometry(0.09, 12, 12);
     this._gemMat = new THREE.MeshBasicMaterial({ color: DEFAULT_GEM_COLOR });
     this.gem = new THREE.Mesh(gemGeo, this._gemMat);
-    this.gem.position.y = 0.55;
+    this.gem.position.y = 0.8;
     this.group.add(this.gem);
 
     this._tipHelper = new THREE.Object3D();
-    this._tipHelper.position.y = 0.62;
+    this._tipHelper.position.y = 0.9;
     this.group.add(this._tipHelper);
 
     this._time = 0;
     this._recoilTimer = 0;
     this._flashTimer = 0;
     this._flashColor = DEFAULT_GEM_COLOR;
-    this._targetY = -0.35;
-    this._targetZ = -0.6;
+    this._targetY = -0.52;
+    this._targetZ = -0.5;
     this._bobPhase = 0;
 
     this._particleTex = _particleTexture();
@@ -72,8 +74,8 @@ export class StaffView {
     const bobRot = moving ? Math.sin(this._bobPhase * 0.5) * 0.02 : 0;
 
     const blocking = !!(block && block.blocking);
-    const targetY = blocking ? -0.45 : -0.35;
-    const targetZ = blocking ? -0.5 : -0.6;
+    const targetY = blocking ? -0.62 : -0.52;
+    const targetZ = blocking ? -0.4 : -0.5;
 
     this._targetY += (targetY - this._targetY) * Math.min(1, dt * 12);
     this._targetZ += (targetZ - this._targetZ) * Math.min(1, dt * 12);
@@ -88,7 +90,7 @@ export class StaffView {
 
     this.group.position.y = this._targetY + bobY;
     this.group.rotation.x = bobRot + Math.sin(this._time * 1.2) * 0.015;
-    this.group.rotation.z = Math.sin(this._time * 0.7) * 0.01;
+    this.group.rotation.z = BASE_TILT_Z + Math.sin(this._time * 0.7) * 0.01;
 
     if (this._flashTimer > 0) {
       this._flashTimer -= dt;

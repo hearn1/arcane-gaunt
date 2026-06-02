@@ -95,6 +95,7 @@ export class Game {
     this.scene.fog = new THREE.FogExp2(0x0a0a14, 0.008);
 
     this.camera = new THREE.PerspectiveCamera(this.settings.display.fov, innerWidth / innerHeight, 0.1, 400);
+    this.scene.add(this.camera);
 
     this.shieldView = new ShieldView();
     this.shieldView.attach(this.camera);
