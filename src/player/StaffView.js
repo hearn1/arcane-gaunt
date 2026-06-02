@@ -143,13 +143,15 @@ export class StaffView {
         depthWrite: false,
       });
       const sprite = new THREE.Sprite(mat);
-      sprite.position.set(0, 0.62, 0);
+      // Scale to ~0.04 world units — default sprite scale of 1 is enormous at z=-0.9
+      sprite.scale.setScalar(0.045);
+      sprite.position.set(0, 0.70, 0); // gem tip
       const vel = new THREE.Vector3(
-        (Math.random() - 0.5) * 3,
-        Math.random() * 2 + 0.5,
-        (Math.random() - 0.5) * 3,
+        (Math.random() - 0.5) * 0.8,
+        Math.random() * 0.6 + 0.2,
+        (Math.random() - 0.5) * 0.8,
       );
-      const life = 0.3 + Math.random() * 0.25;
+      const life = 0.25 + Math.random() * 0.15;
       this.group.add(sprite);
       this._particles.push({ sprite, vel, life, maxLife: life, mat });
     }

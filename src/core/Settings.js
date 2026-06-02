@@ -88,7 +88,7 @@ export function sanitizeSettings(input = {}) {
     },
     display: {
       fullscreen: !!input.display?.fullscreen,
-      viewmodel: !!input.display?.viewmodel,
+      viewmodel: input.display?.viewmodel !== false,
       fov: clampNumber(input.display?.fov, 60, 110, DEFAULT_SETTINGS.display.fov),
       colorblindMode: !!input.display?.colorblindMode,
       screenShake: input.display?.screenShake !== false,
