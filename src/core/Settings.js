@@ -19,7 +19,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     keyBindings: Object.freeze({
       cast: "Mouse0",
       block: "Mouse2",
-      blink: "Space",
+      blink: "ShiftLeft",
       pause: "Escape",
     }),
   }),
@@ -55,7 +55,10 @@ function clampNumber(value, min, max, fallback) {
 function sanitizeKeyBindings(input) {
   const defaults = DEFAULT_SETTINGS.controls.keyBindings;
   if (!input || typeof input !== "object") return { ...defaults };
-  return { ...defaults, ...input.keyBindings };
+  const merged = { ...defaults, ...input.keyBindings };
+  // Migrate old profiles that set blink to Space — Space is reserved for jump.
+  if (merged.blink === "Space") merged.blink = "ShiftLeft";
+  return merged;
 }
 
 function option(value, allowed, fallback) {

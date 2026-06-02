@@ -350,7 +350,7 @@ const settingsButton = onSettings
     const actions = [
       { key: "cast", label: t("binding.cast"), default: "Mouse0" },
       { key: "block", label: t("binding.block"), default: "Mouse2" },
-      { key: "blink", label: t("binding.blink"), default: "Space" },
+      { key: "blink", label: t("binding.blink"), default: "ShiftLeft" },
       { key: "pause", label: t("binding.pause"), default: "Escape" },
     ];
     return actions.map((a) => `

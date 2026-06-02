@@ -32,7 +32,7 @@ export class Input {
       if (e.code >= "Digit1" && e.code <= "Digit9") {
         this._selectSpell = parseInt(e.code.slice(5), 10);
       }
-      if (e.code === this._bindings?.blink || e.code === "ShiftLeft" || e.code === "KeyQ") {
+      if ((e.code === this._bindings?.blink && e.code !== "Space") || e.code === "ShiftLeft" || e.code === "KeyQ") {
         if (this.onBlink) this.onBlink();
       }
       if (e.code === this._bindings?.pause || e.code === "Escape") {
