@@ -84,7 +84,7 @@ export class Game {
     // Renderer / scene / camera.
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = 1.15;
     this.renderer.shadowMap.enabled = this.settings.display?.shadows !== false;
     this.renderer.setPixelRatio(this._targetPixelRatio());
     this.renderer.setSize(innerWidth, innerHeight);
@@ -92,7 +92,7 @@ export class Game {
 
     this.scene = new THREE.Scene();
     this._buildSkybox();
-    this.scene.fog = new THREE.FogExp2(0x0a0a14, 0.008);
+    this.scene.fog = new THREE.FogExp2(0x0a0a14, 0.005);
 
     this.camera = new THREE.PerspectiveCamera(this.settings.display.fov, innerWidth / innerHeight, 0.1, 400);
     this.scene.add(this.camera);
@@ -363,8 +363,8 @@ export class Game {
 
   _buildArena() {
     const half = this.arenaBounds.half;
-    this.scene.add(new THREE.HemisphereLight(0x9088c0, 0x141022, 0.9));
-    const dir = new THREE.DirectionalLight(0xffeed0, 0.6);
+    this.scene.add(new THREE.HemisphereLight(0x9088c0, 0x141022, 1.3));
+    const dir = new THREE.DirectionalLight(0xffeed0, 1.0);
     dir.position.set(20, 40, 12);
     dir.castShadow = true;
     dir.shadow.mapSize.set(1024, 1024);
