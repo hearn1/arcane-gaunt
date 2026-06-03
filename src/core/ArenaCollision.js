@@ -131,7 +131,20 @@ function segmentHitsRect(from, to, rect, radius = 0) {
   if (!axis(from.z, dz, minZ, maxZ)) return null;
   if (t1 < 0 || t0 > 1) return null;
   const t = THREE.MathUtils.clamp(t0, 0, 1);
-  return { t, point: from.clone().lerp(to, t) };
+  // Build the point arithmetically (rather than from.clone().lerp(to, t)) so
+  // callers may pass plain {x,y,z} endpoints; production passes THREE.Vector3
+  // and still receives a Vector3 here, which downstream code (.clone(), copy())
+  // relies on.
+  const fy = from.y !== undefined ? from.y : 0;
+  const ty = to.y !== undefined ? to.y : 0;
+  return {
+    t,
+    point: new THREE.Vector3(
+      from.x + (to.x - from.x) * t,
+      fy + (ty - fy) * t,
+      from.z + (to.z - from.z) * t,
+    ),
+  };
 }
 
 export function findSafeDestination(from, to, radius, obstacles = []) {

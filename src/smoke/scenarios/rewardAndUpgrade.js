@@ -35,6 +35,10 @@ export default async function runRewardAndUpgradeSmoke(game, result) {
     assert(game.player.health.current < maxHp, "Player should be damaged");
     const healthBeforeHeal = game.player.health.current;
     game.currency.add(999);
+    // The service panel computes each button's enabled/disabled state at render
+    // time, so re-open the panel after changing health/gold (the same refresh the
+    // game performs after every purchase) before reading the heal button.
+    game.openUpgradePanel();
     await nextFrame();
     const healSvc = document.querySelector(".svc-buy");
     assert(!!healSvc, "No service buy button");
@@ -44,11 +48,15 @@ export default async function runRewardAndUpgradeSmoke(game, result) {
     assert(game.player.health.current > healthBeforeHeal, "Health did not increase after heal");
   });
 
-  await step(result, "resume from upgrade shows focus prompt", async () => {
+  await step(result, "resume from upgrade continues the run", async () => {
     document.getElementById("btn-up-continue").click();
-    await nextFrame();
-    await waitFor("focus prompt visible", () => isShown("#btn-focus"));
-    assert(game.state === "focus", `Expected focus state after resume, got ${game.state}`);
-    assert(isShown("#btn-focus"), "Focus prompt not shown after resume");
+    // Continue re-acquires pointer lock; once the lock request settles
+    // (granted or rejected) the run resumes directly into the next wave —
+    // the focus prompt is only a momentary fallback. Either way the upgrade
+    // panel is dismissed.
+    await waitFor("run resumes", () => game.state === "playing" || isShown("#btn-focus"));
+    assert(game.state === "playing" || game.state === "focus",
+      `Expected playing or focus state after resume, got ${game.state}`);
+    assert(!isShown("#service-panel"), "Upgrade panel should be dismissed after resume");
   });
 }

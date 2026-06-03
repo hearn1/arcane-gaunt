@@ -25,6 +25,11 @@ function startPythonServer() {
       cwd: ROOT,
       stdio: ["ignore", "pipe", "pipe"],
       shell: true,
+      // Force unbuffered stdout so serve.py's "running: http://localhost..."
+      // banner is flushed immediately; otherwise Python buffers it when stdout
+      // is a pipe and the readiness probe below never sees it, failing with
+      // "Python server did not start within 15s".
+      env: { ...process.env, PYTHONUNBUFFERED: "1" },
     });
 
     let started = false;

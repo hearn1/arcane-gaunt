@@ -3,6 +3,14 @@ import { step, assert, waitFor, nextFrame, inputIsClear, activeEl, isShown } fro
 export default async function runBootStartMenuSmoke(game, result) {
   await step(result, "boot main menu", async () => {
     assert(game.state === "menu", `Expected menu state, got ${game.state}`);
+    // On a fresh profile the first-run privacy/telemetry consent gate is shown
+    // ahead of the menu. Decline it to reach the main menu (the state is already
+    // "menu"; the prompt is just an overlay over it).
+    const privacyDecline = document.getElementById("btn-privacy-no");
+    if (privacyDecline) {
+      privacyDecline.click();
+      await nextFrame();
+    }
     assert(isShown("#btn-start"), "Start Run button is not visible");
     assert(!activeEl("hud"), "HUD should be hidden on main menu");
     assert(!activeEl("crosshair"), "Crosshair should be hidden on main menu");

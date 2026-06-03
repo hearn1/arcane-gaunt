@@ -61,13 +61,23 @@ app.whenReady().then(async () => {
   const win = new BrowserWindow({
     width: 960,
     height: 540,
+    // Render off-screen rather than fully hidden: a hidden window throttles
+    // requestAnimationFrame to ~1fps, which stalls scenarios that await many
+    // frames (e.g. burn-patch tick timing) and makes other render-dependent
+    // assertions flaky. Showing it (inactive, off-screen) keeps the game's
+    // setAnimationLoop running at full rate without stealing focus or being
+    // visible on screen.
+    x: -2400,
+    y: -2400,
     show: false,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   });
+  win.showInactive();
 
   const timeout = setTimeout(() => {
     timedOut = true;

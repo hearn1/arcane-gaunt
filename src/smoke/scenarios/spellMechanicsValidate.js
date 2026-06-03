@@ -1,4 +1,4 @@
-import { step, assert, waitFor, nextFrame, killAllEnemies } from "../testHelpers.js";
+import { step, assert, waitFor, nextFrame, clearEnemiesKeepWave } from "../testHelpers.js";
 import { MeleeEnemy } from "../../enemies/Enemy.js";
 import { SpellInstance } from "../../spells/SpellInstance.js";
 import { SPELL_DEFINITIONS } from "../../spells/spellDefinitions.js";
@@ -19,13 +19,19 @@ export default async function runSpellMechanicsValidate(game, result) {
   });
 
   await step(result, "poison contagion spreads to all nearby enemies at reduced potency", async () => {
-    killAllEnemies(game.world);
+    clearEnemiesKeepWave(game.world);
     await nextFrame();
 
     const mgr = game.world.enemyManager;
     const center = mgr.spawnExtra(MeleeEnemy, 1, { x: 0, y: 0, z: 0 });
     const e2 = mgr.spawnExtra(MeleeEnemy, 1, { x: 2.5, y: 0, z: 0 });
     const e3 = mgr.spawnExtra(MeleeEnemy, 1, { x: 0, y: 0, z: 2.5 });
+    // spawnExtra scatters enemies via _nearbyPoint (a random 2.5–4.0 offset from
+    // the anchor), so pin them to exact positions for deterministic radius checks.
+    // Keep each enemy's eye-height Y; the contagion radius is measured on XZ.
+    center.position.set(0, center.position.y, 0);
+    e2.position.set(2.5, e2.position.y, 0);
+    e3.position.set(0, e3.position.y, 2.5);
     await nextFrame();
     await nextFrame();
 
@@ -64,7 +70,7 @@ export default async function runSpellMechanicsValidate(game, result) {
   });
 
   await step(result, "frost bolt shatters at 3 chill stacks", async () => {
-    killAllEnemies(game.world);
+    clearEnemiesKeepWave(game.world);
     await nextFrame();
 
     const enemy = game.world.enemyManager.spawnExtra(MeleeEnemy, 1, { x: 0, y: 0, z: 0 });
@@ -83,8 +89,13 @@ export default async function runSpellMechanicsValidate(game, result) {
     enemy.applyChill(1, 2.5);
     assert(enemy.chillStacks === 2, "Stack 2");
 
-    // Third chill at max stacks triggers shatter (mirrors HitResolver._onEnemyHit).
+    enemy.applyChill(1, 2.5);
+    assert(enemy.chillStacks === 3, "Stack 3 (max)");
+
+    // A frost hit that lands while already at max stacks triggers the shatter
+    // (mirrors HitResolver._onEnemyHit: wasMax is sampled BEFORE the new chill).
     const wasMax = enemy.chillStacks >= enemy.chillMaxStacks;
+    assert(wasMax, "Enemy should be at max chill stacks before shatter");
     enemy.applyChill(1, 2.5);
     if (wasMax) {
       applyPlayerDamage(game.world, enemy, frostInst.shatterDamage, { owner: "player", spellId: "frost_bolt" });
@@ -96,7 +107,7 @@ export default async function runSpellMechanicsValidate(game, result) {
   });
 
   await step(result, "fireball burn patch deals at least one tick of damage", async () => {
-    killAllEnemies(game.world);
+    clearEnemiesKeepWave(game.world);
     await nextFrame();
 
     // Spawn an enemy and pin it in place so it stays in the burn zone.
@@ -127,11 +138,18 @@ export default async function runSpellMechanicsValidate(game, result) {
   });
 
   await step(result, "blink dashes along movement direction, falling back to look when idle", async () => {
+    // Isolate from the prior combat step: a leftover enemy could keep damaging
+    // the player (a dead player makes blink.trigger() a no-op), and a full heal
+    // guarantees blink fires regardless of incidental damage taken earlier.
+    clearEnemiesKeepWave(game.world);
     const player = game.player;
     const blink = game.blink;
+    player.health.current = player.health.max;
 
-    // Face -Z (yaw 0) and stand at the arena center so the dash has room.
+    // Face -Z (yaw 0, level pitch) and stand at the arena center so forward()
+    // is purely horizontal and the dash has room.
     player.yaw = 0;
+    player.pitch = 0;
     player.feet.set(0, 0, 0);
     player._syncCamera();
 
