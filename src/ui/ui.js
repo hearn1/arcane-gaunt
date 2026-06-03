@@ -1,5 +1,5 @@
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
-import { DIFFICULTY_TIERS, SPELL_UNLOCK_LEVELS, getTierUnlockDescription } from "../core/Difficulty.js";
+import { DIFFICULTY_TIERS, SPELL_UNLOCK_LEVELS } from "../core/Difficulty.js";
 import { attach } from "./uiNav.js";
 import { t, format, setLang } from "../core/i18n.js";
 import { DEFAULT_SETTINGS } from "../core/Settings.js";
@@ -22,6 +22,45 @@ function devicePrompt(key) {
   const game = window.__arcaneGame;
   const device = game?.input?.lastInputDevice || "kbm";
   return PROMPTS[key]?.[device] || PROMPTS[key]?.kbm || key;
+}
+
+function tierUnlockText(tier) {
+  if (!tier.unlock) return "";
+  const prereq = DIFFICULTY_TIERS[tier.unlock.tierId - 1];
+  if (!prereq) return "";
+  return format("ui.tier_unlock", { level: tier.unlock.level, tier: prereq.name });
+}
+
+// Styled hover/focus card markup for a difficulty tier: stat multipliers,
+// mutator count + explanation, and (if locked) the unlock requirement.
+function diffCardHtml(tier, unlocked) {
+  const stat = (label, mult) => `<span class="info-stat">${label} <b>&times;${mult.toFixed(2)}</b></span>`;
+  const stats = `<div class="info-stats">
+      ${stat(t("ui.diff_hp"), tier.hpMult)}
+      ${stat(t("ui.diff_damage"), tier.damageMult)}
+      ${stat(t("ui.diff_spawn"), tier.spawnMult)}
+      ${stat(t("ui.diff_gold"), tier.goldMult)}
+    </div>`;
+  const mutators = tier.mutatorCount > 0
+    ? `<div class="info-mut">${format("ui.mutators_per_wave", { count: tier.mutatorCount })}</div>
+       <div class="info-note">${t("ui.mutators_note")}</div>`
+    : `<div class="info-mut">${t("ui.mutators_none")}</div>`;
+  const lock = !unlocked
+    ? `<div class="info-lock"><span class="info-lock-label">${t("ui.locked")}</span>${tierUnlockText(tier)}</div>`
+    : "";
+  return `<span class="info-card-head">${tier.name} <span class="info-card-tier">${t("ui.tier")} ${tier.level}</span></span>
+    ${stats}${mutators}${lock}`;
+}
+
+// Styled hover/focus card markup for a spell: name, description and (if locked)
+// the required cleared-wave level plus a note on what "level" means.
+function spellCardHtml(def, unlocked, required) {
+  const lock = !unlocked && required
+    ? `<div class="info-lock"><span class="info-lock-label">${t("ui.locked")}</span>${format("ui.unlocks_at_level", { level: required })}</div>
+       <div class="info-note">${t("ui.spell_unlock_note")}</div>`
+    : "";
+  return `<span class="info-card-head">${def.displayName}</span>
+    <div class="info-note">${def.description}</div>${lock}`;
 }
 
 // All DOM/CSS UI. Reads state and calls back into managers via callbacks.
@@ -165,9 +204,10 @@ export class UI {
 
     const difficultyOptions = DIFFICULTY_TIERS.map((tier) => {
       const unlocked = unlockedTiers.includes(tier.level);
-      const title = !unlocked ? getTierUnlockDescription(tier) || "" : "";
+      // Locked pills stay focusable (no `disabled`) so keyboard/gamepad nav can
+      // land on them and surface the unlock requirement card; clicks are guarded below.
       return `
-        <button class="diff-pill ${tier.level === difficultyLevel ? "selected" : ""} ${unlocked ? "" : "locked"}" data-diff="${tier.level}" data-nav ${unlocked ? "" : "disabled"} title="${title}">
+        <button class="diff-pill ${tier.level === difficultyLevel ? "selected" : ""} ${unlocked ? "" : "locked"}" data-diff="${tier.level}" data-nav ${unlocked ? "" : 'aria-disabled="true"'}>
           <span class="diff-pill-name">${unlocked ? "" : '<span class="lock-icon">&#128274;</span>'}${tier.name}</span>
           <span class="diff-pill-level">${t("ui.tier")} ${tier.level}</span>
         </button>
@@ -176,11 +216,9 @@ export class UI {
 
     const spellOptions = Object.values(SPELL_DEFINITIONS).map((def) => {
       const unlocked = unlockedSpells.includes(def.id);
-      const required = SPELL_UNLOCK_LEVELS[def.id];
-      const title = !unlocked && required ? format("ui.unlock_required", { level: required }) : "";
       const lockHtml = !unlocked ? '<span class="lock-icon">&#128274;</span>' : "";
       return `
-        <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""} ${unlocked ? "" : "locked"}" data-spell="${def.id}" data-nav ${unlocked ? "" : "disabled"} title="${title}">
+        <button class="spell-choice ${def.id === selectedSpellId ? "selected" : ""} ${unlocked ? "" : "locked"}" data-spell="${def.id}" data-nav ${unlocked ? "" : 'aria-disabled="true"'}>
           <span class="spell-choice-name">${lockHtml}${def.displayName}</span>
           <span class="spell-choice-desc">${def.description}</span>
         </button>
@@ -226,27 +264,66 @@ const settingsButton = onSettings
     let selected = SPELL_DEFINITIONS[selectedSpellId] ? selectedSpellId : STARTER_SPELL_ID;
     let selectedDiff = difficultyLevel;
 
+    // Shared info-card popover, shown on hover AND keyboard/gamepad focus so the
+    // difficulty/spell details are not mouse-only. Positioned just outside the menu
+    // flow (document body) to avoid being clipped by the scrollable spell grid.
+    const popover = document.createElement("div");
+    popover.className = "menu-popover";
+    popover.setAttribute("role", "tooltip");
+    popover.setAttribute("aria-hidden", "true");
+    document.body.appendChild(popover);
+    const showCard = (el, html) => {
+      popover.innerHTML = html;
+      popover.classList.add("show");
+      popover.setAttribute("aria-hidden", "false");
+      const r = el.getBoundingClientRect();
+      const pr = popover.getBoundingClientRect();
+      let left = r.left + r.width / 2 - pr.width / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - pr.width - 8));
+      let top = r.top - pr.height - 10;
+      if (top < 8) top = r.bottom + 10;
+      popover.style.left = `${Math.round(left)}px`;
+      popover.style.top = `${Math.round(top)}px`;
+    };
+    const hideCard = () => {
+      popover.classList.remove("show");
+      popover.setAttribute("aria-hidden", "true");
+    };
+    const bindCard = (el, html) => {
+      el.addEventListener("mouseenter", () => showCard(el, html));
+      el.addEventListener("focus", () => showCard(el, html));
+      el.addEventListener("mouseleave", hideCard);
+      el.addEventListener("blur", hideCard);
+    };
+    // Remove the popover when this screen is torn down (next _show / nav detach).
+    const navDetach = this._navDetach;
+    this._navDetach = () => { hideCard(); popover.remove(); navDetach?.(); };
+
     const diffLabelEl = document.getElementById("current-diff-label");
     this.root.querySelectorAll(".diff-pill").forEach((el) => {
+      const level = parseInt(el.dataset.diff, 10);
+      const tier = DIFFICULTY_TIERS.find((d) => d.level === level);
+      if (tier) bindCard(el, diffCardHtml(tier, unlockedTiers.includes(level)));
       el.onclick = () => {
-        if (el.disabled) return;
-        const level = parseInt(el.dataset.diff, 10);
+        if (el.classList.contains("locked")) return;
         selectedDiff = level;
         if (onDifficultyChange) onDifficultyChange(level);
         this.root.querySelectorAll(".diff-pill").forEach((pill) => {
           pill.classList.toggle("selected", pill === el);
         });
         if (diffLabelEl) {
-          const tier = DIFFICULTY_TIERS.find((d) => d.level === level);
           diffLabelEl.textContent = `${t("ui.current_difficulty")}: ${tier?.name} (${t("ui.tier")} ${level})`;
         }
       };
     });
 
     this.root.querySelectorAll(".spell-choice").forEach((el) => {
+      const id = el.dataset.spell;
+      const def = SPELL_DEFINITIONS[id];
+      if (def) bindCard(el, spellCardHtml(def, unlockedSpells.includes(id), SPELL_UNLOCK_LEVELS[id]));
       el.onclick = () => {
-        if (el.disabled) return;
-        selected = el.dataset.spell;
+        if (el.classList.contains("locked")) return;
+        selected = id;
         this.root.querySelectorAll(".spell-choice").forEach((card) => {
           card.classList.toggle("selected", card === el);
         });
