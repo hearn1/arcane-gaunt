@@ -399,6 +399,9 @@ export class Game {
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     this.scene.add(floor);
+    // Kept so the floor geometry can be rebuilt with cut-outs over pit footprints
+    // (see _rebuildFloor) — otherwise the solid plane occludes the sunken pit.
+    this._floor = floor;
     applyTex(floorMat, "assets/textures/floor_stone.jpg", 16);
 
     const grid = new THREE.GridHelper(half * 2, 32, 0x4a3f7a, 0x2a2548);
@@ -512,23 +515,60 @@ export class Game {
     // down into the pit, taking damage over time. Projectiles pass over pits since
     // they fly at caster eye height well above the pit floor.
     const addPit = ({ x, z, w, d, depth = 2.0 }) => {
-      const pitGeo = new THREE.PlaneGeometry(w, d);
-      const pitMat = new THREE.MeshBasicMaterial({
-        color: 0x120820, transparent: true, opacity: 0.75,
-        side: THREE.DoubleSide, depthWrite: false,
+      // Solid recess: a floor at -depth plus four vertical walls down from the rim.
+      // The arena floor is cut open over this footprint (see _rebuildFloor) so the
+      // depression is visible from ground level; the walls + opaque floor mean no
+      // see-through to the void when the camera drops below y=0 inside the pit.
+      const pitFloorMat = new THREE.MeshLambertMaterial({
+        color: 0x3a2a52, emissive: 0x1a1030, emissiveIntensity: 0.7,
       });
-      const pitMesh = new THREE.Mesh(pitGeo, pitMat);
-      pitMesh.userData.disposeMaterial = true;
-      pitMesh.rotation.x = -Math.PI / 2;
-      pitMesh.position.set(x, -depth + 0.05, z);
-      group.add(pitMesh);
-      const edgeMat = new THREE.LineBasicMaterial({
-        color: 0x5a2070, transparent: true, opacity: 0.55,
+      const pitFloor = new THREE.Mesh(new THREE.PlaneGeometry(w, d), pitFloorMat);
+      pitFloor.userData.disposeMaterial = true;
+      pitFloor.rotation.x = -Math.PI / 2;
+      pitFloor.position.set(x, -depth, z);
+      pitFloor.receiveShadow = true;
+      group.add(pitFloor);
+
+      // Inward-facing vertical walls (DoubleSide so they read from both sides and
+      // never cull to void). Rim-lit material keeps the recess legible in shadow.
+      const wallMat = new THREE.MeshLambertMaterial({
+        color: 0x4a3a66, emissive: 0x241636, emissiveIntensity: 0.55,
+        side: THREE.DoubleSide,
       });
-      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(pitGeo), edgeMat);
-      edges.rotation.x = -Math.PI / 2;
-      edges.position.set(x, 0.05, z);
-      group.add(edges);
+      const mkWall = (ww, px, pz, ry) => {
+        const wall = new THREE.Mesh(new THREE.PlaneGeometry(ww, depth), wallMat);
+        wall.userData.disposeMaterial = true;
+        wall.position.set(px, -depth / 2, pz);
+        wall.rotation.y = ry;
+        wall.receiveShadow = true;
+        group.add(wall);
+      };
+      mkWall(w, x, z - d / 2, 0);            // north
+      mkWall(w, x, z + d / 2, Math.PI);      // south
+      mkWall(d, x - w / 2, z, Math.PI / 2);  // west
+      mkWall(d, x + w / 2, z, -Math.PI / 2); // east
+
+      // Bright rim outline at ground level plus a fainter outline at the pit floor
+      // for a clear depth read from above.
+      const rimGeo = new THREE.PlaneGeometry(w, d);
+      const topEdges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(rimGeo),
+        new THREE.LineBasicMaterial({ color: 0xb56cff, transparent: true, opacity: 0.95 }),
+      );
+      topEdges.userData.disposeMaterial = true;
+      topEdges.rotation.x = -Math.PI / 2;
+      topEdges.position.set(x, 0.03, z);
+      group.add(topEdges);
+      const botEdges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(rimGeo),
+        new THREE.LineBasicMaterial({ color: 0x7a40b0, transparent: true, opacity: 0.7 }),
+      );
+      botEdges.userData.disposeMaterial = true;
+      botEdges.rotation.x = -Math.PI / 2;
+      botEdges.position.set(x, -depth + 0.02, z);
+      group.add(botEdges);
+      rimGeo.dispose();
+
       this.arenaBounds.walkableSurfaces.push({ type: "pit", x, z, w, d, elevation: -depth });
       this.arenaBounds.hazards.push({ x, z, w, d, dynamicWarn: false, dynamicActive: false, dynamicDamageMult: 1, isPit: true });
     };
@@ -653,6 +693,54 @@ export class Game {
       addPillar(-16, 16);
       addPillar(16, 16);
     }
+    this._rebuildFloor();
+  }
+
+  // Rebuilds the arena floor mesh, cutting a hole over each pit footprint so the
+  // sunken pit (its walls and floor) is visible from ground level instead of being
+  // hidden behind the solid floor plane. With no pits this is a plain full plane.
+  _rebuildFloor() {
+    const floor = this._floor;
+    if (!floor) return;
+    const half = this.arenaBounds.half;
+    const pits = (this.arenaBounds.walkableSurfaces || []).filter((s) => s.type === "pit");
+    floor.geometry?.dispose?.();
+
+    let geo;
+    if (pits.length === 0) {
+      geo = new THREE.PlaneGeometry(half * 2, half * 2);
+    } else {
+      const shape = new THREE.Shape();
+      shape.moveTo(-half, -half);
+      shape.lineTo(half, -half);
+      shape.lineTo(half, half);
+      shape.lineTo(-half, half);
+      shape.lineTo(-half, -half);
+      for (const p of pits) {
+        // The floor mesh is rotated x=-90°, which maps shape-space Y to world -Z,
+        // so a pit at world z uses shape-space y = -z.
+        const x0 = p.x - p.w / 2, x1 = p.x + p.w / 2;
+        const y0 = -p.z - p.d / 2, y1 = -p.z + p.d / 2;
+        const hole = new THREE.Path();
+        hole.moveTo(x0, y0);
+        hole.lineTo(x1, y0);
+        hole.lineTo(x1, y1);
+        hole.lineTo(x0, y1);
+        hole.lineTo(x0, y0);
+        shape.holes.push(hole);
+      }
+      geo = new THREE.ShapeGeometry(shape);
+      // Normalize UVs to 0..1 across the arena so the tiled texture (repeat 16)
+      // lines up the same as the original PlaneGeometry.
+      const pos = geo.attributes.position;
+      const uv = new Float32Array(pos.count * 2);
+      for (let i = 0; i < pos.count; i++) {
+        uv[i * 2] = (pos.getX(i) + half) / (half * 2);
+        uv[i * 2 + 1] = (pos.getY(i) + half) / (half * 2);
+      }
+      geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    }
+    floor.geometry = geo;
   }
 
   // --- Flow ---------------------------------------------------------------
