@@ -467,7 +467,7 @@ export class Game {
     this._hazardMeshes = [];
     this._inHazardLast = false;
 
-    const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated", "ramparts", "tower_court", "sinkhole"];
+    const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated", "ramparts", "tower_court", "sinkhole", "towers"];
     const kind = forced || layouts[Math.floor(Math.random() * layouts.length)];
     this.arenaLayoutName = kind;
 
@@ -586,16 +586,27 @@ export class Game {
     };
     // Ramp connecting two elevations linearly along one axis.
     // elevStart is the elevation at the negative-axis end; elevEnd at the positive-axis end.
+    // The mesh's sloped (hypotenuse) face is built along the run axis so that its
+    // horizontal projection spans exactly the run length (w for axis "x", d for
+    // axis "z") and its vertical rise spans h — matching getElevationAt's linear
+    // interpolation over that same axis. (Computing the tilt from the off-axis
+    // dimension makes the visible slab float below the walkable surface.)
     const addRamp = ({ x, z, w, d, axis, elevStart, elevEnd }) => {
       const h = Math.abs(elevStart - elevEnd);
-      const slopeLen = Math.sqrt(d * d + h * h);
-      const tiltAngle = Math.atan2(h, d);
       const yCenter = (elevStart + elevEnd) / 2;
-      const rampMesh = new THREE.Mesh(new THREE.BoxGeometry(w, 0.22, slopeLen), this._coverMat);
+      const runLen = axis === "z" ? d : w;
+      const slopeLen = Math.sqrt(runLen * runLen + h * h);
+      const tiltAngle = Math.atan2(h, runLen);
+      const geo = axis === "z"
+        ? new THREE.BoxGeometry(w, 0.22, slopeLen)   // run along Z
+        : new THREE.BoxGeometry(slopeLen, 0.22, d);  // run along X
+      const rampMesh = new THREE.Mesh(geo, this._coverMat);
       rampMesh.castShadow = true;
       rampMesh.receiveShadow = true;
       rampMesh.position.set(x, yCenter, z);
-      // Positive X rotation raises the negative-Z local end → matches elevStart > elevEnd case.
+      // Positive X rotation raises the negative-Z end; negative Z rotation raises
+      // the negative-X end → both match the elevStart > elevEnd (high at the
+      // negative-axis end) convention.
       rampMesh.rotation.x = (axis === "z")
         ? (elevStart > elevEnd ? tiltAngle : -tiltAngle)
         : 0;
@@ -687,6 +698,44 @@ export class Game {
       addBlocker({ x: 0, z: 20, w: 3.2, d: 6 });
       addPillar(-18, 0, 1.6);
       addPillar(18, 0, 1.6);
+    } else if (kind === "towers") {
+      // Two flanking spiral towers (west and east). Each is a concentric 3-tier
+      // ziggurat — base(3) / mid(6) / top(9), footprints shrinking with height —
+      // whose connecting ramps sit on three DIFFERENT faces so the climb wraps
+      // counter-clockwise around the tower (south → east → north) rather than
+      // running straight up one face. Coordinates below are local to the tower
+      // centre; spiralTower translates them by cx.
+      //
+      // getElevationAt returns the max elevation of all surfaces covering an XZ
+      // point, so the concentric platforms + their ramps compose correctly: a
+      // higher tier (or the ramp climbing onto it) always wins over the wider
+      // tier beneath. Each ramp's inner edge clears the next tier's wall by ≥0.8
+      // (the player radius) so the climber is never wedged against it.
+      const spiralTower = (cx) => {
+        const X = (lx) => cx + lx;
+        // Concentric tiers (centred on the tower): base 24², mid 16², top 8².
+        // Each higher tier leaves a 4-wide ledge on the tier below — wide enough
+        // for the player (radius 0.8) to walk clear of the next tier's wall.
+        addPlatform({ x: X(0), z: 0, w: 24, d: 24, elevation: 3.0 });
+        addPlatform({ x: X(0), z: 0, w: 16, d: 16, elevation: 6.0 });
+        addPlatform({ x: X(0), z: 0, w: 8,  d: 8,  elevation: 9.0 });
+        // Ramp A — SOUTH face, floor(0) → base(3). Climbs north onto the base.
+        addRamp({ x: X(0), z: 15, w: 8, d: 6, axis: "z", elevStart: 3.0, elevEnd: 0.0 });
+        // Ramp B — EAST ledge of the base, base(3) → mid(6). Climbs north; the
+        // climber steps west onto the mid tier at its high (north) end.
+        addRamp({ x: X(10), z: 1, w: 4, d: 6, axis: "z", elevStart: 6.0, elevEnd: 3.0 });
+        // Ramp C — NORTH ledge of the mid tier, mid(6) → top(9). Climbs west (its
+        // low/east end is where the ramp-B climber arrives); steps south onto the
+        // top tier at its high (north-west) end. South→east→north winding gives
+        // the spiral its wrap.
+        addRamp({ x: X(0), z: -6, w: 8, d: 4, axis: "x", elevStart: 9.0, elevEnd: 6.0 });
+      };
+      spiralTower(-22); // west tower
+      spiralTower(22);  // east tower
+      // Central ground cover so the floor between towers still plays.
+      addBlocker({ x: 0, z: -8, w: 9, d: 3.2 });
+      addBlocker({ x: 0, z: 8, w: 9, d: 3.2 });
+      addPillar(0, 0, 1.7);
     } else {
       addPillar(-16, -16);
       addPillar(16, -16);
