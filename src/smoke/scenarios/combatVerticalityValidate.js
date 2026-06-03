@@ -78,6 +78,48 @@ export default async function runCombatVerticalityValidate(_game, result) {
     assert(hit !== null, "ordinary wall should block at any elevation");
   });
 
+  await step(result, "multi-tier tower — ground shot toward top tier is blocked by a lower-tier wall", () => {
+    // Stacked tiers (base 3 / mid 6 / top 9) as the layout emits them.
+    const tower = [
+      { x: 0, z: 4, w: 20, d: 22, h: 3, platformTop: 3.0 },
+      { x: 0, z: -2, w: 16, d: 16, h: 6, platformTop: 6.0 },
+      { x: 0, z: -7, w: 10, d: 10, h: 9, platformTop: 9.0 },
+    ];
+    // Enemy on the floor south of the tower shooting north at a player atop the
+    // top tier. The path crosses the base wall at ground level → blocked.
+    const from = { x: 0, y: 1.2, z: 18 };
+    const to = { x: 0, y: 9.5, z: -7 };
+    const hit = segmentHitsObstacles(from, to, 0.15, tower);
+    assert(hit !== null, "ground→top-tier shot should be blocked by a lower-tier wall");
+  });
+
+  await step(result, "multi-tier tower — shot from the top tier outward clears all lower tiers", () => {
+    const tower = [
+      { x: 0, z: 4, w: 20, d: 22, h: 3, platformTop: 3.0 },
+      { x: 0, z: -2, w: 16, d: 16, h: 6, platformTop: 6.0 },
+      { x: 0, z: -7, w: 10, d: 10, h: 9, platformTop: 9.0 },
+    ];
+    // Player on the top tier (y≈9.5) shooting down/out at a ground target to the
+    // south. Origin is above every platformTop, so each tier is skipped.
+    const from = { x: 0, y: 9.5, z: -7 };
+    const to = { x: 0, y: 1.5, z: 30 };
+    const hit = segmentHitsObstacles(from, to, 0.15, tower);
+    assert(hit === null, "shot exiting the top tier should clear all lower tiers");
+  });
+
+  await step(result, "multi-tier tower — mid-tier occupant is shielded from ground fire by the base wall", () => {
+    const tower = [
+      { x: 0, z: 4, w: 20, d: 22, h: 3, platformTop: 3.0 },
+      { x: 0, z: -2, w: 16, d: 16, h: 6, platformTop: 6.0 },
+    ];
+    // Ground enemy firing at a player standing on the mid tier (y≈6.2). The base
+    // wall (top 3) sits between them at ground level → blocked.
+    const from = { x: 0, y: 1.2, z: 20 };
+    const to = { x: 0, y: 6.2, z: -2 };
+    const hit = segmentHitsObstacles(from, to, 0.15, tower);
+    assert(hit !== null, "ground→mid-tier shot should be blocked by the base wall");
+  });
+
   await step(result, "multiple platforms — each checked independently", () => {
     const obstacles = [
       { x: -26, z: 0, w: 12, d: 22, h: 3, platformTop: 3.0 },

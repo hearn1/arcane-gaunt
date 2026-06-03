@@ -70,8 +70,61 @@ export default async function runLayoutGeometryValidate(game, result) {
       `south ramp midpoint should be between 0 and ${southPlat}, got ${southRampMid}`);
   });
 
-  await step(result, "ramparts and tower_court — edge spawn positions do not overlap platform footprints", () => {
-    for (const layoutName of ["ramparts", "tower_court"]) {
+  await step(result, "towers — two 3-tier towers (6 platforms, 6 ramps)", () => {
+    game._buildArenaLayout("towers");
+    assert(game.arenaLayoutName === "towers", "arenaLayoutName should be 'towers' after forced build");
+    const surfaces = game.arenaBounds.walkableSurfaces;
+    const platforms = surfaces.filter((s) => s.type === "platform");
+    const ramps = surfaces.filter((s) => s.type === "ramp");
+    assert(platforms.length === 6, `towers needs 6 platforms (2 towers × 3 tiers), got ${platforms.length}`);
+    assert(ramps.length === 6, `towers needs 6 ramps (2 towers × 3 links), got ${ramps.length}`);
+    // Every ramp connects two adjacent tiers with a 3.0 rise and is wide enough
+    // for the player radius (0.8).
+    for (const r of ramps) {
+      const rise = Math.abs(r.elevStart - r.elevEnd);
+      assert(Math.abs(rise - 3.0) < 0.01, `each tier ramp should rise 3.0, got ${rise}`);
+      assert(r.w >= 2.0, `ramp width ${r.w} must clear player diameter`);
+    }
+    // Each tower exposes all three tier elevations.
+    const elevs = [...new Set(platforms.map((p) => p.elevation))].sort((a, b) => a - b);
+    assert(elevs.length === 3 && Math.abs(elevs[0] - 3) < 0.01 && Math.abs(elevs[1] - 6) < 0.01 && Math.abs(elevs[2] - 9) < 0.01,
+      `tier elevations should be {3,6,9}, got {${elevs.join(",")}}`);
+  });
+
+  await step(result, "towers — each tier and its ramp are reachable level-by-level via getElevationAt", () => {
+    game._buildArenaLayout("towers");
+    const surfaces = game.arenaBounds.walkableSurfaces;
+    // West tower is concentric, centred at (-22,0): base 24²@3, mid 16²@6, top 8²@9.
+    const top = getElevationAt(-22, 0, surfaces);
+    assert(Math.abs(top - 9.0) < 0.01, `west top centre should be 9.0, got ${top}`);
+    // Base-only ledge (clear of the higher tiers and all ramps).
+    const base = getElevationAt(-12, 9, surfaces);
+    assert(Math.abs(base - 3.0) < 0.01, `west base ledge should be 3.0, got ${base}`);
+    // Mid-only ledge (on the mid tier, clear of top and ramp C).
+    const mid = getElevationAt(-28, 0, surfaces);
+    assert(Math.abs(mid - 6.0) < 0.01, `west mid ledge should be 6.0, got ${mid}`);
+    // The three ramps each climb their tier; midpoints sit halfway: A→1.5, B→4.5, C→7.5.
+    const rampA = getElevationAt(-22, 15, surfaces);
+    assert(Math.abs(rampA - 1.5) < 0.01, `ramp A (south) midpoint should be 1.5, got ${rampA}`);
+    const rampB = getElevationAt(-12, 1, surfaces);
+    assert(Math.abs(rampB - 4.5) < 0.01, `ramp B (east) midpoint should be 4.5, got ${rampB}`);
+    const rampC = getElevationAt(-22, -6, surfaces);
+    assert(Math.abs(rampC - 7.5) < 0.01, `ramp C (north) midpoint should be 7.5, got ${rampC}`);
+    // The three ramps sit on three different faces (the spiral wrap): A on the
+    // south (varies in z), B on the east (varies in z, offset +x), C on the north
+    // (varies in x, offset -z). Confirm they are not all the same axis/face.
+    const ramps = surfaces.filter((s) => s.type === "ramp" && s.x < 0); // west tower
+    const axes = new Set(ramps.map((r) => r.axis));
+    assert(axes.has("x") && axes.has("z"), "spiral must mix ramp axes (not one straight face)");
+    // East tower mirror: top tier reachable.
+    const eastTop = getElevationAt(22, 0, surfaces);
+    assert(Math.abs(eastTop - 9.0) < 0.01, `east top centre should be 9.0, got ${eastTop}`);
+    // Arena centre between towers is floor level.
+    assert(getElevationAt(0, 0, surfaces) === 0, "arena centre should be floor level (0)");
+  });
+
+  await step(result, "ramparts, tower_court and towers — edge spawn positions do not overlap platform footprints", () => {
+    for (const layoutName of ["ramparts", "tower_court", "towers"]) {
       game._buildArenaLayout(layoutName);
       const half = game.arenaBounds.half - 3; // matches EnemyManager._spawnPoint
       const obstacles = game.arenaBounds.obstacles;

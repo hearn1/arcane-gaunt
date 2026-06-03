@@ -41,6 +41,30 @@ export default async function runElevationValidate(_game, result) {
     assert(getElevationAt(0, -9, surfaces) === 0, "below ramp south end should be floor");
   });
 
+  await step(result, "getElevationAt — stacked multi-tier platforms+ramps resolve to the highest covering surface", () => {
+    // Three telescoping tiers (base 3 / mid 6 / top 9) plus the two ramps that
+    // climb between them, mirroring one tower flank. The max-elevation rule must
+    // pick the correct level at every height.
+    const surfaces = [
+      { type: "platform", x: 0, z: 4, w: 20, d: 22, elevation: 3.0 },
+      { type: "platform", x: 0, z: -2, w: 16, d: 16, elevation: 6.0 },
+      { type: "platform", x: 0, z: -7, w: 10, d: 10, elevation: 9.0 },
+      { type: "ramp", x: 0, z: 9, w: 10, d: 6, axis: "z", elevStart: 6.0, elevEnd: 3.0 }, // base→mid
+      { type: "ramp", x: 0, z: 2, w: 8, d: 6, axis: "z", elevStart: 9.0, elevEnd: 6.0 }, // mid→top
+    ];
+    const tol = 0.01;
+    // Top tier centre wins over the wider base/mid beneath it.
+    assert(Math.abs(getElevationAt(0, -7, surfaces) - 9.0) < tol, "top tier centre should be 9.0");
+    // Base ledge clear of both ramps (x off-centre) stays at 3.0.
+    assert(Math.abs(getElevationAt(-9, 13, surfaces) - 3.0) < tol, "outer base ledge should be 3.0");
+    // base→mid ramp midpoint interpolates to 4.5 (max over base's 3.0).
+    assert(Math.abs(getElevationAt(0, 9, surfaces) - 4.5) < tol, "base→mid ramp midpoint should be 4.5");
+    // mid→top ramp midpoint interpolates to 7.5 (max over mid's 6.0).
+    assert(Math.abs(getElevationAt(0, 2, surfaces) - 7.5) < tol, "mid→top ramp midpoint should be 7.5");
+    // Off the footprint entirely → floor.
+    assert(getElevationAt(40, 40, surfaces) === 0, "far outside all tiers should be floor (0)");
+  });
+
   await step(result, "isCircleClear — platform obstacle blocks at floor level (Y=0)", () => {
     const obstacles = [{ x: 0, z: -18, w: 16, d: 8, h: 3, platformTop: 3.0 }];
     const posFloor = { x: 0, z: -18, y: 0 };
