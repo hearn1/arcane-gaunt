@@ -104,7 +104,9 @@ async function findElectron() {
 }
 
 function runElectronTests() {
-  return new Promise((resolve, reject) => {
+  // NOTE: the promise resolver is named `done` (not `resolve`) so it does not
+  // shadow `resolve` imported from node:path used just below.
+  return new Promise((done, reject) => {
     const electronPath = resolve(ROOT, "node_modules", "electron", "dist", "electron.exe");
     const testMain = resolve(__dirname, "electron-smoke.cjs");
     const env = {
@@ -152,13 +154,13 @@ function runElectronTests() {
       if (existsSync(RESULT_FILE)) {
         try {
           const data = JSON.parse(readFileSync(RESULT_FILE, "utf8"));
-          resolve(data);
+          done(data);
           return;
         } catch (e) {
           err(`Failed to parse result file: ${e.message}`);
         }
       }
-      resolve({ status: "error", error: "No result file was produced", scenario: SCENARIO });
+      done({ status: "error", error: "No result file was produced", scenario: SCENARIO });
     });
 
     proc.on("error", (e) => {

@@ -61,6 +61,38 @@ export default async function runPitVerticalityValidate(_game, result) {
     assert(ramps.length >= 2, `expected at least 2 ramps in sinkhole, got ${ramps.length}`);
   });
 
+  await step(result, "sinkhole floor is cut open over the pit footprint", () => {
+    const game = _game;
+    game._buildArenaLayout("sinkhole");
+    // A pit layout rebuilds the floor as a ShapeGeometry with a hole so the
+    // depression is visible from above instead of hidden behind a solid plane.
+    assert(
+      game._floor.geometry.type === "ShapeGeometry",
+      `expected floor ShapeGeometry (hole cut) in sinkhole, got ${game._floor.geometry.type}`,
+    );
+  });
+
+  await step(result, "non-pit layout uses a plain solid floor (no hole)", () => {
+    const game = _game;
+    game._buildArenaLayout("cross");
+    assert(
+      game._floor.geometry.type === "PlaneGeometry",
+      `expected plain PlaneGeometry floor without pits, got ${game._floor.geometry.type}`,
+    );
+  });
+
+  await step(result, "sinkhole pit has solid vertical walls and a floor below the rim", () => {
+    const game = _game;
+    game._buildArenaLayout("sinkhole");
+    // Walls (y = -depth/2) and pit floor (y = -depth) all sit below the rim.
+    let belowRim = 0;
+    game._arenaLayout.traverse((o) => {
+      if (o.isMesh && o.position.y < -0.1) belowRim++;
+    });
+    // 4 walls + 1 pit floor.
+    assert(belowRim >= 5, `expected >=5 sub-rim pit meshes (4 walls + floor), got ${belowRim}`);
+  });
+
   await step(result, "player safe start excludes pit positions", () => {
     const game = _game;
     game._buildArenaLayout("sinkhole");
