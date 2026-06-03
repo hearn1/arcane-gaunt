@@ -114,6 +114,17 @@ export function killAllEnemies(world) {
   }
 }
 
+// Remove every live enemy without routing through the death path. Unlike
+// killAllEnemies (which calls applyDamage → onEnemyDead and therefore clears
+// _waveActive, ending the wave and firing the reward transition), this leaves
+// the wave active so a scenario can reset the field to a known set of enemies
+// via enemyManager.spawnExtra, which early-returns null once the wave is over.
+export function clearEnemiesKeepWave(world) {
+  const mgr = world.enemyManager;
+  for (const e of mgr.aliveList()) e.forceRemove();
+  mgr.enemies = mgr.enemies.filter((e) => e.alive);
+}
+
 export function killPlayer(world) {
   applyDamage(world.player, 99999, { owner: "enemy", spellId: "smoke_test" });
 }
