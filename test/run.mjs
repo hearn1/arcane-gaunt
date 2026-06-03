@@ -11,12 +11,51 @@ const SCENARIO = process.argv[2] || process.env.ARCANE_SMOKE_SCENARIO || "all";
 const TIMEOUT_MS = parseInt(process.env.ARCANE_SMOKE_TIMEOUT || "120000", 10);
 const RESULT_FILE = resolve(__dirname, `.smoke-result-${SCENARIO.replace(/[^a-z0-9_-]/g, "_")}.json`);
 
+const IS_WINDOWS = process.platform === "win32";
+
 function log(msg) {
   console.log(`[test-runner] ${msg}`);
 }
 
 function err(msg) {
   console.error(`[test-runner] ERROR: ${msg}`);
+}
+
+// The Python server is tracked at module scope so it can be torn down from any
+// exit path — the success path, the error path, and the process-level safety
+// net handlers below.
+let serverProc = null;
+
+// Kill the dev server *and its children*, synchronously. The server is spawned
+// with `shell: true`, so on Windows `serverProc.kill()` only signals the shell
+// wrapper and leaves the real `python.exe` grandchild holding port 8000 — which
+// breaks the next run. `taskkill /T` kills the whole process tree by pid. This
+// must run synchronously (not via setTimeout) because callers `process.exit()`
+// immediately afterward, which would cut off any deferred work.
+function killServer() {
+  if (!serverProc || serverProc.killed) return;
+  const pid = serverProc.pid;
+  serverProc = null;
+  try {
+    if (IS_WINDOWS) {
+      execSync(`taskkill /pid ${pid} /T /F`, { stdio: "ignore" });
+    } else {
+      // On POSIX, kill the whole process group spawned via the shell wrapper.
+      try { process.kill(-pid, "SIGTERM"); } catch { process.kill(pid, "SIGTERM"); }
+    }
+  } catch {
+    // Already gone, or never fully started — nothing to clean up.
+  }
+}
+
+// Safety net: tear the server down if the runner is interrupted (Ctrl+C) or
+// exits through a path that didn't already call killServer().
+process.on("exit", killServer);
+for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(sig, () => {
+    killServer();
+    process.exit(1);
+  });
 }
 
 function startPythonServer() {
@@ -32,10 +71,14 @@ function startPythonServer() {
       env: { ...process.env, PYTHONUNBUFFERED: "1" },
     });
 
+    // Track at module scope right away so killServer() can reap the process
+    // tree even if startup fails before this promise resolves.
+    serverProc = proc;
+
     let started = false;
     const timeout = setTimeout(() => {
       if (!started) {
-        proc.kill();
+        killServer();
         reject(new Error("Python server did not start within 15s"));
       }
     }, 15000);
@@ -215,11 +258,10 @@ async function main() {
     process.exit(1);
   }
 
-  let serverProc = null;
   try {
-    // Start Python dev server
+    // Start Python dev server (assigns module-level serverProc)
     log("Starting Python dev server...");
-    serverProc = await startPythonServer();
+    await startPythonServer();
     log("Python dev server started.");
 
     // Wait for server to be ready
@@ -249,18 +291,22 @@ async function main() {
       }
     }
 
+    // Tear the server (and its child python.exe) down synchronously *before*
+    // exiting — a deferred setTimeout would be cut off by process.exit and
+    // orphan the server, leaving port 8000 bound for the next run.
+    cleanup();
     process.exit(summary.failed > 0 ? 1 : 0);
   } catch (e) {
     err(`Test run failed: ${e.message}`);
-    if (serverProc) serverProc.kill();
+    cleanup();
     process.exit(1);
-  } finally {
-    if (existsSync(RESULT_FILE)) {
-      try { unlinkSync(RESULT_FILE); } catch {}
-    }
-    if (serverProc) {
-      setTimeout(() => serverProc.kill(), 1000);
-    }
+  }
+}
+
+function cleanup() {
+  killServer();
+  if (existsSync(RESULT_FILE)) {
+    try { unlinkSync(RESULT_FILE); } catch {}
   }
 }
 
