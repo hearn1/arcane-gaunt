@@ -125,7 +125,7 @@ export default async function runDifficultyUnlockSmoke(game, result) {
     await nextFrame();
   });
 
-  await step(result, "locked tier pill is disabled and cannot be clicked", async () => {
+  await step(result, "locked tier pill is marked locked and cannot be clicked", async () => {
     const profile = cloneDefaultProfile();
     game.profile = profile;
     game.difficultyLevel = 1;
@@ -133,7 +133,10 @@ export default async function runDifficultyUnlockSmoke(game, result) {
     await nextFrame();
     const tier2Btn = document.querySelector(".diff-pill[data-diff='2']");
     assert(!!tier2Btn, "Tier 2 pill not found");
-    assert(tier2Btn.disabled, "Tier 2 pill should be disabled for locked tier");
+    // Locked pills stay focusable (no `disabled`) so keyboard/gamepad nav can land
+    // on them to read the unlock card; they carry `locked`/`aria-disabled` instead.
+    assert(tier2Btn.classList.contains("locked"), "Tier 2 pill should have locked class");
+    assert(tier2Btn.getAttribute("aria-disabled") === "true", "Tier 2 pill should be aria-disabled");
     tier2Btn.click();
     assert(game.difficultyLevel === 1, `Locked tier click should not change difficultyLevel, got ${game.difficultyLevel}`);
   });

@@ -131,6 +131,18 @@ export const EN_STRINGS = Object.freeze({
   "ui.continue_to_next_wave": "Continue to Next Wave",
   "ui.tier": "Tier",
 
+  // --- Difficulty / spell info cards (main menu) ---
+  "ui.diff_hp": "HP",
+  "ui.diff_damage": "Damage",
+  "ui.diff_spawn": "Spawn",
+  "ui.diff_gold": "Gold",
+  "ui.mutators_per_wave": "Mutators: $count per wave",
+  "ui.mutators_none": "No wave mutators",
+  "ui.mutators_note": "Mutators are random wave twists — faster, armored, volatile, regenerating, or elite enemies.",
+  "ui.tier_unlock": "Reach level $level on $tier to unlock",
+  "ui.unlocks_at_level": "Unlocks at level $level",
+  "ui.spell_unlock_note": "Level = the highest wave you clear in a single run.",
+
   // --- Game Over ---
   "ui.you_died": "YOU DIED",
   "ui.arena_claims_another": "The arena claims another challenger.",
