@@ -1,5 +1,5 @@
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$steampipeDir = Join-Path $repoRoot "steampipe"
+$steampipeDir = Join-Path $repoRoot "scripts\steampipe"
 
 Write-Host "=== ArcaneGaunt Steam Upload Prep ===" -ForegroundColor Cyan
 Write-Host ""
@@ -36,4 +36,4 @@ Write-Host "Don't forget to replace __APPID__ and __DEPOTID__ in:" -ForegroundCo
 Write-Host "  $steampipeDir\app_build_arcane.vdf" -ForegroundColor Gray
 Write-Host "  $steampipeDir\depot_build_arcane_windows.vdf" -ForegroundColor Gray
 Write-Host ""
-Write-Host "See steampipe/README.md for detailed instructions." -ForegroundColor Cyan
+Write-Host "See scripts/steampipe/README.md for detailed instructions." -ForegroundColor Cyan

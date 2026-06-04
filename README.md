@@ -4,10 +4,9 @@ A first-person wizard shooter roguelike. Pick one spell archetype on the main
 menu, take it into the arena as your whole run build, choose rewards between
 waves, and see how deep you get before you die.
 
-> This README covers running and developing the build. The original design
-> documents are still in this folder: `PROJECT_OVERVIEW.md`, `GAME_DESIGN.md`,
-> `TECHNICAL_ARCHITECTURE.md`, `IMPLEMENTATION_PLAN.md`, `UI_AND_SCENE_FLOW.md`,
-> and `ASSET_GUIDELINES.md`.
+> This README covers running and developing the build. Design documents are in
+> `docs/`: `PROJECT_OVERVIEW.md`, `GAME_DESIGN.md`, `TECHNICAL_ARCHITECTURE.md`,
+> `UI_AND_SCENE_FLOW.md`, `ASSET_GUIDELINES.md`, and `BALANCE_NOTES.md`.
 
 ## Privacy
 
@@ -17,7 +16,7 @@ for full details, including local save and log paths.
 
 ## Release
 
-The operator release checklist is at [`RELEASE_CHECKLIST.md`](./RELEASE_CHECKLIST.md),
+The operator release checklist is at [`docs/RELEASE_CHECKLIST.md`](./docs/RELEASE_CHECKLIST.md),
 covering capsule art, store descriptions, packaged-file audit, credits/license audit,
 privacy policy, screenshots, trailer, and the Steam client install smoke test.
 
@@ -35,13 +34,13 @@ and keeps Electron as a thin desktop shell rather than an app framework.
 ## Run in a browser for development
 
 ```sh
-python serve.py
+python scripts/serve.py
 ```
 
 Then open <http://localhost:8000>. Optional custom port:
 
 ```sh
-python serve.py 8080
+python scripts/serve.py 8080
 ```
 
 No install step is needed for browser development. Any static file server pointed
@@ -135,7 +134,7 @@ and Node.js installations.
 ### Manual Test Plan
 
 The following scenarios require human verification. Start the dev server with
-`python serve.py` and open `http://localhost:8000`.
+`python scripts/serve.py` and open `http://localhost:8000`.
 
 #### 1. Main Menu & Spell Selection
 
@@ -289,7 +288,7 @@ dist/ArcaneGaunt 1.0.0.exe
 
 ## Steam upload
 
-SteamPipe build scripts live in `steampipe/`. To prepare a Windows build for
+SteamPipe build scripts live in `scripts/steampipe/`. To prepare a Windows build for
 Steam upload:
 
 ```sh
@@ -297,7 +296,7 @@ npm run steam:prep
 ```
 
 This runs `pack:win` and produces `dist/win-unpacked/ArcaneGaunt.exe`. See
-`steampipe/README.md` for the full operator guide — installing SteamCMD,
+`scripts/steampipe/README.md` for the full operator guide — installing SteamCMD,
 substituting App ID / Depot ID placeholders, running the upload, and the
 recommended branch/promotion strategy.
 
@@ -457,7 +456,7 @@ targets.
 
 ## Architecture
 
-Engine-agnostic separations from `TECHNICAL_ARCHITECTURE.md`:
+Engine-agnostic separations from `docs/TECHNICAL_ARCHITECTURE.md`:
 
 - **Static spell data** `src/spells/spellDefinitions.js` is `Object.freeze`d and
   never mutated. **`SpellInstance`** holds mutable runtime `stats`; buffs only

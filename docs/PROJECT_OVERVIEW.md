@@ -147,7 +147,7 @@ Each spell has a branching upgrade tree (7–13 nodes) with mutually exclusive f
 
 ## Production/Release Work Remaining
 
-Items not yet complete for a Steam release (tracked in `todofeature.md`):
+Items not yet complete for a Steam release:
 
 - Full gamepad / controller support.
 - Steam Deck UI readiness.

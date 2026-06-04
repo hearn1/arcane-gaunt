@@ -3,7 +3,7 @@
   "appid"   "__APPID__"
   "desc"    "ArcaneGaunt Windows build"
   "buildoutput" "build_output"
-  "contentroot" ".."
+  "contentroot" "..\.."
   "setlive" ""
   "preview" "0"
   "local"   ""
