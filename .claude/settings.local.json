@@ -31,7 +31,25 @@
       "Bash(cp tmp_download/extracted/scifi/Audio/laserLarge_000.ogg     assets/audio/cast_fire.ogg)",
       "Bash(cp tmp_download/extracted/scifi/Audio/forceField_000.ogg     assets/audio/cast_frost.ogg)",
       "Bash(cp tmp_download/extracted/scifi/Audio/slime_000.ogg          assets/audio/cast_poison.ogg)",
-      "Bash(cp tmp_download/extracted/scifi/Audio/laserRetro_002.ogg     assets/audio/cast_chain.ogg)"
+      "Bash(cp tmp_download/extracted/scifi/Audio/laserRetro_002.ogg     assets/audio/cast_chain.ogg)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit -m '@ *)",
+      "Bash(runs 'dont orphan the server either. *)",
+      "Bash(git commit *)",
+      "Bash(rm -f .git/COMMIT_MSG_TMP.txt)",
+      "Bash(git push *)",
+      "Bash(cat)",
+      "Bash(gh pr *)",
+      "Bash(rm -f .git/PR_BODY_TMP.md)",
+      "Bash(gh issue *)",
+      "Bash(node test/run.mjs layout-geometry-validate)",
+      "Bash(node test/run.mjs elevation-validate)",
+      "Bash(node test/run.mjs combat-verticality-validate)",
+      "Bash(node test/run.mjs all)",
+      "Bash(git check-ignore *)",
+      "Bash(git fetch *)",
+      "Bash(cat > *)"
     ]
   }
 }

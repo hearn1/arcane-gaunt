@@ -2,7 +2,8 @@ node_modules/
 dist/
 .tools/
 npm-debug.log*
-steampipe/build_output/
+scripts/steampipe/build_output/
+__pycache__/
 steam_appid.txt
 assets/store/trailer/working/
 test/.smoke-result-*.json

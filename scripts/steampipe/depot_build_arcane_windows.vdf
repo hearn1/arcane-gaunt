@@ -1,7 +1,7 @@
 "DepotBuildConfig"
 {
   "DepotID" "__DEPOTID__"
-  "ContentRoot" "..\dist\win-unpacked\"
+  "ContentRoot" "..\..\dist\win-unpacked\"
   "FileMapping"
   {
     "LocalPath" "*"

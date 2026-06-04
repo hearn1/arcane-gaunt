@@ -14,7 +14,7 @@
     "dist:win": "electron-builder --win nsis",
     "dist:portable": "electron-builder --win portable",
     "steam:prep": "npm run pack:win",
-    "serve": "python serve.py",
+    "serve": "python scripts/serve.py",
     "test": "node test/run.mjs",
     "test:smoke": "node test/run.mjs",
     "test:validate": "node test/run.mjs data-validate",
@@ -39,20 +39,8 @@
       "CREDITS.md",
       "README.md",
       "PRIVACY_POLICY.md",
-      "!PROJECT_OVERVIEW.md",
-      "!GAME_DESIGN.md",
-      "!TECHNICAL_ARCHITECTURE.md",
-      "!IMPLEMENTATION_PLAN.md",
-      "!UI_AND_SCENE_FLOW.md",
-      "!ASSET_GUIDELINES.md",
-      "!BALANCE_NOTES.md",
-      "!INITIAL_SANDBOX_PROMPT.md",
-      "!NEXT_SESSION_PROMPT.md",
-      "!todofeature.md",
-      "!RELEASE_CHECKLIST.md",
-      "!feature_*.md",
-      "!serve.py",
-      "!UltimateMonsters/**"
+      "!docs/**",
+      "!assets/source-models/**"
     ],
     "directories": {
       "output": "dist"

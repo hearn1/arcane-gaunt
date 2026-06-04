@@ -28,11 +28,11 @@ Before running, replace the placeholders in the VDF files:
 
 2. Log in to SteamCMD and run the build:
    ```sh
-   steamcmd +login <your_steam_username> +run_app_build "<full_path_to_repo>\steampipe\app_build_arcane.vdf" +quit
+   steamcmd +login <your_steam_username> +run_app_build "<full_path_to_repo>\scripts\steampipe\app_build_arcane.vdf" +quit
    ```
    You will be prompted for your Steam Guard code and password.
 
-3. On success, SteamCMD prints "Build complete" and outputs are written to `steampipe/build_output/`.
+3. On success, SteamCMD prints "Build complete" and outputs are written to `scripts/steampipe/build_output/`.
 
 ## Branch Strategy
 

@@ -60,7 +60,7 @@ for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) {
 
 function startPythonServer() {
   return new Promise((resolve, reject) => {
-    const proc = spawn("python", ["serve.py", String(SERVER_PORT)], {
+    const proc = spawn("python", ["scripts/serve.py", String(SERVER_PORT)], {
       cwd: ROOT,
       stdio: ["ignore", "pipe", "pipe"],
       shell: true,
