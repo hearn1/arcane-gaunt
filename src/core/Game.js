@@ -58,6 +58,7 @@ import { ScreenEffects } from "./ScreenEffects.js";
 import { WorldProjector } from "../ui/WorldProjector.js";
 import { StatusIconLayer } from "../ui/StatusIconLayer.js";
 import { DamageNumberLayer } from "../ui/DamageNumberLayer.js";
+import { Atmosphere } from "./Atmosphere.js";
 
 const STATE = {
   MENU: "menu", FOCUS: "focus", PLAYING: "playing",
@@ -130,6 +131,22 @@ export class Game {
     this.audio = new AudioSys(this.settings.audio);
     this.vfx = new VFX(this.scene);
     this.vfx.setDensity(this.settings.performance.vfxDensity);
+    // Atmosphere system (issue #97): stars, fog tint, rim lights, ambient motes.
+    // Instantiated after vfx (needs density/reducedMotion refs) and after
+    // _buildArena() so skybox mesh + scene.fog exist. applyLayout() is called at
+    // the end of _buildArenaLayout() once hazards are populated.
+    this.atmosphere = new Atmosphere(
+      this.scene,
+      this._skyboxMesh,
+      this.scene.fog,
+      this.vfx,
+      this.arenaBounds,
+    );
+    // Apply the initial "focus" (menu) atmosphere — stars + neutral fog/rim.
+    // The layout name is set to "focus" by _buildArenaLayout("focus") above, but
+    // atmosphere wasn't available then (it's constructed here). Re-apply now so
+    // stars twinkle and fog tints correctly during the main-menu state.
+    this.atmosphere.applyLayout(this.arenaLayoutName || "cover");
     this.input = new Input(this.renderer.domElement, this.settings);
     this.player = new PlayerController(this.camera, this.arenaBounds);
     this.player.setMouseSensitivity(this.settings.controls.mouseSensitivity);
@@ -338,6 +355,7 @@ export class Game {
     this.enemyManager?.clearAll();
     this.hitResolver?.clear();
     this.vfx?.clear();
+    this.atmosphere?.dispose();
     this.staffView?.dispose();
     this.damageNumbers?.destroy();
     this.ui?.clearTransientCombatUi?.();
@@ -801,6 +819,10 @@ export class Game {
       addPillar(16, 16);
     }
     this._rebuildFloor();
+    // Apply atmosphere preset for this layout (97a: fog tint, rim light, pit glow;
+    // 97b: configure mote emitter). Called after hazards are populated so pit glow
+    // lights can be positioned over the correct pit footprints.
+    this.atmosphere?.applyLayout(kind);
   }
 
   // Rebuilds the arena floor mesh, cutting a hole over each pit footprint so the
@@ -903,6 +925,8 @@ export class Game {
     this.captions?.setEnabled(this.settings.display.captions);
     this._reducedMotion = !!this.settings.display?.reducedMotion;
     this.vfx?.setReducedMotion(this._reducedMotion);
+    // Re-configure mote emitter AFTER vfx density + reducedMotion are updated.
+    this.atmosphere?.applySettings(this.arenaLayoutName || "cover");
     if (this._bloomPass) {
       this._bloomPass.enabled = this.settings.display?.bloom !== false;
     }
@@ -1572,6 +1596,10 @@ export class Game {
     } else {
       this.vfx.update(Math.min(dt, 0.033));
     }
+
+    // Atmosphere: star twinkle + ambient mote drift (#97). Runs every frame
+    // regardless of game state so the sky always animates in menus too.
+    this.atmosphere?.update(dt);
 
     // Screen effects update applies shake offset to camera BEFORE render (94b).
     // removeShakeOffset() strips it after — the authoritative camera.position
