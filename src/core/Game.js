@@ -39,6 +39,7 @@ import { StaffView } from "../player/StaffView.js";
 import { HitResolver } from "../projectile/HitResolver.js";
 import { preloadEnemyModels } from "../enemies/Enemy.js";
 import { EnemyManager } from "../enemies/EnemyManager.js";
+import { EnemyVfxHandler } from "../enemies/EnemyVfxHandler.js";
 import { LevelManager } from "../level/LevelManager.js";
 import { ObjectiveManager } from "../level/ObjectiveManager.js";
 import { LayoutEventManager } from "../level/LayoutEventManager.js";
@@ -246,6 +247,7 @@ export class Game {
     this.blink = new Blink(this.player, this.world);
     this.hitResolver = new HitResolver(this.world);
     this.enemyManager = new EnemyManager(this.world);
+    this.enemyVfxHandler = new EnemyVfxHandler(this.world);
     this.objectiveManager = new ObjectiveManager(this.world);
     this.layoutEvents = new LayoutEventManager(this.world);
     this.levelManager = new LevelManager(this.world);
