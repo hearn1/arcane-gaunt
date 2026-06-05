@@ -96,6 +96,7 @@ export const EN_STRINGS = Object.freeze({
   "ui.fov": "Field of View",
   "ui.colorblind_mode": "Colorblind Mode",
   "ui.screen_shake": "Screen Shake",
+  "ui.show_damage_numbers": "Show Damage Numbers",
   "ui.bloom": "Bloom",
   "ui.shadows": "Shadows",
   "ui.accessibility": "Accessibility",

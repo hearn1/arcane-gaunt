@@ -417,6 +417,27 @@
     letter-spacing: 1px; text-transform: uppercase; }
   .wave-banner .wb-obj-desc { font-size: 12px; color: #d8fff8; line-height: 1.4;
     margin-top: 2px; max-width: 380px; }
+  /* Floating damage numbers (#99) — pool nodes live inside #hud */
+  .dmg-num {
+    position: absolute;
+    pointer-events: none;
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    white-space: nowrap;
+    user-select: none;
+    will-change: transform, opacity;
+  }
+  .dmg-num-crit {
+    font-size: 24px;
+    text-shadow: 0 0 10px rgba(255,215,0,0.7), 0 1px 4px rgba(0,0,0,0.9);
+  }
+  .dmg-num-dot {
+    font-size: 14px;
+    opacity: 0.85;
+  }
   .dead-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 9;
     box-shadow: inset 0 0 220px 60px rgba(180,20,40,0); transition: box-shadow .25s ease; }
   .summary-wave { font-size: 28px; font-weight: 800; color: #fff; letter-spacing: 1px; }
