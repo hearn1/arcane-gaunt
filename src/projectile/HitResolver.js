@@ -3,6 +3,7 @@ import { applyDamage } from "../core/Damage.js";
 import { applyPlayerDamage, armParryDynamo } from "../core/CombatBonuses.js";
 import { Projectile } from "./Projectile.js";
 import { makeRedirectSpell } from "../player/Block.js";
+import { emitImpact, emitExplode, resolveColor } from "../core/VfxLibrary.js";
 
 // Owns ALL collision + effect resolution for projectiles. Every damage branch
 // (direct, AoE, DOT seed, split) is routed through core/Damage.applyDamage.
@@ -334,41 +335,13 @@ export class HitResolver {
   }
 
   _impact(pos, spell, projectile = null) {
-    const id = spell.definitionId;
-    if (id === "arcane_bolt") {
-      this.world.vfx.shock(pos, spell.color, 1.8, 0.24);
-      this.world.vfx.burst(pos, spell.color, 14, 8, 0.34, 0.16);
-      if (projectile && projectile.cadenceStacks >= 3) {
-        this.world.vfx.burst(pos, 0xf2eaff, 20, 10, 0.5, 0.12);
-      }
-    } else if (id === "frost_bolt") {
-      this.world.vfx.shock(pos, 0xbdefff, 2.2, 0.34);
-      this.world.vfx.burst(pos, 0xdff8ff, 18, 7, 0.48, 0.14);
-      this.world.vfx.flash(pos, spell.color, 0.55, 0.18);
-    } else if (id === "poison_bolt") {
-      this.world.vfx.mist(pos, spell.color, 1.9, 0.95, 18);
-      this.world.vfx.burst(pos, 0xb6ff76, 12, 4.5, 0.45, 0.16);
-    } else {
-      this.world.vfx.burst(pos, spell.color, 12, 7, 0.35);
-    }
+    const color = resolveColor(spell, this.world.settings);
+    emitImpact(this.world.vfx, spell, pos, color, projectile);
   }
 
   _explodeVisual(pos, spell, radius) {
-    const id = spell.definitionId;
-    if (id === "fireball") {
-      this.world.vfx.shock(pos, 0xff7a33, radius, 0.42);
-      this.world.vfx.flash(pos, 0xffd36a, radius * 0.34, 0.18);
-      this.world.vfx.burst(pos, 0xff7a33, 30, 13, 0.62, 0.24);
-      this.world.vfx.burst(pos, 0xffd36a, 14, 9, 0.42, 0.18);
-    } else if (id === "meteor") {
-      this.world.vfx.shock(pos, 0xff5530, radius * 1.08, 0.58);
-      this.world.vfx.flash(pos, 0xffc45a, radius * 0.48, 0.2);
-      this.world.vfx.burst(pos, 0xff6a2a, 38, 16, 0.72, 0.26);
-      this.world.vfx.mist(pos, 0x3b3340, radius * 0.42, 1.1, 20);
-    } else {
-      this.world.vfx.shock(pos, spell.color, radius, 0.45);
-      this.world.vfx.burst(pos, spell.color, 26, 12, 0.6, 0.24);
-    }
+    const color = resolveColor(spell, this.world.settings);
+    emitExplode(this.world.vfx, spell, pos, color, radius);
   }
 
   _explode(pos, spell, faction) {
