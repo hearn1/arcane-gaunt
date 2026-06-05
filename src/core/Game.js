@@ -59,6 +59,7 @@ import { WorldProjector } from "../ui/WorldProjector.js";
 import { StatusIconLayer } from "../ui/StatusIconLayer.js";
 import { DamageNumberLayer } from "../ui/DamageNumberLayer.js";
 import { Atmosphere } from "./Atmosphere.js";
+import { AudioVisualSync } from "./AudioVisualSync.js";
 
 const STATE = {
   MENU: "menu", FOCUS: "focus", PLAYING: "playing",
@@ -286,6 +287,11 @@ export class Game {
     // Instantiated after world and projector are ready; update() called each frame below.
     this.damageNumbers = new DamageNumberLayer(this.world);
 
+    // AudioVisualSync: bus-driven A/V pairing layer (issue #98).
+    // Subscribes to onPlayerCast (cast muzzle flash) and onWaveClear (gold burst).
+    // Must be instantiated after world.events and world.vfx are ready.
+    this.audioVisualSync = new AudioVisualSync(this.world);
+
     // Wire crosshair hit/kill flash and damage-direction indicator to the event
     // bus now that both UI and events are ready. World is passed for #101's
     // damage-direction nearest-enemy lookup in the onDamageDealt handler.
@@ -358,6 +364,7 @@ export class Game {
     this.atmosphere?.dispose();
     this.staffView?.dispose();
     this.damageNumbers?.destroy();
+    this.audioVisualSync?.dispose();
     this.ui?.clearTransientCombatUi?.();
     this.ui?.setHud(false);
     reportFatal(err, source);
@@ -1189,6 +1196,8 @@ export class Game {
     this.input.exitLock();
     this.clearInputState();
     this.audio.reward();
+    // Gold tint overlay paired with the reward audio cue (#98 A/V sync).
+    this.audioVisualSync?.showRewardTint();
     this.ui.toast(format("toast.gold_earned", { gold }));
     this._rewardLevel = level;
     this._rewardRerolls = 0;
@@ -1588,6 +1597,7 @@ export class Game {
       // before render so icons sit at correct screen positions this frame.
       this.statusIcons.update(this.world, this.camera);
       this.damageNumbers?.update(dt);
+      this.audioVisualSync?.update(dt);
       this.ui.updateHud(this.world);
       // Vignette compositor: drive persistent low-HP layer (94a).
       // ESCALATION-LADDER SEAM — #101 (HUD polish) reads _lowHealthIntensity
