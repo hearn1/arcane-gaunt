@@ -55,6 +55,7 @@ import { Onboarding } from "../ui/Onboarding.js";
 import { reportFatal } from "./ErrorReporting.js";
 import { init as telemetryInit, setEnabled as telemetrySetEnabled, track as telemetryTrack } from "./Telemetry.js";
 import { ScreenEffects } from "./ScreenEffects.js";
+import { WorldProjector } from "../ui/WorldProjector.js";
 
 const STATE = {
   MENU: "menu", FOCUS: "focus", PLAYING: "playing",
@@ -157,6 +158,10 @@ export class Game {
     );
     this.captions = new Captions();
     this.captions.setEnabled(this.settings.display.captions);
+    // WorldProjector: shared 3D→screen projection + DOM pool (issue #103).
+    // Appended to #hud so pool nodes sit inside the HUD overlay coordinate space.
+    // Exposed on world.projector for consumers #96 (status icons) and #99 (damage numbers).
+    this.projector = new WorldProjector(document.getElementById("hud"), this.camera);
     this.timers = [];
     this.relics = new Set();
     this.combat = { nextCastDamageMult: 1, nextCastLabel: "", blinkStrikeTimer: 0, guardTraining: 0, autocastTargetMode: "forward", perfectHealNext: 0, castCounter: 0, standingTimer: 0, consecutiveSkips: 0, hollowSigilApplied: false, vermillionAoE: false, emberedFootingReady: false };
@@ -203,6 +208,7 @@ export class Game {
       get onboarding() { return self.onboarding; },
       get captions() { return self.captions; },
       get screenEffects() { return self.screenEffects; },
+      get projector() { return self.projector; },
       serviceOptions: () => self.serviceOptions(),
       getEnemies: () => self.enemyManager.aliveList(),
       getObjectiveTargets: () => self.objectiveManager?.targets() || [],
@@ -1538,6 +1544,7 @@ export class Game {
       }
       if (this.state !== STATE.PLAYING) return this._render();
       this.vfx.update(dt);
+      this.projector.updatePool(dt);
       this.ui.updateHud(this.world);
       // Vignette compositor: drive persistent low-HP layer (94a).
       // ESCALATION-LADDER SEAM — #101 (HUD polish) reads _lowHealthIntensity
@@ -1560,6 +1567,7 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight);
     if (this._composer) this._composer.setSize(innerWidth, innerHeight);
+    this.projector?.resize();
   }
 
   _targetPixelRatio() {
