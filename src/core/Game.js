@@ -57,6 +57,7 @@ import { init as telemetryInit, setEnabled as telemetrySetEnabled, track as tele
 import { ScreenEffects } from "./ScreenEffects.js";
 import { WorldProjector } from "../ui/WorldProjector.js";
 import { StatusIconLayer } from "../ui/StatusIconLayer.js";
+import { DamageNumberLayer } from "../ui/DamageNumberLayer.js";
 
 const STATE = {
   MENU: "menu", FOCUS: "focus", PLAYING: "playing",
@@ -264,6 +265,10 @@ export class Game {
     this.rewardGen = new RewardGenerator(this.world);
     this.upgrades = new UpgradeManager(this.world);
 
+    // DamageNumberLayer: floating hit numbers driven from world.events.onDamageDealt (#99).
+    // Instantiated after world and projector are ready; update() called each frame below.
+    this.damageNumbers = new DamageNumberLayer(this.world);
+
     // Wire crosshair hit/kill flash to the event bus now that both UI and
     // events are ready.
     this.ui.attachBus(this.events, this.settings);
@@ -333,6 +338,7 @@ export class Game {
     this.hitResolver?.clear();
     this.vfx?.clear();
     this.staffView?.dispose();
+    this.damageNumbers?.destroy();
     this.ui?.clearTransientCombatUi?.();
     this.ui?.setHud(false);
     reportFatal(err, source);
@@ -1556,6 +1562,7 @@ export class Game {
       // Called after enemy positions update (enemyManager.update above) and
       // before render so icons sit at correct screen positions this frame.
       this.statusIcons.update(this.world, this.camera);
+      this.damageNumbers?.update(dt);
       this.ui.updateHud(this.world);
       // Vignette compositor: drive persistent low-HP layer (94a).
       // ESCALATION-LADDER SEAM — #101 (HUD polish) reads _lowHealthIntensity

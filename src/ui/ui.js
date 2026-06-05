@@ -553,6 +553,7 @@ const settingsButton = onSettings
     const shadows = settings.display?.shadows !== false;
     const captions = !!settings.display?.captions;
     const reducedMotion = !!settings.display?.reducedMotion;
+    const showDamageNumbers = settings.display?.showDamageNumbers !== false;
     const storageText = storageMeta?.path
       ? format("ui.storage_path", { path: storageMeta.path })
       : format("ui.storage_path", { path: storageMeta?.key || "local settings" });
@@ -636,6 +637,10 @@ const settingsButton = onSettings
           <span>${t("ui.screen_shake")}</span>
         </label>
         <label class="settings-toggle">
+          <input type="checkbox" id="set-damage-numbers" ${showDamageNumbers ? "checked" : ""}/>
+          <span>${t("ui.show_damage_numbers")}</span>
+        </label>
+        <label class="settings-toggle">
           <input type="checkbox" id="set-bloom" ${bloom ? "checked" : ""}/>
           <span>${t("ui.bloom")}</span>
         </label>
@@ -688,6 +693,7 @@ const settingsButton = onSettings
     const fovEl = document.getElementById("set-fov");
     const colorblindEl = document.getElementById("set-colorblind");
     const screenShakeEl = document.getElementById("set-screenshake");
+    const damageNumbersEl = document.getElementById("set-damage-numbers");
     const bloomEl = document.getElementById("set-bloom");
     const shadowsEl = document.getElementById("set-shadows");
     const captionsEl = document.getElementById("set-captions");
@@ -740,6 +746,7 @@ const settingsButton = onSettings
           fov: nextFov,
           colorblindMode: colorblindEl.checked,
           screenShake: screenShakeEl.checked,
+          showDamageNumbers: damageNumbersEl?.checked !== false,
           bloom: bloomEl?.checked !== false,
           shadows: shadowsEl?.checked !== false,
           captions: captionsEl?.checked ?? false,
@@ -769,6 +776,7 @@ const settingsButton = onSettings
     fovEl.oninput = () => emit();
     colorblindEl.onchange = () => emit();
     screenShakeEl.onchange = () => emit(true);
+    if (damageNumbersEl) damageNumbersEl.onchange = () => emit();
     if (bloomEl) bloomEl.onchange = () => emit(true);
     if (shadowsEl) shadowsEl.onchange = () => emit(true);
     if (captionsEl) captionsEl.onchange = () => emit();

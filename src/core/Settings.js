@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     reducedMotion: false,
     bloom: true,
     shadows: true,
+    showDamageNumbers: true,
   }),
   performance: Object.freeze({
     renderScale: 1,
@@ -99,6 +100,7 @@ export function sanitizeSettings(input = {}) {
       reducedMotion: !!input.display?.reducedMotion,
       bloom: input.display?.bloom !== false,
       shadows: input.display?.shadows !== false,
+      showDamageNumbers: input.display?.showDamageNumbers !== false,
     },
     performance: {
       renderScale: clampNumber(
