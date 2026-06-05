@@ -1122,7 +1122,7 @@ export class Game {
     return 20 + this._rewardLevel * 7 + this._rewardRerolls * 16;
   }
 
-  renderReward() {
+  renderReward(isReroll = false) {
     const cost = this.rewardRerollCost();
     this.ui.reward(
       this._rewardLevel,
@@ -1133,6 +1133,7 @@ export class Game {
         rerollCost: cost,
         canReroll: this.currency.gold >= cost,
         onReroll: () => this.rerollReward(),
+        isReroll,
       },
       this.world,
     );
@@ -1142,14 +1143,14 @@ export class Game {
     const cost = this.rewardRerollCost();
     if (!this.currency.spend(cost)) {
       this.ui.toast(t("toast.not_enough_gold"));
-      this.renderReward();
+      this.renderReward(false);
       return;
     }
     this._rewardRerolls += 1;
     this._rewardChoices = this.rewardGen.generate(3);
     this.audio.reward();
     this.ui.toast(format("toast.rerolled_rewards", { cost }));
-    this.renderReward();
+    this.renderReward(true);
   }
 
   pickReward(reward) {
@@ -1167,7 +1168,7 @@ export class Game {
     this.openUpgradePanel();
   }
 
-  openUpgradePanel() {
+  openUpgradePanel(lastBoughtNode = null, lastBoughtSvc = null) {
     this.state = STATE.REWARD;
     this.clearInputState();
     this.ui.upgradePanel(
@@ -1175,6 +1176,8 @@ export class Game {
       (spellId, nodeId) => this.buyUpgrade(spellId, nodeId),
       (serviceId) => this.buyService(serviceId),
       () => this.resumeFromUpgrade(),
+      lastBoughtNode,
+      lastBoughtSvc,
     );
   }
 
@@ -1186,7 +1189,7 @@ export class Game {
         this.onboarding?.triggerIf(this.world, "autocast_unlock");
       }
     }
-    this.openUpgradePanel(); // re-render with fresh gold / state
+    this.openUpgradePanel(nodeId, null); // re-render with fresh gold / state
   }
 
   serviceOptions() {
@@ -1248,12 +1251,12 @@ export class Game {
   buyService(serviceId) {
     const option = this.serviceOptions().find((s) => s.id === serviceId);
     if (!option || option.disabled) {
-      this.openUpgradePanel();
+      this.openUpgradePanel(null, null);
       return;
     }
     if (!this.currency.spend(option.cost)) {
       this.ui.toast(t("toast.not_enough_gold"));
-      this.openUpgradePanel();
+      this.openUpgradePanel(null, null);
       return;
     }
     if (serviceId === "heal") {
@@ -1277,7 +1280,7 @@ export class Game {
       }
     }
     this.audio.reward();
-    this.openUpgradePanel();
+    this.openUpgradePanel(null, serviceId); // re-render with bought service highlighted
   }
 
   resumeFromUpgrade() {

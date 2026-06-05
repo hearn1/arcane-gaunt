@@ -792,14 +792,21 @@ const settingsButton = onSettings
 
   reward(level, rewards, onPick, economy = null, world = null) {
     this.setHud(false);
-    const cards = rewards.map((r, i) => `
-      <div class="reward-card" data-i="${i}" data-nav>
+    const reducedMotion = !!world?.settings?.display?.reducedMotion;
+    const animClass = reducedMotion ? "" : (economy?.isReroll ? "anim-flipin" : "anim-enter");
+    const cards = rewards.map((r, i) => {
+      const delayStyle = (!reducedMotion && animClass)
+        ? ` style="animation-delay:${(i * 0.05).toFixed(2)}s"`
+        : "";
+      return `
+      <div class="reward-card ${animClass}" data-i="${i}" data-nav${delayStyle}>
         <div class="r-type"><span>${r.type}</span><span class="r-rarity ${r.rarity || "common"}">${r.rarity || "common"}</span></div>
         <div class="r-title">${r.title}</div>
         <div class="r-desc">${r.description}</div>
         ${r.spellName ? `<div class="r-spell">${t("ui.affects")}: ${r.spellName}</div>` : ""}
         ${r.tip ? `<div class="r-tip">${r.tip}</div>` : ""}
-      </div>`).join("");
+      </div>`;
+    }).join("");
     const hasUnlock = rewards.some((r) => r.type === "Spell Unlock");
     const nudge = !hasUnlock && world && world.caster?.loadout?.some((s) => !s.autoFire)
       ? `<div class="reward-hint">${t("ui.tip_auto_cast")}</div>`
@@ -810,23 +817,31 @@ const settingsButton = onSettings
       ${nudge}
       <div id="reward-cards">${cards}</div>
       ${economy ? `<button class="btn secondary" id="btn-reroll" data-nav ${economy.canReroll ? "" : "disabled"}>${t("ui.reroll_rewards")} &middot; ${economy.rerollCost}g</button>
-      <div class="hint">${t("ui.gold")}: <b style="color:var(--gold);">${economy.gold}</b> &nbsp;&middot;&nbsp; <b>${devicePrompt("confirm")}</b> ${t("ui.pick")} &nbsp;&middot;&nbsp; <b>${devicePrompt("back")}</b> ${t("ui.back")}</div>` : ""}
+      <div class="hint">${t("ui.gold")}: <b id="reward-gold-display" style="color:var(--gold);">${economy.gold}</b> &nbsp;&middot;&nbsp; <b>${devicePrompt("confirm")}</b> ${t("ui.pick")} &nbsp;&middot;&nbsp; <b>${devicePrompt("back")}</b> ${t("ui.back")}</div>` : ""}
     `);
     this._navDetach = attach(this.root, {
       onActivate: (el) => el?.click(),
     });
     this.root.querySelectorAll(".reward-card").forEach((el) => {
-      el.onclick = () => onPick(rewards[parseInt(el.dataset.i, 10)]);
+      el.onclick = () => {
+        if (!reducedMotion) {
+          el.classList.remove("anim-enter", "anim-flipin");
+          void el.offsetWidth; // force reflow to restart animation
+          el.classList.add("anim-select-pulse");
+        }
+        onPick(rewards[parseInt(el.dataset.i, 10)]);
+      };
     });
     const reroll = document.getElementById("btn-reroll");
     if (reroll && economy?.onReroll) reroll.onclick = economy.onReroll;
   }
 
-  upgradePanel(world, onBuy, onService, onContinue) {
+  upgradePanel(world, onBuy, onService, onContinue, _lastBoughtNode = null, _lastBoughtSvc = null) {
     this.setHud(false);
+    const reducedMotion = !!world?.settings?.display?.reducedMotion;
     const gold = world.currency.gold;
     const services = (world.serviceOptions?.() || []).map((svc) => `
-      <div class="svc-card ${svc.disabled ? "disabled" : ""}">
+      <div class="svc-card ${svc.disabled ? "disabled" : ""}${(!reducedMotion && _lastBoughtSvc === svc.id) ? " anim-bought" : ""}" data-svc-id="${svc.id}">
         <div class="svc-info">
           <div class="svc-title">${svc.title}</div>
           <div class="svc-desc">${svc.description}</div>
@@ -860,7 +875,8 @@ const settingsButton = onSettings
             btn = `<span class="up-tag locked">${t("ui.locked")} &middot; ${node.cost}g</span>`;
           }
           const capstoneTag = node.capstone ? `<span class="up-capstone-tag">${t("ui.capstone")}</span>` : "";
-          return `<div class="up-node ${st} ${node.capstone ? "capstone" : ""}">
+          const boughtClass = (!reducedMotion && _lastBoughtNode === node.id) ? " anim-bought" : "";
+          return `<div class="up-node ${st} ${node.capstone ? "capstone" : ""}${boughtClass}">
             <div class="up-node-info">
               <div class="up-node-title">${node.title}${capstoneTag}</div>
               <div class="up-node-desc">${node.description}</div>
@@ -881,7 +897,7 @@ const settingsButton = onSettings
       }).join("");
     this._show(`
       <h1 class="title" style="font-size:36px;">${t("ui.upgrade_spell")}</h1>
-      <div class="subtitle">${t("ui.gold")}: <b style="color:var(--gold);">${gold}</b> &nbsp;&middot;&nbsp; ${t("ui.spend_before_next_wave")}</div>
+      <div class="subtitle">${t("ui.gold")}: <b id="upgrade-gold-display" style="color:var(--gold);">${gold}</b> &nbsp;&middot;&nbsp; ${t("ui.spend_before_next_wave")}</div>
       <div id="service-panel">${services}</div>
       <div id="upgrade-panel">${spells || `<div class="up-empty">${t("ui.no_upgrades_available")}</div>`}</div>
       <button class="btn" id="btn-up-continue" data-nav>${t("ui.continue_to_next_wave")}</button>
@@ -897,6 +913,14 @@ const settingsButton = onSettings
       el.onclick = () => onService(el.dataset.svc);
     });
     document.getElementById("btn-up-continue").onclick = onContinue;
+    // Gold counter flash: triggered after a purchase re-render (gold will have dropped).
+    if (!reducedMotion && (_lastBoughtNode !== null || _lastBoughtSvc !== null)) {
+      const goldEl = document.getElementById("upgrade-gold-display");
+      if (goldEl) {
+        goldEl.classList.add("gold-spend");
+        goldEl.addEventListener("animationend", () => goldEl.classList.remove("gold-spend"), { once: true });
+      }
+    }
 
     if (services) world.onboarding?.note(world, "services");
     if (spells) world.onboarding?.note(world, "upgrade_tree");
