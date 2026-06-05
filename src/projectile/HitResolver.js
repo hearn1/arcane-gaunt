@@ -423,6 +423,11 @@ export class HitResolver {
       } else {
         applyDamage(pl, p.spell.stats.damage, this._source(p.spell, "enemy"));
         this.world.onPlayerHurt?.();
+        // Enemy-projectile impact VFX gap fix (#98): non-AoE enemy projectiles
+        // previously had no visual on player hit. Add an impact flash + ring so
+        // the player sees a clear on-screen cause for the damage.
+        // Paired with #94's hurt vignette for a complete "you got hit" event.
+        this._impact(p.position, p.spell, p);
       }
       p.expire(true);
     }

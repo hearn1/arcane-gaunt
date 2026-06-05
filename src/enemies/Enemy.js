@@ -450,12 +450,13 @@ export class Enemy {
       this._dead = true;
       this.alive = false;
       this._volatileBurst();
-      this.world.audio.enemyDeath();
       // Gameplay accounting fires immediately — wave-clear correctness preserved.
       this.world.enemyManager.onEnemyDead(this);
 
       const reducedMotion = this.world.settings?.display?.reducedMotion;
       if (reducedMotion) {
+        // reducedMotion: dissolve is skipped → play death sound immediately.
+        this.world.audio.enemyDeath();
         // reducedMotion: immediate removal, keep burst (spec: "skip dissolve, keep burst").
         this.world.vfx.burst(this.mesh.position, this.cfg.color, 22, 9, 0.55, 0.22);
         this.world.scene.remove(this.mesh);
@@ -465,6 +466,8 @@ export class Enemy {
 
       // Dissolve: keep mesh in scene for ~0.35s, scale→0 + emissive→white.
       // The burst fires immediately as the death punctuation, then the mesh lingers.
+      // Death sound delayed 0.1s to match the dissolve peak (#98 A/V sync).
+      this.world.after(0.1, () => { this.world.audio.enemyDeath(); });
       this.world.vfx.burst(this.mesh.position, this.cfg.color, 22, 9, 0.55, 0.22);
 
       // Prepare materials for dissolve: enable transparency so opacity fade works.
