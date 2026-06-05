@@ -111,9 +111,24 @@ export class UI {
     // Sized slightly larger than the 18px crosshair so it orbits the cross arms.
     this._cdRing = new CooldownRing(this.crosshair, { size: 28, thickness: 3 });
 
+    // Blink cooldown ring — reuses CooldownRing component (#101 seam 1).
+    // Wrapped around #blink-ind; size 44px to orbit the text label.
+    // Color: #9fd8ff matches the blink-ready text color.
+    this._blinkRing = new CooldownRing(this.blinkEl, { size: 44, thickness: 3, color: "#9fd8ff" });
+
+    // Damage direction indicator — single reusable element (#101).
+    // Tracks the last off-screen enemy hit; decays opacity over 1.5s.
+    this._damageDirEl = document.getElementById("damage-dir");
+    this._damageDirTimer = 0;     // seconds remaining on current indicator
+    this._damageDirAngle = 0;     // current arc angle in radians (screen-space)
+    // Low-HP pulse state: hysteresis gate (mirrors ScreenEffects VIG_WARN/VIG_CLEAR pattern).
+    // Bar pulses at <30% HP; clears above 50% (same ladder as #94 vignette, different threshold).
+    this._hpLowActive = false;
+
     // Event bus subscriptions — wired in attachBus(), detached in detachBus().
     this._onDamageDealt = null;
     this._onEnemyDeath = null;
+    this._onPlayerHurtDir = null;
     this._busAttached = false;
   }
 
@@ -124,10 +139,18 @@ export class UI {
    * @param {import("../core/EventBus.js").EventBus} bus
    * @param {object} settings — world.settings (for reducedMotion check)
    */
-  attachBus(bus, settings) {
+  /**
+   * Subscribe to the world event bus for crosshair hit/kill flashes and
+   * damage-direction indicator (#101).
+   * @param {import("../core/EventBus.js").EventBus} bus
+   * @param {object} settings — world.settings (for reducedMotion check)
+   * @param {object} [world]  — world object (for enemyManager access in dir indicator)
+   */
+  attachBus(bus, settings, world) {
     this.detachBus();
     this._busRef = bus;
     this._settingsRef = settings;
+    this._worldRef = world || null;
 
     this._onDamageDealt = (ev) => {
       // Only react to player-sourced damage; skip DoTs to debounce AoE (Q3).
@@ -145,8 +168,39 @@ export class UI {
       this._flashCrosshair("kill-flash", 220);
     };
 
+    // Damage direction indicator (#101 seam 3): show arc toward off-screen attacker.
+    // Driven by onDamageDealt with source.owner === "enemy" (event-bus contract).
+    //
+    // Note: ev.pos is the *target's* (player's) position since applyDamage sets
+    // pos from target.position — the attacker's position is not in the payload.
+    // We use the nearest alive enemy at hit-time as the directional signal, which
+    // is the correct fallback per the design note and matches the melee case where
+    // the nearest enemy IS the attacker. For ranged hits this is best-effort.
+    //
+    // One arc element — repoint + refresh decay on each new hit (Q4: single arc).
+    this._onPlayerHurtDir = (ev) => {
+      if (!ev.source || ev.source.owner !== "enemy") return;
+      // Find nearest alive enemy to use as the direction source.
+      // _worldRef is set in attachBus if world is passed, otherwise null.
+      const enemies = this._worldRef?.enemyManager?.aliveList?.() || [];
+      const playerPos = ev.pos; // player position (target pos from applyDamage)
+      if (!playerPos || enemies.length === 0) return;
+      let best = null, bestDist = Infinity;
+      for (const e of enemies) {
+        if (!e.alive || !e.mesh?.position) continue;
+        const d = Math.hypot(e.mesh.position.x - playerPos.x, e.mesh.position.z - playerPos.z);
+        if (d < bestDist) { bestDist = d; best = e; }
+      }
+      if (!best) return;
+      // Store attacker XZ position; angle computed in updateHud with live camera yaw.
+      this._damageSrcPos = { x: best.mesh.position.x, z: best.mesh.position.z };
+      // Reset decay timer — 1.5s per spec.
+      this._damageDirTimer = 1.5;
+    };
+
     bus.on("onDamageDealt", this._onDamageDealt);
     bus.on("onEnemyDeath", this._onEnemyDeath);
+    bus.on("onDamageDealt", this._onPlayerHurtDir);
     this._busAttached = true;
   }
 
@@ -155,6 +209,8 @@ export class UI {
     if (!this._busAttached || !this._busRef) return;
     if (this._onDamageDealt) this._busRef.off("onDamageDealt", this._onDamageDealt);
     if (this._onEnemyDeath) this._busRef.off("onEnemyDeath", this._onEnemyDeath);
+    if (this._onPlayerHurtDir) this._busRef.off("onDamageDealt", this._onPlayerHurtDir);
+    this._onPlayerHurtDir = null;
     this._busAttached = false;
   }
 
@@ -235,6 +291,12 @@ export class UI {
     this.blockInd?.classList.remove("active", "perfect");
     this.crosshair?.classList.remove("blocking", "perfect-window", "perfect-hit", "block-hit", "hit-flash", "kill-flash");
     clearTimeout(this._flashTimer);
+    // Reset damage direction arc and HP pulse state.
+    this._damageDirTimer = 0;
+    this._damageSrcPos = null;
+    if (this._damageDirEl) this._damageDirEl.style.opacity = "0";
+    this._hpLowActive = false;
+    if (this.hpFill) this.hpFill.classList.remove("low");
   }
 
   toast(msg, ms = 1800) {
@@ -1089,8 +1151,9 @@ const settingsButton = onSettings
 
   // --- HUD update ---------------------------------------------------------
 
-  buildSpellSlots(loadout) {
+  buildSpellSlots(loadout, settings) {
     this.spellsEl.innerHTML = "";
+    const colorblind = !!settings?.display?.colorblindMode;
     const manualCount = loadout.filter((s) => !s.autoFire).length;
     this._spellSlots = loadout.map((s, i) => {
       const el = document.createElement("div");
@@ -1098,9 +1161,18 @@ const settingsButton = onSettings
       if (s.autoFire) el.classList.add("passive");
       const key = s.autoFire ? t("ui.auto") : (manualCount > 1 ? i + 1 : t("ui.run_spell"));
       el.innerHTML = `<span class="key">${key}</span><span class="nm">${s.displayName}</span><div class="cd-fill"></div>`;
+      // Element pip (#101): border-left colored by spell's element.
+      // Uses colorblindColor when colorblind mode is on, matching #92/#95/#96.
+      // Set-once here (loadout change), never recomputed per frame — cost: zero.
+      const rawColor = colorblind ? s.colorblindColor : s.color;
+      if (rawColor != null) {
+        el.style.borderLeft = `3px solid ${numericColorToCss(rawColor)}`;
+      }
       this.spellsEl.appendChild(el);
       return el;
     });
+    // Cache settings for potential future rebuilds triggered from outside updateHud.
+    this._lastSettings = settings;
   }
 
   updateHud(world) {
@@ -1128,8 +1200,30 @@ const settingsButton = onSettings
       this.objDescEl.style.display = objective ? "" : "none";
     }
 
+    // ── #101: low-HP pulse — escalation-ladder seam with #94's vignette ──────
+    // Bar pulse triggers at <30% HP (this), vignette joins at <25% (#94 ScreenEffects).
+    // Hysteresis: activate below 30%, clear above 50% (mirrors ScreenEffects pattern).
+    // Class-toggle only — animation is pure CSS (GPU), zero per-frame style writes
+    // after the class settles.
+    {
+      const hpRatio = h.ratio;
+      const reducedMotion = !!world.settings?.display?.reducedMotion;
+      if (!this._hpLowActive && hpRatio < 0.30) {
+        this._hpLowActive = true;
+      } else if (this._hpLowActive && hpRatio >= 0.50) {
+        this._hpLowActive = false;
+      }
+      // Toggle the .low class (adds pulse animation or static glow under reducedMotion).
+      const wantsLow = this._hpLowActive && !reducedMotion;
+      const wantsStaticGlow = this._hpLowActive && reducedMotion;
+      if (this.hpFill) {
+        this.hpFill.classList.toggle("low", wantsLow);
+        this.hpFill.classList.toggle("low-static", wantsStaticGlow);
+      }
+    }
+
     const lo = world.caster.loadout;
-    if (this._spellSlots.length !== lo.length) this.buildSpellSlots(lo);
+    if (this._spellSlots.length !== lo.length) this.buildSpellSlots(lo, world.settings);
     const manualCount = lo.filter((s) => !s.autoFire).length;
     lo.forEach((s, i) => {
       const el = this._spellSlots[i];
@@ -1197,6 +1291,85 @@ const settingsButton = onSettings
     } else {
       this.blinkEl.textContent = `${t("ui.blink")} ${world.blink.timer.toFixed(1)}s`;
       this.blinkEl.classList.add("cooling");
+    }
+
+    // ── #101: blink cooldown ring — seam 1 (imports CooldownRing, not re-impl) ──
+    // world.blink.ratio: 0 = on cooldown, 1 = ready. Mirrors spell cd ring pattern.
+    if (this._blinkRing) {
+      const blinkProgress = world.blink.ratio; // 0..1
+      this._blinkRing.setProgress(blinkProgress);
+      // Color shifts to accent when ready, muted (#6c6890) when cooling.
+      this._blinkRing.setColor(blinkProgress >= 1 ? "#9fd8ff" : "rgba(108,104,144,0.7)");
+      this._blinkRing.el.classList.toggle("ready", blinkProgress >= 1);
+    }
+
+    // ── #101: damage direction indicator — off-screen arc toward attacker ────
+    // Driven by _onPlayerHurtDir (event bus subscriber). Decay + position here.
+    if (this._damageDirEl && this._damageDirTimer > 0) {
+      // Decay timer: reduce by approximate frame time (capped per frame).
+      // We don't have dt in updateHud; use a minimal per-frame decrement.
+      // The timer is set to 1.5s on hit; we expect ~60fps → ~0.0167s/frame.
+      // Use performance.now() delta for precision.
+      const now = performance.now();
+      if (this._damageDirLastMs !== undefined) {
+        const dtMs = Math.min(now - this._damageDirLastMs, 100); // cap at 100ms
+        this._damageDirTimer = Math.max(0, this._damageDirTimer - dtMs / 1000);
+      }
+      this._damageDirLastMs = now;
+
+      if (this._damageDirTimer <= 0 || !this._damageSrcPos) {
+        this._damageDirEl.style.opacity = "0";
+      } else {
+        // Compute screen-space angle from camera forward to attacker direction.
+        const yaw = world.player.yaw;
+        const playerFeet = world.player.feet;
+        const dx = this._damageSrcPos.x - playerFeet.x;
+        const dz = this._damageSrcPos.z - playerFeet.z;
+        // Camera axes in world XZ (from PlayerController):
+        //   forward: (-sin(yaw), -cos(yaw))   right: (cos(yaw), -sin(yaw))
+        // Project (dx, dz) onto camera-local axes:
+        const camRight   = dx * Math.cos(yaw)   + dz * (-Math.sin(yaw));
+        const camForward = dx * (-Math.sin(yaw)) + dz * (-Math.cos(yaw));
+        // screenAngle: 0 = top (straight ahead), PI/2 = right, ±PI = behind.
+        const screenAngle = Math.atan2(camRight, camForward);
+
+        // Off-screen check: attacker is off-screen if it is behind the camera
+        // (camForward < 0) or if camForward > 0 but outside the FOV cone.
+        // Use camRight/camForward ratio to approximate screen edge (FOV ~78°).
+        // tan(39°) ≈ 0.81 for half-FOV; add aspect ratio factor for width.
+        const halfFovTan = 0.9; // slightly generous so near-edge is still shown
+        const aspectAdj = (window.innerWidth / window.innerHeight) * halfFovTan;
+        const isOffScreen = camForward < 0.01
+          || Math.abs(camRight / camForward) > aspectAdj
+          || Math.abs((0) / camForward) > halfFovTan; // vertical always ok for now
+
+        if (isOffScreen) {
+          // Place arc element on viewport edge at the computed angle.
+          const margin = 36; // px inset from viewport edge to arc center
+          const cx = window.innerWidth / 2;
+          const cy = window.innerHeight / 2;
+          const rx = cx - margin;
+          const ry = cy - margin;
+          // Ellipse parametric position at screenAngle (clockwise from top).
+          const ax = cx + rx * Math.sin(screenAngle);
+          const ay = cy - ry * Math.cos(screenAngle);
+
+          // Fade: full opacity for first 1.0s, then fade over last 0.5s.
+          const opacity = Math.min(1, this._damageDirTimer / 0.5);
+
+          this._damageDirEl.style.left = (ax - 24) + "px"; // 24 = half (48px / 2)
+          this._damageDirEl.style.top  = (ay - 24) + "px";
+          // Rotate the arc border to point toward the attacker.
+          this._damageDirEl.style.transform = `rotate(${screenAngle}rad)`;
+          this._damageDirEl.style.opacity = opacity.toFixed(3);
+        } else {
+          // Attacker is on-screen — arc not needed (visible to player).
+          this._damageDirEl.style.opacity = "0";
+        }
+      }
+    } else if (this._damageDirEl) {
+      this._damageDirEl.style.opacity = "0";
+      this._damageDirLastMs = undefined;
     }
   }
 }

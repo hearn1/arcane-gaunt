@@ -269,9 +269,10 @@ export class Game {
     // Instantiated after world and projector are ready; update() called each frame below.
     this.damageNumbers = new DamageNumberLayer(this.world);
 
-    // Wire crosshair hit/kill flash to the event bus now that both UI and
-    // events are ready.
-    this.ui.attachBus(this.events, this.settings);
+    // Wire crosshair hit/kill flash and damage-direction indicator to the event
+    // bus now that both UI and events are ready. World is passed for #101's
+    // damage-direction nearest-enemy lookup in the onDamageDealt handler.
+    this.ui.attachBus(this.events, this.settings, this.world);
 
     // Wire cast shake (94b) — subscribe to onPlayerCast so cast-site code
     // stays clean. Amplitude is read from SPELL_DEFINITIONS[id].castShake

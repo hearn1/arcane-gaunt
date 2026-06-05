@@ -183,9 +183,57 @@
   .spell-slot.passive .cd-fill { background: rgba(92,200,255,0.28); }
   .spell-slot.passive::after { content: "passive"; position: absolute; bottom: 2px; right: 5px;
     font-size: 9px; letter-spacing: 1px; color: rgba(92,200,255,0.7); text-transform: uppercase; }
+  /* blink ring anchor: position:relative so the CooldownRing (position:absolute) */
+  /* centers itself relative to #blink-ind rather than the HUD container.         */
   #blink-ind { position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
-    font-size: 13px; color: #9fd8ff; text-shadow: 0 1px 4px #000; }
+    font-size: 13px; color: #9fd8ff; text-shadow: 0 1px 4px #000;
+    /* Extra padding provides space for the 44px ring to orbit the text label. */
+    padding: 4px 10px; }
   #blink-ind.cooling { color: #6c6890; }
+
+  /* ── #101: element pips — border-left set in buildSpellSlots from spell color ── */
+  /* (No extra CSS needed: border-left is written inline by JS via setProperty) */
+
+  /* ── #101: low-HP pulse — pulsing red glow on #hp-fill at <30% HP ── */
+  /* Escalation ladder: 30% = bar pulses (this), 25% = vignette joins (#94).    */
+  /* Two thresholds are intentional: "getting low" then "critical". Keep both.  */
+  @keyframes hp-low-pulse {
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 0px rgba(255,50,50,0)); }
+    50%       { filter: brightness(1.35) drop-shadow(0 0 7px rgba(255,50,50,0.85)); }
+  }
+  .hp-bar-fill.low {
+    animation: hp-low-pulse 1.1s ease-in-out infinite;
+  }
+  /* Under reducedMotion: static red glow (no animation) so the signal persists.  */
+  /* JS also adds .low-static class when reducedMotion is set in settings.         */
+  .hp-bar-fill.low-static {
+    animation: none !important;
+    filter: brightness(1.2) drop-shadow(0 0 5px rgba(255,50,50,0.7));
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hp-bar-fill.low {
+      animation: none;
+      filter: brightness(1.2) drop-shadow(0 0 5px rgba(255,50,50,0.7));
+    }
+  }
+
+  /* ── #101: damage direction indicator — thin arc on HUD edge toward attacker ── */
+  /* Single reusable element; repositioned + opacity-reset on each off-screen hit. */
+  #damage-dir {
+    position: fixed;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    pointer-events: none;
+    /* clip to a quarter-arc via border + overflow:hidden trick replaced by SVG-free CSS: */
+    /* actual arc drawn via border on one side only, rotated to point at attacker.       */
+    border: 4px solid transparent;
+    border-top-color: rgba(255, 55, 55, 0.9);
+    box-shadow: 0 0 10px rgba(255, 55, 55, 0.55);
+    opacity: 0;
+    transition: none;
+    z-index: 12;
+    /* Centered on HUD edge — JS sets top/left/transform each time */
+  }
 
   #crosshair { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
     width: 18px; height: 18px; z-index: 11; pointer-events: none; display: none;
@@ -566,6 +614,7 @@
     </div>
     <div id="block-ind">BLOCKING</div>
     <div id="blink-ind">Blink ready</div>
+    <div id="damage-dir" aria-hidden="true"></div>
     <div id="hud-spells"></div>
     <div id="boss-bar">
       <div class="bb-name" id="bb-name">BOSS</div>
