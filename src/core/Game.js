@@ -232,6 +232,10 @@ export class Game {
     this.rewardGen = new RewardGenerator(this.world);
     this.upgrades = new UpgradeManager(this.world);
 
+    // Wire crosshair hit/kill flash to the event bus now that both UI and
+    // events are ready.
+    this.ui.attachBus(this.events, this.settings);
+
     this.player.health.onDeath = () => this.onPlayerDeath();
     this.input.onBlink = () => { if (this.state === STATE.PLAYING) this.blink.trigger(); };
     this.input.onPause = () => { if (this.state === STATE.PLAYING) this.pauseGame(true); };
