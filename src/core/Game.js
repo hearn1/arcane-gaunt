@@ -53,6 +53,7 @@ import { Captions } from "../ui/Captions.js";
 import { Onboarding } from "../ui/Onboarding.js";
 import { reportFatal } from "./ErrorReporting.js";
 import { init as telemetryInit, setEnabled as telemetrySetEnabled, track as telemetryTrack } from "./Telemetry.js";
+import { ScreenEffects } from "./ScreenEffects.js";
 
 const STATE = {
   MENU: "menu", FOCUS: "focus", PLAYING: "playing",
@@ -137,6 +138,7 @@ export class Game {
     this.block.notePerfect = () => {
       this._origBlockPerfect();
       this.shieldView?.notePerfect();
+      this.screenEffects?.perfectBlockShake();
     };
     this._origBlockNote = this.block.noteBlock.bind(this.block);
     this.block.noteBlock = () => {
@@ -144,6 +146,14 @@ export class Game {
       this.shieldView?.noteBlock();
     };
     this.ui = new UI();
+    // ScreenEffects: vignette compositor (94a) + camera shake accumulator (94b).
+    // Instantiated after vfx (for screenShake/reducedMotion flags) and after the
+    // vignette element exists (UI constructor sets up #vignette via this.ui.vignette).
+    this.screenEffects = new ScreenEffects(
+      document.getElementById("vignette"),
+      this.camera,
+      this.vfx,
+    );
     this.captions = new Captions();
     this.captions.setEnabled(this.settings.display.captions);
     this.timers = [];
@@ -191,6 +201,7 @@ export class Game {
       set currentBossPattern(p) { self.currentBossPattern = p; },
       get onboarding() { return self.onboarding; },
       get captions() { return self.captions; },
+      get screenEffects() { return self.screenEffects; },
       serviceOptions: () => self.serviceOptions(),
       getEnemies: () => self.enemyManager.aliveList(),
       getObjectiveTargets: () => self.objectiveManager?.targets() || [],
@@ -198,11 +209,20 @@ export class Game {
       after: (sec, fn) => self.timers.push({ t: sec, fn }),
       layoutToast: (msg, ms = 1200) => self.ui.toast(msg, ms),
       isPlayerAlive: () => self.isPlayerAlive(),
-      onPlayerHurt: () => { if (!self._reducedMotion) self.ui.hurtFlash(); self.audio.playerHurt(); },
+      onPlayerHurt: () => {
+        // Vignette hurt flash goes through the compositor (94a) so it merges
+        // cleanly with the persistent low-HP base layer. Not gated by reducedMotion
+        // (it's a state indicator, not motion — see design §4).
+        self.screenEffects?.hurtFlash();
+        self.audio.playerHurt();
+      },
       openReward: (lvl, gold) => self.openReward(lvl, gold),
       onWaveStarted: (lvl, modifier, bossPattern, objective) => {
         self._warnedHazardThisWave = false;
         self.ui.showWaveBanner(lvl, modifier, self.arenaLayoutName, bossPattern, objective);
+        // Wave-start forward/back camera ease (94b). Gated internally by
+        // reducedMotion and screenShake. Sin-ease: 0 → peak → 0 over 0.4s.
+        self.screenEffects?.startWavePulse();
         if (bossPattern) {
           self.vfx.shock(self.player.position, 0xff5edb, 5.2, 0.45);
           self.audio?.telegraphSurge?.();
@@ -235,6 +255,17 @@ export class Game {
     // Wire crosshair hit/kill flash to the event bus now that both UI and
     // events are ready.
     this.ui.attachBus(this.events, this.settings);
+
+    // Wire cast shake (94b) — subscribe to onPlayerCast so cast-site code
+    // stays clean. Amplitude is read from SPELL_DEFINITIONS[id].castShake
+    // (data-driven per spell). arcane_bolt.castShake = 0 so it's a no-op.
+    this.events.on("onPlayerCast", (ev) => {
+      if (this.state === STATE.PLAYING) {
+        const id = ev.spell?.definitionId || ev.spell?.id || "";
+        const amp = SPELL_DEFINITIONS[id]?.castShake ?? 0;
+        if (amp > 0) this.screenEffects?.castShake(id, amp);
+      }
+    });
 
     this.player.health.onDeath = () => this.onPlayerDeath();
     this.input.onBlink = () => { if (this.state === STATE.PLAYING) this.blink.trigger(); };
@@ -1506,11 +1537,20 @@ export class Game {
       if (this.state !== STATE.PLAYING) return this._render();
       this.vfx.update(dt);
       this.ui.updateHud(this.world);
+      // Vignette compositor: drive persistent low-HP layer (94a).
+      // ESCALATION-LADDER SEAM — #101 (HUD polish) reads _lowHealthIntensity
+      // from this same setHealthRatio() call to pulse the HP bar at ≤30%/≤25%.
+      this.screenEffects?.setHealthRatio(this.player.health.ratio);
     } else {
       this.vfx.update(Math.min(dt, 0.033));
     }
 
+    // Screen effects update applies shake offset to camera BEFORE render (94b).
+    // removeShakeOffset() strips it after — the authoritative camera.position
+    // is never permanently mutated, so aim/verticality are unaffected.
+    this.screenEffects?.update(dt);
     this._render();
+    this.screenEffects?.removeShakeOffset();
   }
 
   _resize() {

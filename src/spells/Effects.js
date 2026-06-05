@@ -153,6 +153,9 @@ function meteor(world, spell, origin, dir, faction) {
       }
       if (e <= 0.02 && !done) {
         done = true;
+        // Meteor impact shake (94b) — large amplitude, decays over 0.3s.
+        // Routed through world so Effects.js needs no direct reference to Game.
+        world.screenEffects?.meteorImpactShake();
         world.hitResolver.groundExplode(target.clone(), spell, faction);
         if (faction === "player" && spell.followups > 0) {
           const clone = Object.assign(Object.create(Object.getPrototypeOf(spell)), spell);
