@@ -377,6 +377,63 @@
     opacity: 0; transition: opacity .3s ease; pointer-events: none;
     box-shadow: 0 0 28px rgba(92,200,255,0.25); text-align: center; max-width: 480px; }
   .onboarding-toast.show { opacity: 1; }
+  /* Card entrance / purchase animations */
+  @keyframes card-enter {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes card-flipin {
+    from { opacity: 0; transform: scaleX(0); }
+    to   { opacity: 1; transform: scaleX(1); }
+  }
+  @keyframes card-glow-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(154,108,255,0); border-color: #5a4f8c; }
+    40%  { box-shadow: 0 0 28px 8px rgba(154,108,255,0.8); border-color: var(--accent); }
+    100% { box-shadow: 0 0 0 0 rgba(154,108,255,0); border-color: #5a4f8c; }
+  }
+  @keyframes upgrade-node-glow {
+    0%   { box-shadow: 0 0 0 0 rgba(127,224,160,0); }
+    40%  { box-shadow: 0 0 20px 6px rgba(127,224,160,0.7); }
+    100% { box-shadow: 0 0 0 0 rgba(127,224,160,0); }
+  }
+  @keyframes svc-golden-flash {
+    0%   { background-color: transparent; }
+    30%  { background-color: rgba(255,207,77,0.22); }
+    100% { background-color: transparent; }
+  }
+  @keyframes gold-spend {
+    0%   { color: inherit; }
+    25%  { color: var(--gold); filter: brightness(1.6); }
+    100% { color: inherit; filter: none; }
+  }
+  .reward-card.anim-enter {
+    opacity: 0;
+    animation: card-enter 0.2s ease forwards;
+  }
+  .reward-card.anim-flipin {
+    opacity: 0;
+    animation: card-flipin 0.15s ease forwards;
+  }
+  .reward-card.anim-select-pulse {
+    animation: card-glow-pulse 0.2s ease forwards;
+  }
+  .up-node.anim-bought {
+    animation: upgrade-node-glow 0.2s ease forwards;
+  }
+  .svc-card.anim-bought {
+    animation: svc-golden-flash 0.2s ease forwards;
+  }
+  .gold-spend {
+    animation: gold-spend 0.25s ease forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reward-card.anim-enter,
+    .reward-card.anim-flipin,
+    .reward-card.anim-select-pulse,
+    .up-node.anim-bought,
+    .svc-card.anim-bought,
+    .gold-spend { animation: none; opacity: 1; }
+  }
   @media (max-width: 640px) {
     .profile-strip { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
     .settings-row { grid-template-columns: 1fr 52px; }
