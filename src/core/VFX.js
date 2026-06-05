@@ -30,6 +30,12 @@ export class VFX {
     return Math.max(min, Math.round(count * this.density));
   }
 
+  // Lower-floor variant for trail emitters — trails are continuous per-frame
+  // emitters, so the reduced preset must actually reduce them (floor=1 not 3+).
+  _scaledTrailCount(count) {
+    return Math.max(1, Math.round(count * this.density));
+  }
+
   _disposeObject(obj) {
     obj.traverse?.((o) => {
       o.geometry?.dispose?.();
@@ -55,6 +61,7 @@ export class VFX {
 
   burst(pos, color = 0xffffff, count = 16, spread = 9, life = 0.5, size = 0.18) {
     count = this._scaledCount(count, 4);
+    const ms = this._motionScale();
     const g = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const vel = [];
@@ -63,23 +70,25 @@ export class VFX {
       positions[i * 3 + 1] = pos.y;
       positions[i * 3 + 2] = pos.z;
       vel.push(new THREE.Vector3(
-        (Math.random() - 0.5) * spread,
-        Math.random() * spread * 0.7,
-        (Math.random() - 0.5) * spread
+        (Math.random() - 0.5) * spread * ms,
+        Math.random() * spread * 0.7 * ms,
+        (Math.random() - 0.5) * spread * ms
       ));
     }
     g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     const m = new THREE.PointsMaterial({ color, size, transparent: true, depthWrite: false });
     const pts = new THREE.Points(g, m);
     this._add(pts, life, (dt, e) => {
-      const arr = g.attributes.position.array;
-      for (let i = 0; i < count; i++) {
-        vel[i].y -= 14 * dt;
-        arr[i * 3] += vel[i].x * dt;
-        arr[i * 3 + 1] += vel[i].y * dt;
-        arr[i * 3 + 2] += vel[i].z * dt;
+      if (ms > 0) {
+        const arr = g.attributes.position.array;
+        for (let i = 0; i < count; i++) {
+          vel[i].y -= 14 * dt;
+          arr[i * 3] += vel[i].x * dt;
+          arr[i * 3 + 1] += vel[i].y * dt;
+          arr[i * 3 + 2] += vel[i].z * dt;
+        }
+        g.attributes.position.needsUpdate = true;
       }
-      g.attributes.position.needsUpdate = true;
       m.opacity = e;
     });
   }
@@ -174,6 +183,7 @@ export class VFX {
 
   mist(pos, color = 0x66dd55, radius = 1.4, life = 0.8, count = 10) {
     count = this._scaledCount(count, 3);
+    const ms = this._motionScale();
     const g = new THREE.BufferGeometry();
     const positions = new Float32Array(count * 3);
     const vel = [];
@@ -184,9 +194,9 @@ export class VFX {
       positions[i * 3 + 1] = pos.y + (Math.random() - 0.5) * radius * 0.25;
       positions[i * 3 + 2] = pos.z + Math.sin(a) * r;
       vel.push(new THREE.Vector3(
-        Math.cos(a) * (0.35 + Math.random() * 0.9),
-        0.25 + Math.random() * 0.8,
-        Math.sin(a) * (0.35 + Math.random() * 0.9)
+        Math.cos(a) * (0.35 + Math.random() * 0.9) * ms,
+        (0.25 + Math.random() * 0.8) * ms,
+        Math.sin(a) * (0.35 + Math.random() * 0.9) * ms
       ));
     }
     g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -199,15 +209,142 @@ export class VFX {
     });
     const pts = new THREE.Points(g, m);
     this._add(pts, life, (dt, e) => {
+      if (ms > 0) {
+        const arr = g.attributes.position.array;
+        for (let i = 0; i < count; i++) {
+          arr[i * 3] += vel[i].x * dt;
+          arr[i * 3 + 1] += vel[i].y * dt;
+          arr[i * 3 + 2] += vel[i].z * dt;
+        }
+        g.attributes.position.needsUpdate = true;
+      }
+      m.opacity = 0.55 * e;
+      m.size = radius * (0.25 + (1 - e) * 0.45);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // New trail primitives (92b)
+  // ---------------------------------------------------------------------------
+
+  // Gravity-affected falling ember particles — used for Fireball trail.
+  // Low initial spread, downward bias so they trail and fall behind the lob.
+  embers(pos, color = 0xff7a33, count = 5, life = 0.55) {
+    if (this._reducedMotion) {
+      // Under reduced motion: brief static flash instead of moving embers.
+      this.flash(pos, color, 0.1, life * 0.5);
+      return;
+    }
+    count = this._scaledTrailCount(count);
+    const g = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    const vel = [];
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = pos.x;
+      positions[i * 3 + 1] = pos.y;
+      positions[i * 3 + 2] = pos.z;
+      // Low lateral spread, slight upward kick then gravity pulls down.
+      vel.push(new THREE.Vector3(
+        (Math.random() - 0.5) * 1.8,
+        0.4 + Math.random() * 1.0,
+        (Math.random() - 0.5) * 1.8
+      ));
+    }
+    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const m = new THREE.PointsMaterial({ color, size: 0.12, transparent: true, depthWrite: false });
+    const pts = new THREE.Points(g, m);
+    this._add(pts, life, (dt, e) => {
       const arr = g.attributes.position.array;
       for (let i = 0; i < count; i++) {
+        vel[i].y -= 18 * dt; // stronger gravity than burst so embers fall fast
         arr[i * 3] += vel[i].x * dt;
         arr[i * 3 + 1] += vel[i].y * dt;
         arr[i * 3 + 2] += vel[i].z * dt;
       }
       g.attributes.position.needsUpdate = true;
-      m.opacity = 0.55 * e;
-      m.size = radius * (0.25 + (1 - e) * 0.45);
+      m.opacity = e * 0.85;
+    });
+  }
+
+  // Shrinking corkscrew of tiny flash spheres — used for Arcane Bolt trail.
+  // Places N small Points on a helix around the travel axis, radius decays
+  // toward tail. Under reducedMotion emits a brief static low-opacity marker.
+  spiral(lastPos, pos, color = 0x9a6cff, count = 5) {
+    if (this._reducedMotion) {
+      this.flash(pos, color, 0.06, 0.08);
+      return;
+    }
+    count = this._scaledTrailCount(count);
+    const delta = pos.clone().sub(lastPos);
+    const len = delta.length();
+    if (len < 1e-5) return;
+    const axisDir = delta.clone().normalize();
+
+    // Build a perpendicular frame.
+    const perp = Math.abs(axisDir.y) < 0.9
+      ? new THREE.Vector3(0, 1, 0)
+      : new THREE.Vector3(1, 0, 0);
+    const side = new THREE.Vector3().crossVectors(axisDir, perp).normalize();
+    const up2  = new THREE.Vector3().crossVectors(axisDir, side).normalize();
+
+    const g = new THREE.BufferGeometry();
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      // Helix angle spread across the segment, radius shrinks tail → head.
+      const t = i / Math.max(1, count - 1);
+      const angle = t * Math.PI * 2.5 + (Math.random() - 0.5) * 0.4;
+      const radius = 0.18 * (1 - t * 0.55);
+      const p = lastPos.clone()
+        .lerp(pos, t)
+        .addScaledVector(side, Math.cos(angle) * radius)
+        .addScaledVector(up2,  Math.sin(angle) * radius);
+      positions[i * 3]     = p.x;
+      positions[i * 3 + 1] = p.y;
+      positions[i * 3 + 2] = p.z;
+    }
+    g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const m = new THREE.PointsMaterial({ color, size: 0.09, transparent: true, depthWrite: false });
+    const pts = new THREE.Points(g, m);
+    this._add(pts, 0.12, (dt, e) => { m.opacity = e * 0.7; });
+  }
+
+  // Short, rigid, radiating spark lines for Frost shatter impact.
+  // Straight lightning segments (no jitter/forks) — shatter silhouette.
+  shards(pos, color = 0xbdefff, count = 6, length = 1.8) {
+    count = this._scaledCount(count, 2);
+    const ms = this._motionScale();
+    const group = new THREE.Group();
+    const mats = [];
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+      const tilt  = (Math.random() - 0.3) * 0.5;
+      const dir = new THREE.Vector3(
+        Math.cos(angle),
+        tilt,
+        Math.sin(angle)
+      ).normalize();
+      const end = pos.clone().addScaledVector(dir, length * (0.5 + Math.random() * 0.5));
+      const g = new THREE.BufferGeometry().setFromPoints([pos.clone(), end]);
+      const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9 });
+      group.add(new THREE.Line(g, mat));
+      mats.push({ mat, start: pos.clone(), end, dir, len: pos.distanceTo(end) });
+    }
+    const life = 0.22;
+    this._add(group, life, (dt, e) => {
+      for (const s of mats) {
+        s.mat.opacity = e * 0.9;
+        if (ms > 0) {
+          // Extend shards slightly outward as they fade (small motion, sells shatter).
+          const ext = s.end.clone().addScaledVector(s.dir, 0.6 * dt * ms);
+          s.end.copy(ext);
+          const child = group.children[mats.indexOf(s)];
+          if (child) {
+            const arr = child.geometry.attributes.position.array;
+            arr[3] = s.end.x; arr[4] = s.end.y; arr[5] = s.end.z;
+            child.geometry.attributes.position.needsUpdate = true;
+          }
+        }
+      }
     });
   }
 

@@ -6,8 +6,15 @@ export class SpellInstance {
     this.displayName = def.displayName;
     this.castType = def.castType;
     this.color = def.color;
+    this.colorblindColor = def.colorblindColor ?? null;
     this.soundId = def.soundId || "arcane";
     this.ownerIsEnemy = ownerIsEnemy;
+
+    // VFX dispatch ids — drive VfxLibrary trail/impact resolver.
+    // Optional: chain_lightning and meteor omit these (no projectile trail).
+    this.trailVfxId = def.trailVfxId ?? null;
+    this.impactVfxId = def.impactVfxId ?? null;
+    this.trailInterval = def.trailInterval ?? null;
 
     // Mutable runtime stats (SpellRuntimeStats shape from the architecture doc).
     this.stats = {

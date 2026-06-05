@@ -1,6 +1,10 @@
 import * as THREE from "three";
+import { emitTrail, resolveColor } from "../core/VfxLibrary.js";
 
 const FORWARD = new THREE.Vector3(0, 0, 1);
+
+// Default trail interval for spells without a definition-level trailInterval.
+const DEFAULT_TRAIL_INTERVAL = 0.03;
 
 function mat(color, options = {}) {
   return new THREE.MeshBasicMaterial({ color, ...options });
@@ -169,7 +173,10 @@ export class Projectile {
       this.cadenceTimer = 0;
     }
 
+    // Trail interval driven by definition data (trailInterval) with fallback.
+    // Initialized to 0 so first trail fires immediately on first update.
     this._trailT = 0;
+    this._trailInterval = spell.trailInterval ?? DEFAULT_TRAIL_INTERVAL;
     this._lastTrailPos = origin.clone();
   }
 
@@ -231,29 +238,15 @@ export class Projectile {
   }
 
   _emitTrail() {
-    const id = this.spell.definitionId;
-    const colorblind = this.world?.settings?.colorblindMode;
-    const color = colorblind ? (this.spell.colorblindColor || this.spell.color) : this.spell.color;
-    const pos = this.mesh.position;
-    if (id === "arcane_bolt") {
-      this._trailT = 0.025;
-      this.world.vfx.beam(this._lastTrailPos, pos, color, 0.13);
-      this.world.vfx.flash(pos, color, 0.08, 0.12);
-    } else if (id === "fireball") {
-      this._trailT = 0.045;
-      this.world.vfx.flash(pos, 0xff7a33, 0.24, 0.2);
-      this.world.vfx.burst(pos, 0xffc45a, 3, 2.4, 0.28, 0.08);
-    } else if (id === "frost_bolt") {
-      this._trailT = 0.035;
-      this.world.vfx.beam(this._lastTrailPos, pos, 0xbdefff, 0.16);
-      this.world.vfx.flash(pos, color, 0.12, 0.14);
-    } else if (id === "poison_bolt") {
-      this._trailT = 0.085;
-      this.world.vfx.mist(pos, color, 0.55, 0.45, 5);
-    } else {
-      this._trailT = 0.03;
-      this.world.vfx.flash(pos, color, 0.14, 0.16);
-    }
-    this._lastTrailPos.copy(pos);
+    // Reset timer — interval is driven by definition data (trailInterval).
+    this._trailT = this._trailInterval;
+
+    // Resolve colorblind-corrected color (same as HitResolver does for impacts).
+    const color = resolveColor(this.spell, this.world?.settings);
+
+    // Dispatch through VfxLibrary — no per-spell id branches here.
+    emitTrail(this.world.vfx, this.spell, this._lastTrailPos, this.mesh.position, color);
+
+    this._lastTrailPos.copy(this.mesh.position);
   }
 }

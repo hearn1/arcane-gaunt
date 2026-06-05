@@ -20,6 +20,9 @@ export const SPELL_DEFINITIONS = Object.freeze({
     cadenceDecayTime: 0.6,
     // castShake: 0 — fires every 0.45s, constant shake would be miserable (§94).
     castShake: 0,
+    trailVfxId: "arcane_spiral",
+    impactVfxId: "arcane_pop",
+    trailInterval: 0.028,
   }),
   fireball: Object.freeze({
     id: "fireball",
@@ -37,6 +40,8 @@ export const SPELL_DEFINITIONS = Object.freeze({
     gravity: 18,
     burnPatch: true,
     castShake: 0.04, // noticeable — heavy spell (§94)
+    trailVfxId: "fire_embers",
+    trailInterval: 0.045,
   }),
   frost_bolt: Object.freeze({
     id: "frost_bolt",
@@ -57,6 +62,9 @@ export const SPELL_DEFINITIONS = Object.freeze({
     colorblindColor: 0x22ddff,
     soundId: "frost",
     castShake: 0.02, // faint (§94)
+    trailVfxId: "frost_mist",
+    impactVfxId: "frost_shatter",
+    trailInterval: 0.038,
   }),
   poison_bolt: Object.freeze({
     id: "poison_bolt",
@@ -77,6 +85,9 @@ export const SPELL_DEFINITIONS = Object.freeze({
     colorblindColor: 0xff9933,
     soundId: "poison",
     castShake: 0.015, // faint (§94)
+    trailVfxId: "poison_cloud",
+    impactVfxId: "poison_lingering",
+    trailInterval: 0.085,
   }),
   chain_lightning: Object.freeze({
     id: "chain_lightning",
@@ -113,3 +124,9 @@ export const STARTER_SPELL_ID = "arcane_bolt";
 export const UNLOCKABLE_SPELL_IDS = Object.keys(SPELL_DEFINITIONS).filter(
   (id) => !SPELL_DEFINITIONS[id].starter
 );
+
+// Optional fields allowed on a spell definition (not required by dataValidate).
+// Documented here for reference — trailVfxId/impactVfxId/trailInterval drive
+// the VfxLibrary trail/impact resolver; chain_lightning and meteor have no
+// projectile trail so they omit these fields intentionally.
+// OPTIONAL_SPELL_FIELDS: trailVfxId, impactVfxId, trailInterval
