@@ -18,6 +18,8 @@ export const SPELL_DEFINITIONS = Object.freeze({
     cadenceMaxStacks: 3,
     cadenceDamagePerStack: 6,
     cadenceDecayTime: 0.6,
+    // castShake: 0 — fires every 0.45s, constant shake would be miserable (§94).
+    castShake: 0,
   }),
   fireball: Object.freeze({
     id: "fireball",
@@ -34,6 +36,7 @@ export const SPELL_DEFINITIONS = Object.freeze({
     soundId: "fire",
     gravity: 18,
     burnPatch: true,
+    castShake: 0.04, // noticeable — heavy spell (§94)
   }),
   frost_bolt: Object.freeze({
     id: "frost_bolt",
@@ -53,6 +56,7 @@ export const SPELL_DEFINITIONS = Object.freeze({
     color: 0x5cc8ff,
     colorblindColor: 0x22ddff,
     soundId: "frost",
+    castShake: 0.02, // faint (§94)
   }),
   poison_bolt: Object.freeze({
     id: "poison_bolt",
@@ -72,6 +76,7 @@ export const SPELL_DEFINITIONS = Object.freeze({
     color: 0x66dd55,
     colorblindColor: 0xff9933,
     soundId: "poison",
+    castShake: 0.015, // faint (§94)
   }),
   chain_lightning: Object.freeze({
     id: "chain_lightning",
@@ -85,6 +90,7 @@ export const SPELL_DEFINITIONS = Object.freeze({
     color: 0xa9e7ff,
     colorblindColor: 0xffffff,
     soundId: "chain",
+    castShake: 0.025, // moderate (§94)
   }),
   meteor: Object.freeze({
     id: "meteor",
@@ -98,6 +104,8 @@ export const SPELL_DEFINITIONS = Object.freeze({
     color: 0xff5530,
     colorblindColor: 0xff44aa,
     soundId: "meteor",
+    // Cast shake on meteor mark (separate, larger impact shake fires on landing).
+    castShake: 0.06, // noticeable — heaviest spell (§94)
   }),
 });
 
