@@ -188,10 +188,11 @@
   #blink-ind.cooling { color: #6c6890; }
 
   #crosshair { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    width: 18px; height: 18px; z-index: 11; pointer-events: none; display: none; }
+    width: 18px; height: 18px; z-index: 11; pointer-events: none; display: none;
+    --elem: rgba(255,255,255,0.85); }
   #crosshair.active { display: block; }
   #crosshair::before, #crosshair::after { content: ""; position: absolute;
-    background: rgba(255,255,255,0.85); box-shadow: 0 0 3px #000; }
+    background: var(--elem); box-shadow: 0 0 3px #000; }
   #crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
   #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
   #crosshair.blocking::before, #crosshair.blocking::after { background: rgba(127,224,255,0.95); }
@@ -209,6 +210,60 @@
   #crosshair.block-hit { filter: drop-shadow(0 0 10px rgba(92,200,255,1)); }
   #crosshair.perfect-hit { filter: drop-shadow(0 0 14px rgba(255,255,255,1)); }
   #crosshair.perfect-hit::before, #crosshair.perfect-hit::after { background: #fff; }
+
+  /* Hit flash: expand outward then contract (skipped when reducedMotion) */
+  @keyframes xhair-hit {
+    0%   { transform: translate(-50%,-50%) scale(1); }
+    40%  { transform: translate(-50%,-50%) scale(1.55); }
+    100% { transform: translate(-50%,-50%) scale(1); }
+  }
+  /* Kill flash: larger golden burst */
+  @keyframes xhair-kill {
+    0%   { transform: translate(-50%,-50%) scale(1); filter: drop-shadow(0 0 6px #ffcf4d); }
+    35%  { transform: translate(-50%,-50%) scale(2.1); filter: drop-shadow(0 0 18px #ffcf4d); }
+    100% { transform: translate(-50%,-50%) scale(1); filter: none; }
+  }
+  #crosshair.hit-flash  { animation: xhair-hit  80ms ease-out forwards; }
+  #crosshair.kill-flash { animation: xhair-kill 220ms ease-out forwards; }
+
+  /* Cooldown ring — driven by CooldownRing.js; reused by #101 blink ring */
+  .cd-ring {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: var(--cd-size, 28px);
+    height: var(--cd-size, 28px);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .cd-ring::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    /* conic-gradient: filled arc from top (12 o'clock), clockwise.
+       --cd is progress 0..1; 1 = full ring (spell ready). */
+    background: conic-gradient(
+      from -90deg,
+      var(--cd-color, rgba(255,255,255,0.7)) 0deg,
+      var(--cd-color, rgba(255,255,255,0.7)) calc(var(--cd, 1) * 360deg),
+      transparent calc(var(--cd, 1) * 360deg)
+    );
+    /* Mask to a thin ring (donut) using a radial-gradient mask */
+    -webkit-mask: radial-gradient(
+      farthest-side,
+      transparent calc(50% - var(--cd-thickness, 3px) - 0.5px),
+      #fff calc(50% - var(--cd-thickness, 3px))
+    );
+    mask: radial-gradient(
+      farthest-side,
+      transparent calc(50% - var(--cd-thickness, 3px) - 0.5px),
+      #fff calc(50% - var(--cd-thickness, 3px))
+    );
+    opacity: 0.85;
+  }
+  /* Hide ring when spell is ready (full) to reduce visual noise */
+  .cd-ring.ready::before { opacity: 0; }
 
   /* Reward cards */
   #reward-cards { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; max-width: 960px; }

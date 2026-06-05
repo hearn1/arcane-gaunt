@@ -3,6 +3,7 @@ import { DIFFICULTY_TIERS, SPELL_UNLOCK_LEVELS } from "../core/Difficulty.js";
 import { attach } from "./uiNav.js";
 import { t, format, setLang } from "../core/i18n.js";
 import { DEFAULT_SETTINGS } from "../core/Settings.js";
+import { CooldownRing, numericColorToCss } from "./CooldownRing.js";
 
 const PROMPTS = {
   move: { kbm: "WASD", gamepad: "Left Stick" },
@@ -105,6 +106,75 @@ export class UI {
 
     this._navDetach = null;
     this._spellSlots = [];
+
+    // Cooldown ring — self-contained component, reused by #101 (blink ring).
+    // Sized slightly larger than the 18px crosshair so it orbits the cross arms.
+    this._cdRing = new CooldownRing(this.crosshair, { size: 28, thickness: 3 });
+
+    // Event bus subscriptions — wired in attachBus(), detached in detachBus().
+    this._onDamageDealt = null;
+    this._onEnemyDeath = null;
+    this._busAttached = false;
+  }
+
+  /**
+   * Subscribe to the world event bus for crosshair hit/kill flashes.
+   * Call once after the world is ready (Game.js can call this after UI is set up).
+   * Safe to call multiple times — detaches before re-attaching.
+   * @param {import("../core/EventBus.js").EventBus} bus
+   * @param {object} settings — world.settings (for reducedMotion check)
+   */
+  attachBus(bus, settings) {
+    this.detachBus();
+    this._busRef = bus;
+    this._settingsRef = settings;
+
+    this._onDamageDealt = (ev) => {
+      // Only react to player-sourced damage; skip DoTs to debounce AoE (Q3).
+      if (!ev.source || ev.source.owner !== "player") return;
+      if (ev.isDot) return;
+      if (ev.killed) return; // kill flash fires via onEnemyDeath
+      if (this._settingsRef?.display?.reducedMotion) return;
+      this._flashCrosshair("hit-flash", 80);
+    };
+
+    this._onEnemyDeath = (ev) => {
+      // Kill flash suppresses hit flash (Q4).
+      if (!ev.source || ev.source.owner !== "player") return;
+      if (this._settingsRef?.display?.reducedMotion) return;
+      this._flashCrosshair("kill-flash", 220);
+    };
+
+    bus.on("onDamageDealt", this._onDamageDealt);
+    bus.on("onEnemyDeath", this._onEnemyDeath);
+    this._busAttached = true;
+  }
+
+  /** Remove event bus subscriptions. */
+  detachBus() {
+    if (!this._busAttached || !this._busRef) return;
+    if (this._onDamageDealt) this._busRef.off("onDamageDealt", this._onDamageDealt);
+    if (this._onEnemyDeath) this._busRef.off("onEnemyDeath", this._onEnemyDeath);
+    this._busAttached = false;
+  }
+
+  /**
+   * Trigger a crosshair flash animation. Removes any running flash first so
+   * back-to-back hits retrigger cleanly.
+   * @param {"hit-flash"|"kill-flash"} cls
+   * @param {number} durationMs
+   */
+  _flashCrosshair(cls, durationMs) {
+    if (!this.crosshair) return;
+    // Remove both flash classes to force animation restart
+    this.crosshair.classList.remove("hit-flash", "kill-flash");
+    // Force reflow so removing+adding the same class restarts the animation
+    void this.crosshair.offsetWidth; // eslint-disable-line no-void
+    this.crosshair.classList.add(cls);
+    clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(() => {
+      this.crosshair?.classList.remove("hit-flash", "kill-flash");
+    }, durationMs + 20);
   }
 
   showWaveBanner(level, modifier, layoutName = "", bossPattern = null, objective = null) {
@@ -163,7 +233,8 @@ export class UI {
     this.toastEl?.classList.remove("show");
     this.onboardingToastEl?.classList.remove("show");
     this.blockInd?.classList.remove("active", "perfect");
-    this.crosshair?.classList.remove("blocking", "perfect-window", "perfect-hit", "block-hit");
+    this.crosshair?.classList.remove("blocking", "perfect-window", "perfect-hit", "block-hit", "hit-flash", "kill-flash");
+    clearTimeout(this._flashTimer);
   }
 
   toast(msg, ms = 1800) {
@@ -1061,6 +1132,37 @@ const settingsButton = onSettings
       const ratio = world.caster.cdRatio(s); // 1 = ready
       el.querySelector(".cd-fill").style.height = `${(1 - ratio) * 100}%`;
     });
+
+    // --- Crosshair dynamic state -----------------------------------------
+
+    // Element tint: shift crosshair color to match the equipped spell's element.
+    // Only applies to manually-equipped spells (Q1: hide arc in full-auto runs).
+    const equippedSpell = lo[world.caster.equipped];
+    const isManual = equippedSpell && !equippedSpell.autoFire;
+    if (isManual && equippedSpell.color != null) {
+      const css = numericColorToCss(equippedSpell.color);
+      this.crosshair.style.setProperty("--elem", css);
+    } else {
+      this.crosshair.style.setProperty("--elem", "rgba(255,255,255,0.85)");
+    }
+
+    // Cooldown arc: drain clockwise as the spell cools down.
+    // Show ring only for manually-equipped spells (Q1).
+    if (this._cdRing) {
+      if (isManual) {
+        const cdProgress = world.caster.cdRatio(equippedSpell); // 1 = ready
+        this._cdRing.setProgress(cdProgress);
+        const ringColor = equippedSpell.color != null
+          ? numericColorToCss(equippedSpell.color)
+          : "rgba(255,255,255,0.7)";
+        this._cdRing.setColor(ringColor);
+        this._cdRing.el.classList.toggle("ready", cdProgress >= 1);
+      } else {
+        // Hide ring for auto-fire loadouts
+        this._cdRing.setProgress(1);
+        this._cdRing.el.classList.add("ready");
+      }
+    }
 
     const blk = world.player.block;
     if (blk) {
