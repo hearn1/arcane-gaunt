@@ -235,6 +235,7 @@ export class LevelManager {
     // "This wave only" service flags expire at the wave-end boundary.
     if (this.world.combat) this.world.combat.perfectHealNext = 0;
     steamEvent("wave.cleared", { wave: this.level });
+    this.world.events?.emit("onWaveClear", { level: this.level, gold });
     this.world.openReward(this.level, gold); // pauses combat; resumes via continueAfterReward
   }
 

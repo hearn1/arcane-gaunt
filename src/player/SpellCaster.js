@@ -105,6 +105,7 @@ export class SpellCaster {
     if (world.staffView) world.staffView.playCast(spell.color);
     castSpell(world, prepared.spell, origin, dir, "player");
     this.cooldowns[spell.definitionId] = spell.stats.cooldown * prepared.cooldownMult;
+    world.events?.emit("onPlayerCast", { spell: prepared.spell, origin, dir });
   }
 
   _autoCastDirection(world, spell) {
