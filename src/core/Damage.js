@@ -5,6 +5,9 @@
 let _runStats = null;
 export function setRunStats(rs) { _runStats = rs; }
 
+let _eventBus = null;
+export function setEventBus(bus) { _eventBus = bus; }
+
 // Faction rules: player damages enemy, enemy damages player, no friendly fire.
 export function canDamage(source, targetFaction) {
   if (!source) return false;
@@ -47,5 +50,32 @@ export function applyDamage(target, amount, source) {
     killed = true;
     if (h.onDeath) h.onDeath(source);
   }
+
+  if (dealt > 0 && _eventBus) {
+    const pos = target && target.position ? target.position : (h.position || null);
+    _eventBus.emit("onDamageDealt", {
+      target,
+      pos,
+      dealt,
+      killed,
+      source,
+      isDot: !!source.isDot,
+      isAoe: !!source.isAoe,
+      isChain: !!source.isChain,
+    });
+    if (killed) {
+      _eventBus.emit("onEnemyDeath", {
+        target,
+        pos,
+        dealt,
+        killed,
+        source,
+        isDot: !!source.isDot,
+        isAoe: !!source.isAoe,
+        isChain: !!source.isChain,
+      });
+    }
+  }
+
   return { dealt, killed };
 }

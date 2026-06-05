@@ -19,7 +19,8 @@ import {
   sanitizeProfile,
   saveProfile,
 } from "./Profile.js";
-import { applyDamage, setRunStats } from "./Damage.js";
+import { applyDamage, setRunStats, setEventBus } from "./Damage.js";
+import { EventBus } from "./EventBus.js";
 import {
   findSafeDestination,
   getElevationAt,
@@ -118,6 +119,8 @@ export class Game {
     // Systems.
     this.runStats = new RunStats();
     setRunStats(this.runStats);
+    this.events = new EventBus();
+    setEventBus(this.events);
     this.currency = new Currency(this.runStats);
     this.audio = new AudioSys(this.settings.audio);
     this.vfx = new VFX(this.scene);
@@ -154,6 +157,7 @@ export class Game {
     this.world = {
       scene: this.scene,
       vfx: this.vfx,
+      events: this.events,
       settings: this.settings,
       audio: this.audio,
       runStats: this.runStats,
