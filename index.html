@@ -489,6 +489,20 @@
     .svc-card.anim-bought,
     .gold-spend { animation: none; opacity: 1; }
   }
+
+  /* Status icon layer (#96) — frozen pulse animation.
+     Removed by StatusIconLayer when reducedMotion is enabled. */
+  @keyframes status-icon-pulse {
+    0%   { opacity: 1;    transform-origin: center; }
+    50%  { opacity: 0.55; }
+    100% { opacity: 1; }
+  }
+  .status-icon-pulse {
+    animation: status-icon-pulse 0.9s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .status-icon-pulse { animation: none; opacity: 1; }
+  }
   @media (max-width: 640px) {
     .profile-strip { grid-template-columns: repeat(2, minmax(120px, 1fr)); }
     .settings-row { grid-template-columns: 1fr 52px; }

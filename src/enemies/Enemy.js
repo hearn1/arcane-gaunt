@@ -227,6 +227,22 @@ export class Enemy {
     }, durationMs);
   }
 
+  /**
+   * Returns the dominant status-effect id for display, or null if none.
+   * Priority: frozen > stunned > burning > poisoned > chilled.
+   * "burning" and "poisoned" are distinguished by the DOT source.element field.
+   */
+  statusSummary() {
+    if (this.frozenTimer > 0)  return "frozen";
+    if (this.stunTimer > 0)    return "stunned";
+    if (this.dots.length > 0) {
+      const hasFire = this.dots.some((d) => d.source && d.source.element === "fire");
+      return hasFire ? "burning" : "poisoned";
+    }
+    if (this.chillStacks > 0)  return "chilled";
+    return null;
+  }
+
   _tickStatus(dt) {
     if (this.slowTimer > 0) {
       this.slowTimer -= dt;

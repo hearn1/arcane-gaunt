@@ -56,6 +56,7 @@ import { reportFatal } from "./ErrorReporting.js";
 import { init as telemetryInit, setEnabled as telemetrySetEnabled, track as telemetryTrack } from "./Telemetry.js";
 import { ScreenEffects } from "./ScreenEffects.js";
 import { WorldProjector } from "../ui/WorldProjector.js";
+import { StatusIconLayer } from "../ui/StatusIconLayer.js";
 
 const STATE = {
   MENU: "menu", FOCUS: "focus", PLAYING: "playing",
@@ -162,6 +163,9 @@ export class Game {
     // Appended to #hud so pool nodes sit inside the HUD overlay coordinate space.
     // Exposed on world.projector for consumers #96 (status icons) and #99 (damage numbers).
     this.projector = new WorldProjector(document.getElementById("hud"), this.camera);
+    // StatusIconLayer: floating status-effect icons above enemies (issue #96).
+    // Consumes world.projector — no private pool; soft cap of 24 concurrent nodes.
+    this.statusIcons = new StatusIconLayer();
     this.timers = [];
     this.relics = new Set();
     this.combat = { nextCastDamageMult: 1, nextCastLabel: "", blinkStrikeTimer: 0, guardTraining: 0, autocastTargetMode: "forward", perfectHealNext: 0, castCounter: 0, standingTimer: 0, consecutiveSkips: 0, hollowSigilApplied: false, vermillionAoE: false, emberedFootingReady: false };
@@ -1051,6 +1055,7 @@ export class Game {
     this.blink.cooldown = this.blink.baseCooldown;
     this.blink.reset();
     this.layoutEvents?.clear();
+    this.statusIcons?.clear(this.world);
     this.enemyManager.clearAll();
     this.objectiveManager.clear();
     this.hitResolver.clear();
@@ -1435,6 +1440,7 @@ export class Game {
     queueMicrotask(() => {
       this._deathCleanupQueued = false;
       if (this.state !== STATE.GAMEOVER && this.state !== STATE.SUMMARY && this.state !== STATE.MENU) return;
+      this.statusIcons?.clear(this.world);
       this.enemyManager.clearAll();
       this.hitResolver.clear();
       this.vfx.clear();
@@ -1460,6 +1466,7 @@ export class Game {
     this.state = STATE.MENU;
     this.input.exitLock();
     this.clearInputState();
+    this.statusIcons?.clear(this.world);
     this.enemyManager.clearAll();
     this.layoutEvents?.clear();
     this.objectiveManager.clear();
@@ -1545,6 +1552,10 @@ export class Game {
       if (this.state !== STATE.PLAYING) return this._render();
       this.vfx.update(dt);
       this.projector.updatePool(dt);
+      // Status icons: project floating effect indicators above enemies (#96).
+      // Called after enemy positions update (enemyManager.update above) and
+      // before render so icons sit at correct screen positions this frame.
+      this.statusIcons.update(this.world, this.camera);
       this.ui.updateHud(this.world);
       // Vignette compositor: drive persistent low-HP layer (94a).
       // ESCALATION-LADDER SEAM — #101 (HUD polish) reads _lowHealthIntensity
