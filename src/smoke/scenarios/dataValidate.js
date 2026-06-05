@@ -26,6 +26,23 @@ export default async function runDataValidate(game, result) {
     }
   });
 
+  await step(result, "SPELL_DEFINITIONS — optional VFX fields have valid types when present", () => {
+    for (const [id, def] of Object.entries(SPELL_DEFINITIONS)) {
+      if (def.trailVfxId !== undefined) {
+        assert(typeof def.trailVfxId === "string" && def.trailVfxId.length > 0,
+          `${id} trailVfxId must be a non-empty string`);
+      }
+      if (def.impactVfxId !== undefined) {
+        assert(typeof def.impactVfxId === "string" && def.impactVfxId.length > 0,
+          `${id} impactVfxId must be a non-empty string`);
+      }
+      if (def.trailInterval !== undefined) {
+        assert(typeof def.trailInterval === "number" && def.trailInterval > 0,
+          `${id} trailInterval must be a positive number`);
+      }
+    }
+  });
+
   await step(result, "UNLOCKABLE_SPELL_IDS — consistent with SPELL_DEFINITIONS", () => {
     for (const id of UNLOCKABLE_SPELL_IDS) {
       assert(!!SPELL_DEFINITIONS[id], `UNLOCKABLE_SPELL_IDS contains "${id}" not in definitions`);
