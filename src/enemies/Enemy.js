@@ -211,12 +211,20 @@ export class Enemy {
     this._backoutTimer = 0;
   }
 
-  _flash() {
-    this._setEmissive(0x884444);
+  // t ∈ [0,1] — 0 = chip hit (dim, short), 1 = heavy hit (near-white, long).
+  // Called with no argument by health.onDamage (legacy path) → defaults to 0.
+  _flash(t = 0) {
+    // Blend from dark-red (0x884444) toward near-white (0xffeedd) as t rises.
+    const r = 0x88 + Math.round((0xff - 0x88) * t);
+    const g = 0x44 + Math.round((0xee - 0x44) * t);
+    const b = 0x44 + Math.round((0xdd - 0x44) * t);
+    const hex = (r << 16) | (g << 8) | b;
+    this._setEmissive(hex);
     clearTimeout(this._ft);
+    const durationMs = Math.round(70 + t * 90); // 70ms (chip) → 160ms (heavy)
     this._ft = setTimeout(() => {
       if (this.alive && this.slowTimer <= 0) this._setEmissive(this._baseEmissive);
-    }, 90);
+    }, durationMs);
   }
 
   _tickStatus(dt) {
@@ -426,11 +434,53 @@ export class Enemy {
       this._dead = true;
       this.alive = false;
       this._volatileBurst();
-      this.world.vfx.burst(this.mesh.position, this.cfg.color, 22, 9, 0.55, 0.22);
       this.world.audio.enemyDeath();
-      this.world.scene.remove(this.mesh);
-      this._disposeVisual();
+      // Gameplay accounting fires immediately — wave-clear correctness preserved.
       this.world.enemyManager.onEnemyDead(this);
+
+      const reducedMotion = this.world.settings?.display?.reducedMotion;
+      if (reducedMotion) {
+        // reducedMotion: immediate removal, keep burst (spec: "skip dissolve, keep burst").
+        this.world.vfx.burst(this.mesh.position, this.cfg.color, 22, 9, 0.55, 0.22);
+        this.world.scene.remove(this.mesh);
+        this._disposeVisual();
+        return;
+      }
+
+      // Dissolve: keep mesh in scene for ~0.35s, scale→0 + emissive→white.
+      // The burst fires immediately as the death punctuation, then the mesh lingers.
+      this.world.vfx.burst(this.mesh.position, this.cfg.color, 22, 9, 0.55, 0.22);
+
+      // Prepare materials for dissolve: enable transparency so opacity fade works.
+      const dissolveMats = [];
+      this.mesh.traverse((o) => {
+        if (!o.isMesh) return;
+        const ms = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of ms) {
+          if (m) { m.transparent = true; dissolveMats.push(m); }
+        }
+      });
+
+      const startScale = this.mesh.scale.clone();
+      const white = new THREE.Color(1, 1, 1);
+      const meshRef = this.mesh;
+      const scene   = this.world.scene;
+      let disposed  = false;
+
+      this.world.vfx.custom(meshRef, 0.35, (dt, e) => {
+        // e: 1→0. Scale shrinks (ease-in), emissive ramps to white.
+        const s = e * e;
+        meshRef.scale.copy(startScale).multiplyScalar(s);
+        for (const m of dissolveMats) {
+          if (m?.emissive) m.emissive.copy(white).multiplyScalar(1 - e);
+          if ("opacity" in m) m.opacity = Math.max(0, e);
+        }
+        if (e <= 0 && !disposed) {
+          disposed = true;
+          scene.remove(meshRef);
+          this._disposeVisual();
+        }
+      });
     }
   }
 
@@ -457,9 +507,11 @@ export class Enemy {
   }
 
   forceRemove() {
-    if (this.alive || !this._dead) {
-      this.alive = false;
-      this.world.scene.remove(this.mesh);
+    this.alive = false;
+    // Always remove from scene (handles dissolving corpses that are still rendering).
+    this.world.scene.remove(this.mesh);
+    if (!this._dead) {
+      this._dead = true;
       this._disposeVisual();
     }
   }
