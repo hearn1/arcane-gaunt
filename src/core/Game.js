@@ -321,11 +321,29 @@ export class Game {
     this._onboardingBlinkTriggered = false;
     getStorageMeta().then((meta) => { this.storageMeta = meta; });
 
+    // Debug perf overlay — toggled with F3 during gameplay.
+    this._showPerfOverlay = false;
+    this._perfOverlay = document.createElement("div");
+    this._perfOverlay.id = "perf-overlay";
+    this._perfOverlay.style.cssText = [
+      "position:fixed", "top:8px", "right:8px",
+      "padding:6px 10px", "background:rgba(0,0,0,0.65)",
+      "color:#0ff", "font:12px/1.6 monospace",
+      "border-radius:4px", "pointer-events:none",
+      "white-space:pre", "display:none", "z-index:9999",
+    ].join(";");
+    document.body.appendChild(this._perfOverlay);
+
     addEventListener("resize", () => this._resize());
     addEventListener("keydown", (e) => {
       if (e.code === "Escape" && this.state === STATE.PLAYING) {
         e.preventDefault();
         this.pauseGame(true);
+      }
+      if (e.code === "F3") {
+        e.preventDefault();
+        this._showPerfOverlay = !this._showPerfOverlay;
+        this._perfOverlay.style.display = this._showPerfOverlay ? "block" : "none";
       }
     });
 
@@ -1617,6 +1635,25 @@ export class Game {
     this.screenEffects?.update(dt);
     this._render();
     this.screenEffects?.removeShakeOffset();
+    if (this._showPerfOverlay) this._updatePerfOverlay(performance.now() - now);
+  }
+
+  _updatePerfOverlay(frameMs) {
+    const perf = this.settings.performance || {};
+    const display = this.settings.display || {};
+    const lines = [
+      `frame    ${frameMs.toFixed(1)} ms`,
+      `vfx      ${this.vfx.items.length}`,
+      `proj     ${this.hitResolver.projectiles.length}`,
+      `enemies  ${this.enemyManager.aliveCount}`,
+      `timers   ${this.timers.length}`,
+      `dmg#     ${this.damageNumbers?.activeCount ?? "-"}`,
+      `icons    ${this.statusIcons?._nodeMap?.size ?? "-"}`,
+      `scale    ${perf.renderScale ?? 1}`,
+      `bloom    ${display.bloom !== false}`,
+      `shadows  ${display.shadows !== false}`,
+    ];
+    this._perfOverlay.textContent = lines.join("\n");
   }
 
   _resize() {

@@ -1,10 +1,15 @@
 import * as THREE from "three";
 
+// Hard cap on concurrent VFX items. Trail effects (embers, spiral) are
+// low-priority and dropped first when the budget is reached; impact/
+// explosion/death effects are high-priority and evict trails if needed.
+const VFX_BUDGET = 200;
+
 // Lightweight self-updating visual effects (procedural, no textures).
 export class VFX {
   constructor(scene) {
     this.scene = scene;
-    this.items = []; // { obj, life, max, update(dt, e) }
+    this.items = []; // { obj, life, max, update(dt, e), isTrail }
     this.density = 1;
     this._screenShake = 1;
     this._reducedMotion = false;
@@ -49,8 +54,23 @@ export class VFX {
     }
   }
 
-  _add(obj, life, update) {
-    obj.userData._fx = { life, max: life, update };
+  _add(obj, life, update, isTrail = false) {
+    if (this.items.length >= VFX_BUDGET) {
+      if (isTrail) {
+        // Budget full — drop this low-priority trail rather than evicting others.
+        this._disposeObject(obj);
+        return obj;
+      }
+      // High-priority effect: evict the oldest trail to make room, or if none
+      // exist evict the oldest item overall so the effect still appears.
+      const trailIdx = this.items.findIndex((o) => o.userData._fx?.isTrail);
+      const evictIdx = trailIdx !== -1 ? trailIdx : 0;
+      const evicted = this.items[evictIdx];
+      this.scene.remove(evicted);
+      this._disposeObject(evicted);
+      this.items.splice(evictIdx, 1);
+    }
+    obj.userData._fx = { life, max: life, update, isTrail };
     this.scene.add(obj);
     this.items.push(obj);
     return obj;
@@ -263,7 +283,7 @@ export class VFX {
       }
       g.attributes.position.needsUpdate = true;
       m.opacity = e * 0.85;
-    });
+    }, true);
   }
 
   // Shrinking corkscrew of tiny flash spheres — used for Arcane Bolt trail.
@@ -305,7 +325,7 @@ export class VFX {
     g.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     const m = new THREE.PointsMaterial({ color, size: 0.09, transparent: true, depthWrite: false });
     const pts = new THREE.Points(g, m);
-    this._add(pts, 0.12, (dt, e) => { m.opacity = e * 0.7; });
+    this._add(pts, 0.12, (dt, e) => { m.opacity = e * 0.7; }, true);
   }
 
   // Short, rigid, radiating spark lines for Frost shatter impact.

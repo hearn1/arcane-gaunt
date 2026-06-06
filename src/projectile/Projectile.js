@@ -4,7 +4,9 @@ import { emitTrail, resolveColor } from "../core/VfxLibrary.js";
 const FORWARD = new THREE.Vector3(0, 0, 1);
 
 // Default trail interval for spells without a definition-level trailInterval.
-const DEFAULT_TRAIL_INTERVAL = 0.03;
+// 0.06 s gives ~16 emits/s instead of the original 33 — still visually dense
+// but halves the per-projectile VFX pressure. Reduced-density mode doubles this.
+const DEFAULT_TRAIL_INTERVAL = 0.06;
 
 function mat(color, options = {}) {
   return new THREE.MeshBasicMaterial({ color, ...options });
@@ -173,10 +175,12 @@ export class Projectile {
       this.cadenceTimer = 0;
     }
 
-    // Trail interval driven by definition data (trailInterval) with fallback.
-    // Initialized to 0 so first trail fires immediately on first update.
+    // Trail interval: definition data wins; reduced-density mode doubles the
+    // base interval so continuous trail emitters fire half as often.
     this._trailT = 0;
-    this._trailInterval = spell.trailInterval ?? DEFAULT_TRAIL_INTERVAL;
+    const _baseInterval = spell.trailInterval ?? DEFAULT_TRAIL_INTERVAL;
+    const _densityReduced = world?.settings?.performance?.vfxDensity === "reduced";
+    this._trailInterval = _densityReduced ? _baseInterval * 2.0 : _baseInterval;
     this._lastTrailPos = origin.clone();
   }
 

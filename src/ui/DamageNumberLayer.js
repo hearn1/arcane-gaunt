@@ -164,6 +164,8 @@ export class DamageNumberLayer {
     this._applyPosition(node, pos, 0, reducedMotion);
   }
 
+  get activeCount() { return this._active.length; }
+
   // ── Per-frame ──────────────────────────────────────────────────────────────
 
   /**
