@@ -543,6 +543,7 @@ export class Game {
       opacity: 0.85,
     });
     this._hazardMeshes = [];
+    this._hazardTime = 0;
     applyTex(this._coverMat, "assets/textures/pillar_stone.jpg", 2);
     applyTex(this._gateMat, "assets/textures/wall_stone.jpg", 4);
     this._buildArenaLayout("focus");
@@ -571,6 +572,7 @@ export class Game {
     this.arenaBounds.walkableSurfaces = [];
     this.arenaBounds.layoutFeatures = { gates: [], hazards: this.arenaBounds.hazards };
     this._hazardMeshes = [];
+    this._hazardTime = 0;
     this._inHazardLast = false;
 
     const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated", "ramparts", "tower_court", "sinkhole", "towers"];
@@ -1592,7 +1594,7 @@ export class Game {
       this.statusIcons.update(this.world, this.camera);
       this.damageNumbers?.update(frameTime);
       this.audioVisualSync?.update(frameTime);
-      this.ui.updateHud(this.world);
+      this.ui.updateHud(this.world, frameTime);
       // Vignette compositor: drive persistent low-HP layer (94a).
       // ESCALATION-LADDER SEAM — #101 (HUD polish) reads _lowHealthIntensity
       // from this same setHealthRatio() call to pulse the HP bar at ≤30%/≤25%.
@@ -1791,8 +1793,9 @@ export class Game {
   }
 
   _updateArenaHazards(dt) {
+    this._hazardTime += dt;
     if (this._hazardMeshes && this._hazardMeshes.length) {
-      const t = performance.now() * 0.001;
+      const t = this._hazardTime;
       for (const h of this._hazardMeshes) {
         const hazard = h.hazard;
         const active = hazard?.dynamicActive;

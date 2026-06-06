@@ -1175,7 +1175,7 @@ const settingsButton = onSettings
     this._lastSettings = settings;
   }
 
-  updateHud(world) {
+  updateHud(world, dt) {
     this.updateBossBar(world);
     const h = world.player.health;
     const pct = Math.max(0, Math.round(h.ratio * 100));
@@ -1306,16 +1306,7 @@ const settingsButton = onSettings
     // ── #101: damage direction indicator — off-screen arc toward attacker ────
     // Driven by _onPlayerHurtDir (event bus subscriber). Decay + position here.
     if (this._damageDirEl && this._damageDirTimer > 0) {
-      // Decay timer: reduce by approximate frame time (capped per frame).
-      // We don't have dt in updateHud; use a minimal per-frame decrement.
-      // The timer is set to 1.5s on hit; we expect ~60fps → ~0.0167s/frame.
-      // Use performance.now() delta for precision.
-      const now = performance.now();
-      if (this._damageDirLastMs !== undefined) {
-        const dtMs = Math.min(now - this._damageDirLastMs, 100); // cap at 100ms
-        this._damageDirTimer = Math.max(0, this._damageDirTimer - dtMs / 1000);
-      }
-      this._damageDirLastMs = now;
+      this._damageDirTimer = Math.max(0, this._damageDirTimer - dt);
 
       if (this._damageDirTimer <= 0 || !this._damageSrcPos) {
         this._damageDirEl.style.opacity = "0";
