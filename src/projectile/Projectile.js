@@ -3,6 +3,44 @@ import { emitTrail, resolveColor } from "../core/VfxLibrary.js";
 
 const FORWARD = new THREE.Vector3(0, 0, 1);
 
+// --- Visual pool -----------------------------------------------------------
+// Pre-built Groups are reused across projectile lifetimes so geometry and
+// material allocation happens once per slot, not once per cast.  On expire()
+// the Group is returned to the pool rather than disposed; geometry and
+// materials survive until the pool itself is cleared.
+//
+// Pool is keyed by definitionId so spell-specific shapes are never mixed.
+// clearProjectileVisualPool() is called at run-start (Game.startRun) so
+// colorblind / settings changes always take effect on the next run.
+
+const _visualPool = new Map(); // definitionId → Group[]
+const _POOL_CAP = 8;           // max idle visuals stored per spell type
+
+export function clearProjectileVisualPool() {
+  for (const groups of _visualPool.values()) {
+    for (const g of groups) disposeObject(g);
+  }
+  _visualPool.clear();
+}
+
+function _acquireVisual(spell, world) {
+  const id = spell.definitionId ?? "default";
+  const pool = _visualPool.get(id);
+  if (pool && pool.length > 0) return pool.pop();
+  return buildProjectileVisual(spell, world);
+}
+
+function _releaseVisual(group, definitionId) {
+  const id = definitionId ?? "default";
+  if (!_visualPool.has(id)) _visualPool.set(id, []);
+  const pool = _visualPool.get(id);
+  if (pool.length < _POOL_CAP) {
+    pool.push(group);
+  } else {
+    disposeObject(group);
+  }
+}
+
 // Default trail interval for spells without a definition-level trailInterval.
 // 0.06 s gives ~16 emits/s instead of the original 33 — still visually dense
 // but halves the per-projectile VFX pressure. Reduced-density mode doubles this.
@@ -165,7 +203,7 @@ export class Projectile {
     this.dir = dir.clone().normalize();
     this.vel = this.dir.clone().multiplyScalar(spell.stats.projectileSpeed || 40);
 
-    this.mesh = buildProjectileVisual(spell, world);
+    this.mesh = _acquireVisual(spell, world);
     this.mesh.position.copy(origin);
     this.mesh.quaternion.setFromUnitVectors(FORWARD, this.dir);
     world.scene.add(this.mesh);
@@ -177,10 +215,12 @@ export class Projectile {
 
     // Trail interval: definition data wins; reduced-density mode doubles the
     // base interval so continuous trail emitters fire half as often.
-    this._trailT = 0;
     const _baseInterval = spell.trailInterval ?? DEFAULT_TRAIL_INTERVAL;
     const _densityReduced = world?.settings?.performance?.vfxDensity === "reduced";
     this._trailInterval = _densityReduced ? _baseInterval * 2.0 : _baseInterval;
+    // Start at _trailInterval (not 0) so the first emit is deferred one full
+    // interval — avoids a BufferGeometry allocation on the cast frame itself.
+    this._trailT = this._trailInterval;
     this._lastTrailPos = origin.clone();
   }
 
@@ -238,7 +278,7 @@ export class Projectile {
     this.impacted = impacted;
     this.alive = false;
     this.world.scene.remove(this.mesh);
-    disposeObject(this.mesh);
+    _releaseVisual(this.mesh, this.spell.definitionId ?? "default");
   }
 
   _emitTrail() {

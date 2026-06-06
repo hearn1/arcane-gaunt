@@ -48,6 +48,7 @@ import { UpgradeManager } from "../spells/UpgradeManager.js";
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
 import { DIFFICULTY_TIERS, getDifficultyTier } from "./Difficulty.js";
 import { castSpell } from "../spells/Effects.js";
+import { clearProjectileVisualPool } from "../projectile/Projectile.js";
 import { t, format } from "./i18n.js";
 import { UI } from "../ui/ui.js";
 import { Captions } from "../ui/Captions.js";
@@ -1116,6 +1117,7 @@ export class Game {
     this.objectiveManager.clear();
     this.hitResolver.clear();
     this.vfx.clear();
+    clearProjectileVisualPool();
     this._buildArenaLayout();
     this._placePlayerAtSafeStart(true);
     this.timers.length = 0;
