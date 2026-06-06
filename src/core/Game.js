@@ -1643,6 +1643,8 @@ export class Game {
   _updatePerfOverlay(frameMs) {
     const perf = this.settings.performance || {};
     const display = this.settings.display || {};
+    const ri = this.renderer.info.render;
+    const pr = this.renderer.getPixelRatio();
     const lines = [
       `frame    ${frameMs.toFixed(1)} ms`,
       `vfx      ${this.vfx.items.length}`,
@@ -1654,6 +1656,9 @@ export class Game {
       `scale    ${perf.renderScale ?? 1}`,
       `bloom    ${display.bloom !== false}`,
       `shadows  ${display.shadows !== false}`,
+      `draws    ${ri.calls}`,
+      `tris     ${ri.triangles}`,
+      `res      ${Math.round(pr * innerWidth)}×${Math.round(pr * innerHeight)}`,
     ];
     this._perfOverlay.textContent = lines.join("\n");
   }
