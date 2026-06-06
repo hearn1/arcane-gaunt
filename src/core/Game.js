@@ -66,6 +66,9 @@ const STATE = {
   REWARD: "reward", GAMEOVER: "gameover", SUMMARY: "summary",
 };
 
+const FIXED_DT = 1 / 60;  // 0.01667 s per simulation tick
+const MAX_STEPS = 5;       // spiral-of-death / tab-out guard
+
 function deepMergeSettings(current, next) {
   return sanitizeSettings({
     ...current,
@@ -340,6 +343,7 @@ export class Game {
     }
 
     this._last = performance.now();
+    this._accumulator = 0;
     this.renderer.setAnimationLoop(() => {
       try {
         this._frame();
@@ -1530,11 +1534,11 @@ export class Game {
 
   _frame() {
     const now = performance.now();
-    let dt = (now - this._last) / 1000;
+    let frameTime = (now - this._last) / 1000;
     this._last = now;
-    if (dt > 0.05) dt = 0.05; // clamp tab-out spikes
+    if (frameTime > 0.25) frameTime = 0.25; // bound catch-up after a stall
 
-    this.input.pump(dt);
+    this.input.pump(frameTime);
 
     if (this.input.lastInputDevice !== this._lastInputDevice) {
       this._lastInputDevice = this.input.lastInputDevice;
@@ -1545,78 +1549,91 @@ export class Game {
     }
 
     if (this.state === STATE.PLAYING) {
-      this._checkOnboardingTriggers();
-      this._checkCriticalHealth();
-      if (this.state !== STATE.PLAYING) return this._render();
-      this.block.update(dt, this.input);
-      this.shieldView?.update(dt, this.block);
-      if (this.state !== STATE.PLAYING) return this._render();
-      if (this.settings.display?.viewmodel !== false) {
-        this.staffView?.update(dt, this.input, this.block);
-        this.staffView.group.visible = true;
-      } else {
-        this.staffView.group.visible = false;
+      this._accumulator += frameTime;
+      let steps = 0;
+      while (this._accumulator >= FIXED_DT && steps < MAX_STEPS) {
+        this._checkOnboardingTriggers();
+        this._checkCriticalHealth();
+        this._simulate(FIXED_DT);
+        this._accumulator -= FIXED_DT;
+        steps++;
+        if (this.state !== STATE.PLAYING) break; // state changed mid-step (e.g. death)
       }
-      this.player.update(dt, this.input);
-      if (this.state !== STATE.PLAYING) return this._render();
-      this._updateArenaHazards(dt);
-      if (this.state !== STATE.PLAYING) return this._render();
-      this.layoutEvents.update(dt);
-      if (this.state !== STATE.PLAYING) return this._render();
-      this.caster.update(dt, this.input, this.world);
-      if (this.state !== STATE.PLAYING) return this._render();
-      this.blink.update(dt);
-      if (this.combat.blinkStrikeTimer > 0) {
-        this.combat.blinkStrikeTimer = Math.max(0, this.combat.blinkStrikeTimer - dt);
-      }
-      // Embered Footing: accumulate standing timer while stationary
-      if (this.relics.has("embered_footing")) {
-        const vel = this.player.vel;
-        if (vel && Math.abs(vel.x) < 0.01 && Math.abs(vel.z) < 0.01) {
-          this.combat.standingTimer = Math.min(3, (this.combat.standingTimer || 0) + dt);
-        } else {
-          this.combat.standingTimer = 0;
-        }
-      }
-      this.enemyManager.update(dt);
-      if (this.state !== STATE.PLAYING) return this._render();
-      this.objectiveManager.update(dt);
-      if (this.state !== STATE.PLAYING) return this._render();
-      this.hitResolver.update(dt);
-      if (this.state !== STATE.PLAYING) return this._render();
-      for (let i = this.timers.length - 1; i >= 0; i--) {
-        const tm = this.timers[i];
-        tm.t -= dt;
-        if (tm.t <= 0) { tm.fn(); this.timers.splice(i, 1); }
-      }
-      if (this.state !== STATE.PLAYING) return this._render();
-      this.vfx.update(dt);
-      this.projector.updatePool(dt);
+      if (steps === MAX_STEPS) this._accumulator = 0; // drop backlog, never run-away
+    }
+
+    if (this.state === STATE.PLAYING) {
+      this.vfx.update(frameTime);
+      this.projector.updatePool(frameTime);
       // Status icons: project floating effect indicators above enemies (#96).
       // Called after enemy positions update (enemyManager.update above) and
       // before render so icons sit at correct screen positions this frame.
       this.statusIcons.update(this.world, this.camera);
-      this.damageNumbers?.update(dt);
-      this.audioVisualSync?.update(dt);
+      this.damageNumbers?.update(frameTime);
+      this.audioVisualSync?.update(frameTime);
       this.ui.updateHud(this.world);
       // Vignette compositor: drive persistent low-HP layer (94a).
       // ESCALATION-LADDER SEAM — #101 (HUD polish) reads _lowHealthIntensity
       // from this same setHealthRatio() call to pulse the HP bar at ≤30%/≤25%.
       this.screenEffects?.setHealthRatio(this.player.health.ratio);
     } else {
-      this.vfx.update(Math.min(dt, 0.033));
+      this.vfx.update(Math.min(frameTime, 0.033));
     }
 
     // Atmosphere: star twinkle + ambient mote drift (#97). Runs every frame
     // regardless of game state so the sky always animates in menus too.
-    this.atmosphere?.update(dt);
+    this.atmosphere?.update(frameTime);
 
     // Screen effects update applies shake offset to camera BEFORE render (94b).
     // removeShakeOffset() strips it after — the authoritative camera.position
     // is never permanently mutated, so aim/verticality are unaffected.
-    this.screenEffects?.update(dt);
+    this.screenEffects?.update(frameTime);
     this._render();
     this.screenEffects?.removeShakeOffset();
+  }
+
+  _simulate(dt) {
+    this.block.update(dt, this.input);
+    this.shieldView?.update(dt, this.block);
+    if (this.state !== STATE.PLAYING) return;
+    if (this.settings.display?.viewmodel !== false) {
+      this.staffView?.update(dt, this.input, this.block);
+      this.staffView.group.visible = true;
+    } else {
+      this.staffView.group.visible = false;
+    }
+    this.player.update(dt, this.input);
+    if (this.state !== STATE.PLAYING) return;
+    this._updateArenaHazards(dt);
+    if (this.state !== STATE.PLAYING) return;
+    this.layoutEvents.update(dt);
+    if (this.state !== STATE.PLAYING) return;
+    this.caster.update(dt, this.input, this.world);
+    if (this.state !== STATE.PLAYING) return;
+    this.blink.update(dt);
+    if (this.combat.blinkStrikeTimer > 0) {
+      this.combat.blinkStrikeTimer = Math.max(0, this.combat.blinkStrikeTimer - dt);
+    }
+    // Embered Footing: accumulate standing timer while stationary
+    if (this.relics.has("embered_footing")) {
+      const vel = this.player.vel;
+      if (vel && Math.abs(vel.x) < 0.01 && Math.abs(vel.z) < 0.01) {
+        this.combat.standingTimer = Math.min(3, (this.combat.standingTimer || 0) + dt);
+      } else {
+        this.combat.standingTimer = 0;
+      }
+    }
+    this.enemyManager.update(dt);
+    if (this.state !== STATE.PLAYING) return;
+    this.objectiveManager.update(dt);
+    if (this.state !== STATE.PLAYING) return;
+    this.hitResolver.update(dt);
+    if (this.state !== STATE.PLAYING) return;
+    for (let i = this.timers.length - 1; i >= 0; i--) {
+      const tm = this.timers[i];
+      tm.t -= dt;
+      if (tm.t <= 0) { tm.fn(); this.timers.splice(i, 1); }
+    }
   }
 
   _resize() {
