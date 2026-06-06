@@ -543,6 +543,7 @@ export class Game {
       opacity: 0.85,
     });
     this._hazardMeshes = [];
+    this._hazardTime = 0;
     applyTex(this._coverMat, "assets/textures/pillar_stone.jpg", 2);
     applyTex(this._gateMat, "assets/textures/wall_stone.jpg", 4);
     this._buildArenaLayout("focus");
@@ -571,6 +572,7 @@ export class Game {
     this.arenaBounds.walkableSurfaces = [];
     this.arenaBounds.layoutFeatures = { gates: [], hazards: this.arenaBounds.hazards };
     this._hazardMeshes = [];
+    this._hazardTime = 0;
     this._inHazardLast = false;
 
     const layouts = ["lanes", "cross", "cover", "gates", "rift", "elevated", "ramparts", "tower_court", "sinkhole", "towers"];
@@ -1592,7 +1594,7 @@ export class Game {
       this.statusIcons.update(this.world, this.camera);
       this.damageNumbers?.update(frameTime);
       this.audioVisualSync?.update(frameTime);
-      this.ui.updateHud(this.world);
+      this.ui.updateHud(this.world, frameTime);
       // Vignette compositor: drive persistent low-HP layer (94a).
       // ESCALATION-LADDER SEAM — #101 (HUD polish) reads _lowHealthIntensity
       // from this same setHealthRatio() call to pulse the HP bar at ≤30%/≤25%.
@@ -1708,6 +1710,50 @@ export class Game {
     }
   }
 
+  _simulate(dt) {
+    this.block.update(dt, this.input);
+    this.shieldView?.update(dt, this.block);
+    if (this.state !== STATE.PLAYING) return;
+    if (this.settings.display?.viewmodel !== false) {
+      this.staffView?.update(dt, this.input, this.block);
+      this.staffView.group.visible = true;
+    } else {
+      this.staffView.group.visible = false;
+    }
+    this.player.update(dt, this.input);
+    if (this.state !== STATE.PLAYING) return;
+    this._updateArenaHazards(dt);
+    if (this.state !== STATE.PLAYING) return;
+    this.layoutEvents.update(dt);
+    if (this.state !== STATE.PLAYING) return;
+    this.caster.update(dt, this.input, this.world);
+    if (this.state !== STATE.PLAYING) return;
+    this.blink.update(dt);
+    if (this.combat.blinkStrikeTimer > 0) {
+      this.combat.blinkStrikeTimer = Math.max(0, this.combat.blinkStrikeTimer - dt);
+    }
+    // Embered Footing: accumulate standing timer while stationary
+    if (this.relics.has("embered_footing")) {
+      const vel = this.player.vel;
+      if (vel && Math.abs(vel.x) < 0.01 && Math.abs(vel.z) < 0.01) {
+        this.combat.standingTimer = Math.min(3, (this.combat.standingTimer || 0) + dt);
+      } else {
+        this.combat.standingTimer = 0;
+      }
+    }
+    this.enemyManager.update(dt);
+    if (this.state !== STATE.PLAYING) return;
+    this.objectiveManager.update(dt);
+    if (this.state !== STATE.PLAYING) return;
+    this.hitResolver.update(dt);
+    if (this.state !== STATE.PLAYING) return;
+    for (let i = this.timers.length - 1; i >= 0; i--) {
+      const tm = this.timers[i];
+      tm.t -= dt;
+      if (tm.t <= 0) { tm.fn(); this.timers.splice(i, 1); }
+    }
+  }
+
   _resize() {
     this.camera.aspect = innerWidth / innerHeight;
     this.camera.updateProjectionMatrix();
@@ -1747,8 +1793,9 @@ export class Game {
   }
 
   _updateArenaHazards(dt) {
+    this._hazardTime += dt;
     if (this._hazardMeshes && this._hazardMeshes.length) {
-      const t = performance.now() * 0.001;
+      const t = this._hazardTime;
       for (const h of this._hazardMeshes) {
         const hazard = h.hazard;
         const active = hazard?.dynamicActive;
