@@ -48,6 +48,7 @@ import { UpgradeManager } from "../spells/UpgradeManager.js";
 import { SPELL_DEFINITIONS, STARTER_SPELL_ID } from "../spells/spellDefinitions.js";
 import { DIFFICULTY_TIERS, getDifficultyTier } from "./Difficulty.js";
 import { castSpell } from "../spells/Effects.js";
+import { clearProjectileVisualPool } from "../projectile/Projectile.js";
 import { t, format } from "./i18n.js";
 import { UI } from "../ui/ui.js";
 import { Captions } from "../ui/Captions.js";
@@ -117,7 +118,7 @@ export class Game {
     this._composer = new EffectComposer(this.renderer);
     this._composer.addPass(new RenderPass(this.scene, this.camera));
     this._bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(innerWidth, innerHeight),
+      new THREE.Vector2(innerWidth / 2, innerHeight / 2),
       0.6, 0.4, 0.85,
     );
     this._bloomPass.enabled = this.settings.display?.bloom !== false;
@@ -468,13 +469,13 @@ export class Game {
     const dir = new THREE.DirectionalLight(0xffeed0, 1.0);
     dir.position.set(20, 40, 12);
     dir.castShadow = true;
-    dir.shadow.mapSize.set(1024, 1024);
+    dir.shadow.mapSize.set(512, 512);
     dir.shadow.camera.near = 0.5;
     dir.shadow.camera.far = 100;
-    dir.shadow.camera.left = -50;
-    dir.shadow.camera.right = 50;
-    dir.shadow.camera.top = 50;
-    dir.shadow.camera.bottom = -50;
+    dir.shadow.camera.left = -half;
+    dir.shadow.camera.right = half;
+    dir.shadow.camera.top = half;
+    dir.shadow.camera.bottom = -half;
     dir.shadow.bias = -0.001;
     this.scene.add(dir);
     this._dirLight = dir;
@@ -1116,6 +1117,7 @@ export class Game {
     this.objectiveManager.clear();
     this.hitResolver.clear();
     this.vfx.clear();
+    clearProjectileVisualPool();
     this._buildArenaLayout();
     this._placePlayerAtSafeStart(true);
     this.timers.length = 0;
@@ -1148,6 +1150,7 @@ export class Game {
     this._criticalHealthWarned = false;
     this.ui.buildSpellSlots(this.caster.loadout);
 
+    this._startAutoPresetProbe();
     this._pendingStart = true;
     this.state = STATE.FOCUS;
     this.showFocusPrompt(t("ui.enter_arena"));
@@ -1635,12 +1638,41 @@ export class Game {
     this.screenEffects?.update(dt);
     this._render();
     this.screenEffects?.removeShakeOffset();
-    if (this._showPerfOverlay) this._updatePerfOverlay(performance.now() - now);
+    const frameMs = performance.now() - now;
+    if (this._showPerfOverlay) this._updatePerfOverlay(frameMs);
+    if (this.state === STATE.PLAYING) this._tickAutoPresetProbe(frameMs);
+  }
+
+  _startAutoPresetProbe() {
+    if (this.settings.performance.autoPresetChecked) return;
+    if (this.settings.performance.preset !== "high") return;
+    this._autoPresetProbe = { samples: [], start: null };
+  }
+
+  _tickAutoPresetProbe(frameMs) {
+    if (!this._autoPresetProbe) return;
+    const probe = this._autoPresetProbe;
+    if (probe.start === null) probe.start = performance.now();
+    probe.samples.push(frameMs);
+    if (performance.now() - probe.start < 2000) return;
+
+    this._autoPresetProbe = null;
+    const sorted = [...probe.samples].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+
+    this.settings = { ...this.settings, performance: { ...this.settings.performance, autoPresetChecked: true } };
+    if (median > 22) {
+      this.settings = sanitizeSettings(applyPreset(this.settings, "low"));
+      this.applySettings();
+    }
+    saveSettings(this.settings);
   }
 
   _updatePerfOverlay(frameMs) {
     const perf = this.settings.performance || {};
     const display = this.settings.display || {};
+    const ri = this.renderer.info.render;
+    const pr = this.renderer.getPixelRatio();
     const lines = [
       `frame    ${frameMs.toFixed(1)} ms`,
       `vfx      ${this.vfx.items.length}`,
@@ -1652,6 +1684,9 @@ export class Game {
       `scale    ${perf.renderScale ?? 1}`,
       `bloom    ${display.bloom !== false}`,
       `shadows  ${display.shadows !== false}`,
+      `draws    ${ri.calls}`,
+      `tris     ${ri.triangles}`,
+      `res      ${Math.round(pr * innerWidth)}×${Math.round(pr * innerHeight)}`,
     ];
     this._perfOverlay.textContent = lines.join("\n");
   }
@@ -1661,12 +1696,13 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight);
     if (this._composer) this._composer.setSize(innerWidth, innerHeight);
+    if (this._bloomPass) this._bloomPass.setSize(Math.round(innerWidth / 2), Math.round(innerHeight / 2));
     this.projector?.resize();
   }
 
   _targetPixelRatio() {
     const scale = this.settings.performance?.renderScale ?? 1;
-    return Math.max(0.6, Math.min(2, devicePixelRatio * scale));
+    return Math.max(0.6, Math.min(1.5, devicePixelRatio * scale));
   }
 
   _applyRendererSettings() {
