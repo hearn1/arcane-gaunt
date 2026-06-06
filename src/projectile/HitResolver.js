@@ -12,6 +12,15 @@ export class HitResolver {
     this.world = world;
     this.projectiles = [];
     this._poolSeq = 0;
+    this._aliveCache = null; // reset each frame in update()
+  }
+
+  // Returns the alive enemy list, caching it for the duration of update().
+  // Outside of update() (e.g. timer callbacks) the cache is null, so this
+  // falls through to a fresh getEnemies() call each time.
+  _aliveEnemies() {
+    if (!this._aliveCache) this._aliveCache = this.world.getEnemies();
+    return this._aliveCache;
   }
 
   add(p) { this.projectiles.push(p); }
@@ -31,6 +40,7 @@ export class HitResolver {
   }
 
   update(dt) {
+    this._aliveCache = null; // invalidate per-frame cache at start of each update
     const world = this.world;
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
@@ -75,16 +85,17 @@ export class HitResolver {
   }
 
   _vsEnemies(p) {
-    const targets = [
-      ...this.world.getEnemies(),
-      ...(this.world.getObjectiveTargets?.() || []),
-    ];
-    for (const e of targets) {
-      if (!e.alive || p.hitSet.has(e)) continue;
-      const d = p.position.distanceTo(e.position);
-      if (d <= p.radius + e.radius) {
-        this._onEnemyHit(p, e);
-        if (!p.alive) return;
+    const threshBase = p.radius;
+    // Two passes: alive enemies (cached), then objective targets.
+    const passes = [this._aliveEnemies(), this.world.getObjectiveTargets?.() || []];
+    for (const targets of passes) {
+      for (const e of targets) {
+        if (!e.alive || p.hitSet.has(e)) continue;
+        const thresh = threshBase + e.radius;
+        if (p.position.distanceToSquared(e.position) <= thresh * thresh) {
+          this._onEnemyHit(p, e);
+          if (!p.alive) return;
+        }
       }
     }
   }
@@ -143,7 +154,7 @@ export class HitResolver {
       // Pandemic (capstone) supersedes Contagion: seed the DOT on every
       // alive enemy within 4m of the primary target, not just one jump.
       if (s.pandemicSpread) {
-        for (const other of this.world.getEnemies()) {
+        for (const other of this._aliveEnemies()) {
           if (other === enemy || !other.alive) continue;
           if (other.position.distanceTo(enemy.position) <= 4) {
             other.applyDot(s.stats.dotDamage, s.stats.dotDuration, s.stats.dotTickRate, dotSrc);
@@ -155,7 +166,7 @@ export class HitResolver {
         const radius = s.contagionRadius || 3.5;
         const potency = s.contagionPotency || 0.6;
         const dotDmg = Math.round(s.stats.dotDamage * potency);
-        for (const other of this.world.getEnemies()) {
+        for (const other of this._aliveEnemies()) {
           if (other === enemy || !other.alive) continue;
           if (other.position.distanceTo(enemy.position) <= radius) {
             other.applyDot(dotDmg, s.stats.dotDuration, s.stats.dotTickRate, dotSrc);
@@ -183,7 +194,7 @@ export class HitResolver {
 
   _spawnCascade(p, fromPos) {
     let target = null, bd = 18;
-    for (const e of this.world.getEnemies()) {
+    for (const e of this._aliveEnemies()) {
       if (!e.alive) continue;
       const d = e.position.distanceTo(fromPos);
       if (d < bd) { bd = d; target = e; }
@@ -216,7 +227,7 @@ export class HitResolver {
 
   _nearestOther(enemy, radius) {
     let best = null, bd = radius;
-    for (const e of this.world.getEnemies()) {
+    for (const e of this._aliveEnemies()) {
       if (e === enemy || !e.alive) continue;
       const d = e.position.distanceTo(enemy.position);
       if (d <= bd) { bd = d; best = e; }
@@ -326,7 +337,7 @@ export class HitResolver {
   _frostNova(pos, source) {
     const r = 5;
     this.world.vfx.shock(pos, 0x5cc8ff, r, 0.4);
-    for (const e of this.world.getEnemies()) {
+    for (const e of this._aliveEnemies()) {
       if (!e.alive || e === source) continue;
       if (e.position.distanceTo(pos) <= r + e.radius) {
         e.applySlow(0.4, 1.5);
@@ -350,7 +361,7 @@ export class HitResolver {
     const src = this._source(spell, faction, { isAoe: true });
     if (faction === "player") {
       const targets = [
-        ...this.world.getEnemies(),
+        ...this._aliveEnemies(),
         ...(this.world.getObjectiveTargets?.() || []),
       ];
       for (const e of targets) {
@@ -389,7 +400,7 @@ export class HitResolver {
   _redirect(p) {
     const pl = this.world.player;
     let target = null, bd = Infinity;
-    for (const e of this.world.getEnemies()) {
+    for (const e of this._aliveEnemies()) {
       if (!e.alive) continue;
       const d = e.position.distanceTo(pl.position);
       if (d < bd) { bd = d; target = e; }
