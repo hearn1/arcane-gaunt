@@ -1150,6 +1150,7 @@ export class Game {
     this._criticalHealthWarned = false;
     this.ui.buildSpellSlots(this.caster.loadout);
 
+    this._startAutoPresetProbe();
     this._pendingStart = true;
     this.state = STATE.FOCUS;
     this.showFocusPrompt(t("ui.enter_arena"));
@@ -1637,7 +1638,34 @@ export class Game {
     this.screenEffects?.update(dt);
     this._render();
     this.screenEffects?.removeShakeOffset();
-    if (this._showPerfOverlay) this._updatePerfOverlay(performance.now() - now);
+    const frameMs = performance.now() - now;
+    if (this._showPerfOverlay) this._updatePerfOverlay(frameMs);
+    if (this.state === STATE.PLAYING) this._tickAutoPresetProbe(frameMs);
+  }
+
+  _startAutoPresetProbe() {
+    if (this.settings.performance.autoPresetChecked) return;
+    if (this.settings.performance.preset !== "high") return;
+    this._autoPresetProbe = { samples: [], start: null };
+  }
+
+  _tickAutoPresetProbe(frameMs) {
+    if (!this._autoPresetProbe) return;
+    const probe = this._autoPresetProbe;
+    if (probe.start === null) probe.start = performance.now();
+    probe.samples.push(frameMs);
+    if (performance.now() - probe.start < 2000) return;
+
+    this._autoPresetProbe = null;
+    const sorted = [...probe.samples].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+
+    this.settings = { ...this.settings, performance: { ...this.settings.performance, autoPresetChecked: true } };
+    if (median > 22) {
+      this.settings = sanitizeSettings(applyPreset(this.settings, "low"));
+      this.applySettings();
+    }
+    saveSettings(this.settings);
   }
 
   _updatePerfOverlay(frameMs) {

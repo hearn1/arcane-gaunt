@@ -39,6 +39,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
     renderScale: 1,
     vfxDensity: "full",
     preset: "high",
+    autoPresetChecked: false,
   }),
   privacy: Object.freeze({
     telemetryEnabled: false,
@@ -119,6 +120,7 @@ export function sanitizeSettings(input = {}) {
         ["low", "medium", "high", "custom"],
         DEFAULT_SETTINGS.performance.preset,
       ),
+      autoPresetChecked: !!input.performance?.autoPresetChecked,
     },
     privacy: {
       telemetryEnabled: !!input.privacy?.telemetryEnabled,
